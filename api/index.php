@@ -33,7 +33,6 @@ require_once 'controllers/equipment_controller.php';
 require_once 'controllers/equipment_events_controller.php';
 require_once 'controllers/equipment_stats_controller.php';
 require_once 'controllers/functions_controller.php';
-require_once 'controllers/energy_controller.php';
 
 // Получение пути запроса
 $request_uri = $_SERVER['REQUEST_URI'];
@@ -168,68 +167,6 @@ try {
         // Маршрут для отладки
         case 'debug':
             require_once 'debug.php';
-            break;
-            
-        // Энергетические показатели
-        case 'energy_metrics':
-            getEnergyMetrics();
-            break;
-            
-        // Счётчики
-        case 'meters':
-            $metricId = isset($_GET['metric_id']) ? $_GET['metric_id'] : null;
-            getMeters($metricId);
-            break;
-            
-        // Показания счётчиков
-        case 'meter_readings':
-            $date = isset($_GET['date']) ? $_GET['date'] : date('Y-m-d');
-            $metricId = isset($_GET['metric_id']) ? $_GET['metric_id'] : null;
-            
-            if ($metricId === null) {
-                sendError('Не указан ID показателя', 400);
-            } else {
-                getMeterReadings($date, $metricId);
-            }
-            break;
-            
-        // Сохранение показаний счётчиков
-        case 'meter_readings/bulk':
-            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-                saveMeterReadingsBulk();
-            } else {
-                sendError('Метод не поддерживается', 405);
-            }
-            break;
-            
-        // Сохранение показаний счётчиков в новом формате (0ч, 8ч, 16ч, 24ч)
-        case 'meter_readings/bulk_new':
-            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-                saveMeterReadingsBulkNew();
-            } else {
-                sendError('Метод не поддерживается', 405);
-            }
-            break;
-            
-        // Сохранение замены счётчика
-        case 'meter_replacements':
-            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-                saveMeterReplacement();
-            } else {
-                sendError('Метод не поддерживается', 405);
-            }
-            break;
-            
-        // Удаление или обновление замены счётчика
-        case (preg_match('/^meter_replacements\/(\d+)$/', $path, $matches) ? true : false):
-            $replacementId = $matches[1];
-            if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
-                deleteMeterReplacement($replacementId);
-            } elseif ($_SERVER['REQUEST_METHOD'] === 'PUT') {
-                updateMeterReplacement($replacementId);
-            } else {
-                sendError('Метод не поддерживается', 405);
-            }
             break;
             
         // Маршрут по умолчанию
