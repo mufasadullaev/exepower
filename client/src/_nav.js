@@ -12,12 +12,6 @@ const _nav = [
   },
   {
     component: CNavItem,
-    name: 'Счётчики',
-    to: '/counters',
-    icon: <CIcon icon={cilChart} customClassName="nav-icon" />,
-  },
-  {
-    component: CNavItem,
     name: 'Параметры Блоков',
     to: '/block-params',
     icon: <CIcon icon={cilList} customClassName="nav-icon" />,
@@ -36,8 +30,8 @@ const _nav = [
   },
   {
     component: CNavItem,
-    name: 'Наработки',
-    to: '/operating-hours',
+    name: 'Счётчики',
+    to: '/counters',
     icon: <CIcon icon={cilChart} customClassName="nav-icon" />,
   },
   {
@@ -51,6 +45,12 @@ const _nav = [
     name: 'Переменные ПГУ',
     to: '/functions/variables',
     icon: <CIcon icon={cilCalculator} customClassName="nav-icon" />,
+  },
+  {
+    component: CNavItem,
+    name: 'Наработки',
+    to: '/operating-hours',
+    icon: <CIcon icon={cilChart} customClassName="nav-icon" />,
   },
 ]
 

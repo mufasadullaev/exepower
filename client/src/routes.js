@@ -21,7 +21,7 @@ const routes = [
     name: 'Счётчики',
     element: Counters,
   },
-  { path: 'dashboard', name: 'Dashboard', element: Dashboard },
+  { path: 'dashboard', name: 'Главная', element: Dashboard },
   { path: 'block-params', name: 'Параметры Блоков', element: BlockParams },
   { path: 'pgu-params', name: 'Параметры ПГУ', element: PguParams },
   { path: 'equipment-events', name: 'Пуски и Остановы', element: EquipmentEvents },
