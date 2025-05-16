@@ -1,0 +1,15 @@
+# Enable URL rewriting
+RewriteEngine On
+
+# Set environment variable for API URL
+SetEnv API_BASE_URL http://exepower/api
+
+# API requests
+RewriteRule ^api(/.*)?$ api/index.php [QSA,L]
+
+# If the file or directory doesn't exist
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+
+# For all other requests, serve the client's index.html
+RewriteRule ^(.*)$ client/index.html [QSA,L] 

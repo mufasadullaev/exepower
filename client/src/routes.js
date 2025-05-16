@@ -1,0 +1,25 @@
+import React from 'react'
+
+const Dashboard = React.lazy(() => import('./views/dashboard/Dashboard'))
+const BlockParams = React.lazy(() => import('./views/params/BlockParams'))
+const PguParams = React.lazy(() => import('./views/params/PguParams'))
+const EquipmentEvents = React.lazy(() => import('./views/events/EquipmentEvents'))
+const OperatingHours = React.lazy(() => import('./views/stats/OperatingHours'))
+const ShiftSchedule = React.lazy(() => import('./views/shifts/ShiftSchedule'))
+const FunctionVariables = React.lazy(() => import('./views/functions/FunctionVariables'))
+import EnergyMeters from './views/energy/EnergyMeters'
+const MeterReadings = React.lazy(() => import('./views/energy/MeterReadings'))
+
+const routes = [
+  { path: '', exact: true, name: 'Home' },
+  { path: 'dashboard', name: 'Dashboard', element: Dashboard },
+  { path: 'block-params', name: 'Параметры Блоков', element: BlockParams },
+  { path: 'pgu-params', name: 'Параметры ПГУ', element: PguParams },
+  { path: 'equipment-events', name: 'Пуски и Остановы', element: EquipmentEvents },
+  { path: 'operating-hours', name: 'Наработки', element: OperatingHours },
+  { path: 'shift-schedule', name: 'График вахт', element: ShiftSchedule },
+  { path: 'function-variables', name: 'Переменные ПГУ', element: FunctionVariables },
+  { path: 'meters', name: 'Счётчики электроэнергии', element: EnergyMeters },
+]
+
+export default routes
