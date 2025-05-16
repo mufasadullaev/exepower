@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1:3306
--- Generation Time: May 12, 2025 at 04:05 AM
+-- Generation Time: May 14, 2025 at 07:45 PM
 -- Server version: 10.1.48-MariaDB
 -- PHP Version: 7.3.33
 
@@ -463,7 +463,8 @@ CREATE TABLE `meters` (
 --
 
 INSERT INTO `meters` (`id`, `energy_metric_id`, `serial`, `name`, `coefficient`, `scale`) VALUES
-(1, 1, '125344', '125344', '160000.000', '99999.999');
+(1, 1, '', 'ТГ-8', '160000.000', '99999.999'),
+(2, 1, '', 'ТГ-7', '160000.000', '99999.999');
 
 -- --------------------------------------------------------
 
@@ -488,26 +489,18 @@ CREATE TABLE `meter_readings` (
 --
 
 INSERT INTO `meter_readings` (`id`, `meter_id`, `date`, `shift_id`, `reading_start`, `reading_end`, `coefficient`, `consumption`, `created_at`) VALUES
-(52, 1, '2025-05-12', 1, '0.000', '10.000', '135000.000', '1350.000', '2025-05-12 00:43:34'),
-(53, 1, '2025-05-12', 2, '10.000', '20.000', '135000.000', '1350.000', '2025-05-12 00:43:34'),
-(54, 1, '2025-05-12', 3, '20.000', '30.000', '135000.000', '1350.000', '2025-05-12 00:43:34'),
-(55, 1, '2025-05-13', 1, '30.000', '5.000', '160000.000', '-4000.000', '2025-05-12 00:59:05');
-
---
--- Triggers `meter_readings`
---
-DELIMITER $$
-CREATE TRIGGER `trg_meter_readings_before_insert` BEFORE INSERT ON `meter_readings` FOR EACH ROW BEGIN
-  SET NEW.consumption = (NEW.reading_end - NEW.reading_start) * NEW.coefficient / 1000;
-END
-$$
-DELIMITER ;
-DELIMITER $$
-CREATE TRIGGER `trg_meter_readings_before_update` BEFORE UPDATE ON `meter_readings` FOR EACH ROW BEGIN
-  SET NEW.consumption = (NEW.reading_end - NEW.reading_start) * NEW.coefficient / 1000;
-END
-$$
-DELIMITER ;
+(84, 1, '2025-05-11', 1, '0.000', '15.000', '160000.000', '2400.000', '2025-05-12 04:34:57'),
+(85, 1, '2025-05-11', 2, '15.000', '30.000', '160000.000', '2400.000', '2025-05-12 04:34:57'),
+(86, 1, '2025-05-11', 3, '30.000', '45.000', '160000.000', '2400.000', '2025-05-12 04:34:57'),
+(87, 2, '2025-05-11', 1, '0.000', '10.000', '160000.000', '1600.000', '2025-05-12 04:34:57'),
+(88, 2, '2025-05-11', 2, '10.000', '20.000', '160000.000', '1600.000', '2025-05-12 04:34:57'),
+(89, 2, '2025-05-11', 3, '20.000', '30.000', '160000.000', '1600.000', '2025-05-12 04:34:57'),
+(90, 1, '2025-05-12', 1, '45.000', '20.000', '160000.000', '-4000.000', '2025-05-12 04:35:21'),
+(91, 1, '2025-05-12', 2, '20.000', '32.000', '160000.000', '1920.000', '2025-05-12 04:35:21'),
+(92, 1, '2025-05-12', 3, '32.000', '49.000', '160000.000', '2720.000', '2025-05-12 04:35:21'),
+(93, 2, '2025-05-12', 1, '30.000', '10.000', '160000.000', '-3200.000', '2025-05-12 04:35:22'),
+(94, 2, '2025-05-12', 2, '10.000', '25.000', '160000.000', '8260.000', '2025-05-12 04:35:22'),
+(95, 2, '2025-05-12', 3, '25.000', '50.000', '160000.000', '4000.000', '2025-05-12 04:35:22');
 
 -- --------------------------------------------------------
 
@@ -519,10 +512,11 @@ CREATE TABLE `meter_replacements` (
   `id` int(11) NOT NULL,
   `meter_id` int(11) NOT NULL,
   `replacement_dt` datetime NOT NULL,
+  `old_serial` varchar(50) NOT NULL,
   `old_coefficient` decimal(9,3) NOT NULL,
   `old_scale` varchar(20) NOT NULL,
   `old_reading` decimal(12,3) NOT NULL,
-  `new_meter_id` int(11) DEFAULT NULL,
+  `new_serial` varchar(50) NOT NULL,
   `new_coefficient` decimal(9,3) NOT NULL,
   `new_scale` varchar(20) NOT NULL,
   `new_reading` decimal(12,3) NOT NULL,
@@ -530,14 +524,6 @@ CREATE TABLE `meter_replacements` (
   `power_at_replacement` decimal(6,1) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
---
--- Dumping data for table `meter_replacements`
---
-
-INSERT INTO `meter_replacements` (`id`, `meter_id`, `replacement_dt`, `old_coefficient`, `old_scale`, `old_reading`, `new_meter_id`, `new_coefficient`, `new_scale`, `new_reading`, `downtime_minutes`, `power_at_replacement`, `created_at`) VALUES
-(4, 1, '2025-05-12 14:00:00', '135000.000', '99999.999', '15.000', NULL, '160000.000', '99999.999', '0.000', 60, '100.0', '2025-05-12 00:52:31'),
-(5, 1, '2025-05-13 07:00:00', '160000.000', '99999.999', '35.000', NULL, '160000.000', '99999.999', '0.000', 60, '100.0', '2025-05-12 00:59:36');
 
 -- --------------------------------------------------------
 
@@ -748,8 +734,7 @@ ALTER TABLE `meter_readings`
 --
 ALTER TABLE `meter_replacements`
   ADD PRIMARY KEY (`id`),
-  ADD KEY `fk_repl_old_meter` (`meter_id`),
-  ADD KEY `fk_repl_new_meter` (`new_meter_id`);
+  ADD KEY `fk_repl_old_meter` (`meter_id`);
 
 --
 -- Indexes for table `parameters`
@@ -839,19 +824,19 @@ ALTER TABLE `function_coeff_sets`
 -- AUTO_INCREMENT for table `meters`
 --
 ALTER TABLE `meters`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT for table `meter_readings`
 --
 ALTER TABLE `meter_readings`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=56;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=96;
 
 --
 -- AUTO_INCREMENT for table `meter_replacements`
 --
 ALTER TABLE `meter_replacements`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `parameters`
@@ -925,7 +910,6 @@ ALTER TABLE `meter_readings`
 -- Constraints for table `meter_replacements`
 --
 ALTER TABLE `meter_replacements`
-  ADD CONSTRAINT `fk_repl_new_meter` FOREIGN KEY (`new_meter_id`) REFERENCES `meters` (`id`) ON DELETE SET NULL,
   ADD CONSTRAINT `fk_repl_old_meter` FOREIGN KEY (`meter_id`) REFERENCES `meters` (`id`) ON DELETE CASCADE;
 
 --
