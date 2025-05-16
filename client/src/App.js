@@ -24,7 +24,7 @@ const EquipmentEvents = React.lazy(() => import('./views/events/EquipmentEvents'
 const OperatingHours = React.lazy(() => import('./views/stats/OperatingHours'))
 const ShiftSchedule = React.lazy(() => import('./views/shifts/ShiftSchedule'))
 const FunctionVariables = React.lazy(() => import('./views/functions/FunctionVariables'))
-
+const Counters = React.lazy(() => import('./views/counters/Counters'))
 
 // Components
 const ProtectedRoute = React.lazy(() => import('./components/ProtectedRoute'))
@@ -91,6 +91,9 @@ const App = () => {
             </Route>
             <Route path="/functions/variables" element={<DefaultLayout />}>
               <Route index element={<FunctionVariables />} />
+            </Route>
+            <Route path="/counters" element={<DefaultLayout />}>
+              <Route index element={<Counters />} />
             </Route>
           </Route>
         </Routes>

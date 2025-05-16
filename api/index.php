@@ -33,6 +33,7 @@ require_once 'controllers/equipment_controller.php';
 require_once 'controllers/equipment_events_controller.php';
 require_once 'controllers/equipment_stats_controller.php';
 require_once 'controllers/functions_controller.php';
+require_once 'controllers/counters_controller.php';
 
 // Получение пути запроса
 $request_uri = $_SERVER['REQUEST_URI'];
@@ -167,6 +168,37 @@ try {
         // Маршрут для отладки
         case 'debug':
             require_once 'debug.php';
+            break;
+            
+        // Маршруты для работы со счетчиками
+        case 'meter-types':
+            getMeterTypes();
+            break;
+
+        case 'meters':
+            if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+                getMeters();
+            } else {
+                sendError('Метод не поддерживается', 405);
+            }
+            break;
+
+        case 'meter-readings':
+            if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+                getReadings();
+            } elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                saveReadings();
+            } else {
+                sendError('Метод не поддерживается', 405);
+            }
+            break;
+
+        case 'meter-replacements':
+            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                saveReplacement();
+            } else {
+                sendError('Метод не поддерживается', 405);
+            }
             break;
             
         // Маршрут по умолчанию

@@ -1,6 +1,7 @@
 import React from 'react'
+import Dashboard from './views/dashboard/Dashboard'
+import Counters from './views/counters/Counters'
 
-const Dashboard = React.lazy(() => import('./views/dashboard/Dashboard'))
 const BlockParams = React.lazy(() => import('./views/params/BlockParams'))
 const PguParams = React.lazy(() => import('./views/params/PguParams'))
 const EquipmentEvents = React.lazy(() => import('./views/events/EquipmentEvents'))
@@ -9,7 +10,17 @@ const ShiftSchedule = React.lazy(() => import('./views/shifts/ShiftSchedule'))
 const FunctionVariables = React.lazy(() => import('./views/functions/FunctionVariables'))
 
 const routes = [
-  { path: '', exact: true, name: 'Home' },
+  {
+    path: '/',
+    exact: true,
+    name: 'Главная',
+    element: Dashboard,
+  },
+  {
+    path: '/counters',
+    name: 'Счётчики',
+    element: Counters,
+  },
   { path: 'dashboard', name: 'Dashboard', element: Dashboard },
   { path: 'block-params', name: 'Параметры Блоков', element: BlockParams },
   { path: 'pgu-params', name: 'Параметры ПГУ', element: PguParams },
