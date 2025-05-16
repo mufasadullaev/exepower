@@ -102,6 +102,72 @@ function saveReadings() {
         
         try {
             foreach ($readings as $meterId => $reading) {
+                // Получаем информацию о счетчике
+                $stmt = $db->prepare('SELECT coefficient_k FROM meters WHERE id = ?');
+                $stmt->execute([$meterId]);
+                $meter = $stmt->fetch(PDO::FETCH_ASSOC);
+                
+                if (!$meter) {
+                    throw new Exception("Счетчик не найден");
+                }
+
+                // Проверяем, была ли замена счетчика в этот день
+                $stmt = $db->prepare('
+                    SELECT replacement_time 
+                    FROM meter_replacements 
+                    WHERE meter_id = ? AND replacement_date = ?
+                ');
+                $stmt->execute([$meterId, $date]);
+                $replacement = $stmt->fetch(PDO::FETCH_ASSOC);
+
+                // Валидация показаний
+                if (!$replacement) {
+                    // Если замены не было, проверяем последовательность показаний
+                    if (isset($reading['r0']) && isset($reading['r8']) && $reading['r8'] < $reading['r0']) {
+                        throw new Exception("Показание R8 не может быть меньше R0");
+                    }
+                    if (isset($reading['r8']) && isset($reading['r16']) && $reading['r16'] < $reading['r8']) {
+                        throw new Exception("Показание R16 не может быть меньше R8");
+                    }
+                    if (isset($reading['r16']) && isset($reading['r24']) && $reading['r24'] < $reading['r16']) {
+                        throw new Exception("Показание R24 не может быть меньше R16");
+                    }
+                } else {
+                    // Если была замена, проверяем показания с учетом времени замены
+                    $replacementTime = strtotime($replacement['replacement_time']);
+                    $shift8Time = strtotime('08:00:00');
+                    $shift16Time = strtotime('16:00:00');
+                    $shift24Time = strtotime('24:00:00');
+
+                    // Проверяем показания до замены
+                    if ($replacementTime > $shift8Time) {
+                        if (isset($reading['r0']) && isset($reading['r8']) && $reading['r8'] < $reading['r0']) {
+                            throw new Exception("Показание R8 не может быть меньше R0 (до замены счетчика)");
+                        }
+                    }
+                    if ($replacementTime > $shift16Time) {
+                        if (isset($reading['r8']) && isset($reading['r16']) && $reading['r16'] < $reading['r8']) {
+                            throw new Exception("Показание R16 не может быть меньше R8 (до замены счетчика)");
+                        }
+                    }
+                    if ($replacementTime > $shift24Time) {
+                        if (isset($reading['r16']) && isset($reading['r24']) && $reading['r24'] < $reading['r16']) {
+                            throw new Exception("Показание R24 не может быть меньше R16 (до замены счетчика)");
+                        }
+                    }
+                }
+
+                // Рассчитываем значения смен
+                $shift1 = isset($reading['r0']) && isset($reading['r8']) ? 
+                    ($reading['r8'] - $reading['r0']) * $meter['coefficient_k'] / 1000 : null;
+                $shift2 = isset($reading['r8']) && isset($reading['r16']) ? 
+                    ($reading['r16'] - $reading['r8']) * $meter['coefficient_k'] / 1000 : null;
+                $shift3 = isset($reading['r16']) && isset($reading['r24']) ? 
+                    ($reading['r24'] - $reading['r16']) * $meter['coefficient_k'] / 1000 : null;
+                $total = ($shift1 !== null ? $shift1 : 0) + 
+                        ($shift2 !== null ? $shift2 : 0) + 
+                        ($shift3 !== null ? $shift3 : 0);
+
                 // Проверяем существование показаний
                 $stmt = $db->prepare('
                     SELECT id FROM meter_readings 
@@ -116,6 +182,7 @@ function saveReadings() {
                         UPDATE meter_readings 
                         SET r0 = ?, r8 = ?, r16 = ?, r24 = ?,
                             shift1 = ?, shift2 = ?, shift3 = ?, total = ?,
+                            user_id = ?,
                             updated_at = CURRENT_TIMESTAMP
                         WHERE id = ?
                     ');
@@ -124,18 +191,19 @@ function saveReadings() {
                         $reading['r8'],
                         $reading['r16'],
                         $reading['r24'],
-                        $reading['shift1'],
-                        $reading['shift2'],
-                        $reading['shift3'],
-                        $reading['total'],
+                        $shift1,
+                        $shift2,
+                        $shift3,
+                        $total,
+                        $_SESSION['user_id'] ?? null,
                         $existing['id']
                     ]);
                 } else {
                     // Создаем новые показания
                     $stmt = $db->prepare('
                         INSERT INTO meter_readings 
-                        (meter_id, date, r0, r8, r16, r24, shift1, shift2, shift3, total)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        (meter_id, date, r0, r8, r16, r24, shift1, shift2, shift3, total, user_id)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ');
                     $stmt->execute([
                         $meterId,
@@ -144,10 +212,11 @@ function saveReadings() {
                         $reading['r8'],
                         $reading['r16'],
                         $reading['r24'],
-                        $reading['shift1'],
-                        $reading['shift2'],
-                        $reading['shift3'],
-                        $reading['total']
+                        $shift1,
+                        $shift2,
+                        $shift3,
+                        $total,
+                        $_SESSION['user_id'] ?? null
                     ]);
                 }
             }
@@ -175,6 +244,12 @@ function saveReplacement() {
             return;
         }
 
+        // Валидация числовых значений
+        if (!is_numeric($input['new_reading']) || $input['new_reading'] < 0) {
+            sendError('Показание нового счетчика должно быть числом не меньше 0');
+            return;
+        }
+
         $db = getDbConnection();
         $db->beginTransaction();
         
@@ -184,7 +259,7 @@ function saveReplacement() {
                 INSERT INTO meter_replacements 
                 (meter_id, replacement_date, replacement_time, old_serial, old_coefficient,
                 old_scale, old_reading, new_serial, new_coefficient, new_scale, new_reading,
-                downtime_min, power_mw, created_by)
+                downtime_min, power_mw, user_id)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ');
             $stmt->execute([

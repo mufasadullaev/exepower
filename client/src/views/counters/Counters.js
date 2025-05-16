@@ -22,10 +22,13 @@ import {
   CForm,
   CFormLabel,
   CFormText,
+  CAlert,
 } from '@coreui/react'
 import DatePicker from 'react-datepicker'
 import 'react-datepicker/dist/react-datepicker.css'
 import { counterService } from '../../services/counterService'
+import { format } from 'date-fns'
+import authService from '../../services/authService'
 
 const Counters = () => {
   const [selectedDate, setSelectedDate] = useState(new Date())
@@ -49,6 +52,9 @@ const Counters = () => {
     power_mw: 0,
     comment: ''
   })
+  const [error, setError] = useState(null)
+  const [success, setSuccess] = useState(null)
+  const [modalError, setModalError] = useState(null)
 
   useEffect(() => {
     loadMeterTypes()
@@ -145,10 +151,32 @@ const Counters = () => {
 
   const handleSaveReadings = async () => {
     try {
-      await counterService.saveReadings(selectedDate, readings)
+      setError(null)
+      setSuccess(null)
+
+      // Получаем текущего пользователя
+      const user = authService.getUser()
+      if (!user) {
+        setError('Пользователь не авторизован')
+        return
+      }
+
+      // Добавляем user_id к каждому показанию
+      const readingsWithUser = Object.entries(readings).reduce((acc, [meterId, reading]) => {
+        acc[meterId] = {
+          ...reading,
+          user_id: user.id
+        }
+        return acc
+      }, {})
+
+      await counterService.saveReadings(selectedDate, readingsWithUser)
       loadReadings(selectedDate)
+      setSuccess('Показания успешно сохранены')
     } catch (error) {
       console.error('Error saving readings:', error)
+      const errorMessage = error.response?.data?.error?.message || 'Произошла ошибка при сохранении показаний'
+      setError(errorMessage)
     }
   }
 
@@ -173,14 +201,58 @@ const Counters = () => {
 
   const handleReplacementSave = async () => {
     try {
-      await counterService.saveReplacement(selectedMeter.id, {
-        ...replacementData,
-        replacement_date: selectedDate
-      })
+      // Валидация полей
+      const requiredFields = [
+        'old_reading',
+        'new_serial',
+        'new_coefficient',
+        'new_scale',
+        'new_reading',
+        'replacement_time'
+      ]
+
+      const emptyFields = requiredFields.filter(field => !replacementData[field] && replacementData[field] !== 0)
+      if (emptyFields.length > 0) {
+        setModalError('Заполните все поля')
+        return
+      }
+
+      setModalError(null)
+      
+      // Получаем текущего пользователя
+      const user = authService.getUser()
+      if (!user) {
+        setModalError('Пользователь не авторизован')
+        return
+      }
+      
+      // Форматируем данные для отправки
+      const formattedData = {
+        meter_id: selectedMeter.id,
+        replacement_date: format(selectedDate, 'yyyy-MM-dd'),
+        replacement_time: replacementData.replacement_time,
+        old_serial: replacementData.old_serial,
+        old_coefficient: parseFloat(replacementData.old_coefficient),
+        old_scale: parseFloat(replacementData.old_scale),
+        old_reading: parseFloat(replacementData.old_reading),
+        new_serial: replacementData.new_serial,
+        new_coefficient: parseFloat(replacementData.new_coefficient),
+        new_scale: parseFloat(replacementData.new_scale),
+        new_reading: parseFloat(replacementData.new_reading),
+        downtime_min: parseInt(replacementData.downtime_min) || 0,
+        power_mw: parseFloat(replacementData.power_mw) || 0,
+        comment: replacementData.comment || '',
+        user_id: user.id
+      }
+
+      await counterService.saveReplacement(selectedMeter.id, formattedData)
       setShowReplacementModal(false)
+      setSuccess('Замена счетчика успешно сохранена')
       loadMeters(selectedType)
     } catch (error) {
       console.error('Error saving replacement:', error)
+      const errorMessage = error.response?.data?.error?.message || 'Произошла ошибка при сохранении замены счетчика'
+      setModalError(errorMessage)
     }
   }
 
@@ -192,6 +264,16 @@ const Counters = () => {
             <strong>Счётчики</strong>
           </CCardHeader>
           <CCardBody>
+            {error && (
+              <CAlert color="danger" dismissible onClose={() => setError(null)}>
+                {error}
+              </CAlert>
+            )}
+            {success && (
+              <CAlert color="success" dismissible onClose={() => setSuccess(null)}>
+                {success}
+              </CAlert>
+            )}
             <div className="mb-3">
               <CRow>
                 <CCol md={4}>
@@ -309,13 +391,21 @@ const Counters = () => {
 
       <CModal
         visible={showReplacementModal}
-        onClose={() => setShowReplacementModal(false)}
+        onClose={() => {
+          setShowReplacementModal(false)
+          setModalError(null)
+        }}
         size="lg"
       >
         <CModalHeader>
           <CModalTitle>Замена счётчика</CModalTitle>
         </CModalHeader>
         <CModalBody>
+          {modalError && (
+            <CAlert color="danger" dismissible onClose={() => setModalError(null)}>
+              {modalError}
+            </CAlert>
+          )}
           <CForm>
             <CRow>
               <CCol md={6}>
@@ -323,7 +413,7 @@ const Counters = () => {
                 <CFormInput
                   type="text"
                   value={replacementData.old_serial}
-                  onChange={e => setReplacementData(prev => ({ ...prev, old_serial: e.target.value }))}
+                  readOnly
                 />
               </CCol>
               <CCol md={6}>
@@ -331,7 +421,7 @@ const Counters = () => {
                 <CFormInput
                   type="number"
                   value={replacementData.old_coefficient}
-                  onChange={e => setReplacementData(prev => ({ ...prev, old_coefficient: parseFloat(e.target.value) }))}
+                  readOnly
                 />
               </CCol>
             </CRow>
@@ -428,7 +518,10 @@ const Counters = () => {
           </CForm>
         </CModalBody>
         <CModalFooter>
-          <CButton color="secondary" onClick={() => setShowReplacementModal(false)}>
+          <CButton color="secondary" onClick={() => {
+            setShowReplacementModal(false)
+            setModalError(null)
+          }}>
             Отмена
           </CButton>
           <CButton color="primary" onClick={handleReplacementSave}>

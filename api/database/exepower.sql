@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1:3306
--- Generation Time: May 14, 2025 at 07:45 PM
+-- Generation Time: May 16, 2025 at 10:01 PM
 -- Server version: 10.1.48-MariaDB
 -- PHP Version: 7.3.33
 
@@ -20,59 +20,6 @@ SET time_zone = "+00:00";
 --
 -- Database: `exepower`
 --
-
--- --------------------------------------------------------
-
---
--- Table structure for table `equipment_types`
---
-
-CREATE TABLE `equipment_types` (
-  `id` int(11) NOT NULL,
-  `name` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `description` text COLLATE utf8mb4_unicode_ci
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
---
--- Dumping data for table `equipment_types`
---
-
-INSERT INTO `equipment_types` (`id`, `name`, `description`) VALUES
-(1, 'ТГ', 'Турбогенератор (Блок)'),
-(2, 'ПГУ', 'Парогазовая установка');
-
--- --------------------------------------------------------
-
---
--- Table structure for table `functions`
---
-
-CREATE TABLE `functions` (
-  `id` int(11) NOT NULL,
-  `name` varchar(255) NOT NULL,
-  `description` text
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `functions`
---
-
-INSERT INTO `functions` (`id`, `name`, `description`) VALUES
-(1, 'На изменение cosφГТ', 'MW', 'ΔNcosφгт'),
-(2, 'На изменение cosφПТ', 'MW', 'ΔNcosφпт'),
-(5, 'На изменение температуры мокрого термометра в градирню', 'MW', 'ΔNбл'),
-(6, 'На  давление топливного газа', 'MW', 'ΔNРт.газа'),
-(7, 'На температуру топливного газа', 'MW', 'ΔNtт.газа'),
-(8, 'На температуру окружающей среды и относительную влажность (применяется в Вкл условии испар. охл.)', '-', 'ktн.в'),
-(9, 'На температуру на входе компрессора (применяется в Откл условии испар. охл.)', '-', 'ktвх.к'),
-(10, 'На изменение барометрического давления и температуры на входе компрессора (применяется при условии Вкл и Откл испар. охл.)', '-', 'kРбар'),
-(11, 'На относительную влажность и температуру на входе компрессора (применяется при условии Откл испар. охл.)', '-', 'kφвх.к'),
-(12, 'На отклонение низшей теплоты сгорания топлива', '-', 'kQнр'),
-(13, 'На изменение частоты ГТ (применяется при условии Вкл и Откл испар. охл.)', '-', 'kν'),
-(14, 'Кривая деградации ГТУ', '-', 'kd'),
-(15, 'Исходно-номинальный УРТ ПГУ, g/kWh', '', 'bэ(ином)пгу'),
-(16, 'На занос КВОУ', '-', 'kΔNквоу'),
-(17, 'На включение антиобледенительной системы (АОС)', '-', 'kΔNаос');
 
 -- --------------------------------------------------------
 
@@ -134,7 +81,63 @@ INSERT INTO `equipment_events` (`id`, `equipment_id`, `event_type`, `event_time`
 (229, 2, 'ostanov', '2025-05-10 12:16:00', 2, 1, 1, '', '2025-05-10 07:16:18'),
 (230, 1, 'ostanov', '2025-05-10 12:16:00', 2, 1, 1, '', '2025-05-10 07:16:25'),
 (231, 1, 'pusk', '2025-05-11 11:39:00', 2, 1, NULL, '', '2025-05-11 06:39:48'),
-(232, 1, 'ostanov', '2025-05-11 11:39:00', 2, 1, 3, '', '2025-05-11 06:40:04');
+(232, 1, 'ostanov', '2025-05-11 11:39:00', 2, 1, 3, '', '2025-05-11 06:40:04'),
+(233, 3, 'pusk', '2025-05-14 22:18:00', 3, 1, NULL, 'lezgo', '2025-05-14 17:18:35'),
+(234, 3, 'ostanov', '2025-05-14 22:20:00', 3, 1, 1, '', '2025-05-14 17:20:53');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `equipment_types`
+--
+
+CREATE TABLE `equipment_types` (
+  `id` int(11) NOT NULL,
+  `name` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `description` text COLLATE utf8mb4_unicode_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `equipment_types`
+--
+
+INSERT INTO `equipment_types` (`id`, `name`, `description`) VALUES
+(1, 'ТГ', 'Турбогенератор (Блок)'),
+(2, 'ПГУ', 'Парогазовая установка');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `functions`
+--
+
+CREATE TABLE `functions` (
+  `id` int(11) NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `symbol` varchar(50) NOT NULL,
+  `unit` varchar(50) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+--
+-- Dumping data for table `functions`
+--
+
+INSERT INTO `functions` (`id`, `name`, `symbol`, `unit`) VALUES
+(1, 'На изменение cosφГТ', 'MW', 'ΔNcosφгт'),
+(2, 'На изменение cosφПТ', 'MW', 'ΔNcosφпт'),
+(5, 'На изменение температуры мокрого термометра в градирню', 'MW', 'ΔNбл'),
+(6, 'На  давление топливного газа', 'MW', 'ΔNРт.газа'),
+(7, 'На температуру топливного газа', 'MW', 'ΔNtт.газа'),
+(8, 'На температуру окружающей среды и относительную влажность (применяется в Вкл условии испар. охл.)', '-', 'ktн.в'),
+(9, 'На температуру на входе компрессора (применяется в Откл условии испар. охл.)', '-', 'ktвх.к'),
+(10, 'На изменение барометрического давления и температуры на входе компрессора (применяется при условии Вкл и Откл испар. охл.)', '-', 'kРбар'),
+(11, 'На относительную влажность и температуру на входе компрессора (применяется при условии Откл испар. охл.)', '-', 'kφвх.к'),
+(12, 'На отклонение низшей теплоты сгорания топлива', '-', 'kQнр'),
+(13, 'На изменение частоты ГТ (применяется при условии Вкл и Откл испар. охл.)', '-', 'kν'),
+(14, 'Кривая деградации ГТУ', '-', 'kd'),
+(15, 'Исходно-номинальный УРТ ПГУ, g/kWh', '', 'bэ(ином)пгу'),
+(16, 'На занос КВОУ', '-', 'kΔNквоу'),
+(17, 'На включение антиобледенительной системы (АОС)', '-', 'kΔNаос');
 
 -- --------------------------------------------------------
 
@@ -428,20 +431,16 @@ INSERT INTO `function_coeff_sets` (`id`, `function_id`, `x_value`, `created_at`)
 
 CREATE TABLE `meters` (
   `id` int(11) NOT NULL,
-  `energy_metric_id` int(11) NOT NULL,
-  `serial` varchar(50) NOT NULL,
-  `name` varchar(50) NOT NULL,
-  `coefficient` decimal(9,3) NOT NULL DEFAULT '1.000',
-  `scale` decimal(9,3) NOT NULL DEFAULT '99999.999'
+  `meter_type_id` int(11) NOT NULL,
+  `equipment_id` int(11) NOT NULL,
+  `serial_number` varchar(50) NOT NULL,
+  `scale` decimal(12,3) NOT NULL,
+  `coefficient_k` decimal(10,4) NOT NULL DEFAULT '1.0000',
+  `name` varchar(100) NOT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT '1',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
---
--- Dumping data for table `meters`
---
-
-INSERT INTO `meters` (`id`, `energy_metric_id`, `serial`, `name`, `coefficient`, `scale`) VALUES
-(1, 1, '', 'ТГ-8', '160000.000', '99999.999'),
-(2, 1, '', 'ТГ-7', '160000.000', '99999.999');
 
 -- --------------------------------------------------------
 
@@ -450,34 +449,43 @@ INSERT INTO `meters` (`id`, `energy_metric_id`, `serial`, `name`, `coefficient`,
 --
 
 CREATE TABLE `meter_readings` (
-  `id` int(11) NOT NULL,
+  `id` bigint(20) NOT NULL,
   `meter_id` int(11) NOT NULL,
   `date` date NOT NULL,
-  `shift_id` int(11) NOT NULL,
-  `reading_start` decimal(12,3) NOT NULL,
-  `reading_end` decimal(12,3) NOT NULL,
-  `coefficient` decimal(9,3) NOT NULL,
-  `consumption` decimal(14,3) NOT NULL,
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+  `r0` decimal(14,3) NOT NULL,
+  `r8` decimal(14,3) DEFAULT NULL,
+  `r16` decimal(14,3) DEFAULT NULL,
+  `r24` decimal(14,3) DEFAULT NULL,
+  `shift1` decimal(14,3) DEFAULT NULL,
+  `shift2` decimal(14,3) DEFAULT NULL,
+  `shift3` decimal(14,3) DEFAULT NULL,
+  `total` decimal(14,3) DEFAULT NULL,
+  `created_by` int(11) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- --------------------------------------------------------
+
 --
--- Dumping data for table `meter_readings`
+-- Table structure for table `meter_reading_history`
 --
 
-INSERT INTO `meter_readings` (`id`, `meter_id`, `date`, `shift_id`, `reading_start`, `reading_end`, `coefficient`, `consumption`, `created_at`) VALUES
-(84, 1, '2025-05-11', 1, '0.000', '15.000', '160000.000', '2400.000', '2025-05-12 04:34:57'),
-(85, 1, '2025-05-11', 2, '15.000', '30.000', '160000.000', '2400.000', '2025-05-12 04:34:57'),
-(86, 1, '2025-05-11', 3, '30.000', '45.000', '160000.000', '2400.000', '2025-05-12 04:34:57'),
-(87, 2, '2025-05-11', 1, '0.000', '10.000', '160000.000', '1600.000', '2025-05-12 04:34:57'),
-(88, 2, '2025-05-11', 2, '10.000', '20.000', '160000.000', '1600.000', '2025-05-12 04:34:57'),
-(89, 2, '2025-05-11', 3, '20.000', '30.000', '160000.000', '1600.000', '2025-05-12 04:34:57'),
-(90, 1, '2025-05-12', 1, '45.000', '20.000', '160000.000', '-4000.000', '2025-05-12 04:35:21'),
-(91, 1, '2025-05-12', 2, '20.000', '32.000', '160000.000', '1920.000', '2025-05-12 04:35:21'),
-(92, 1, '2025-05-12', 3, '32.000', '49.000', '160000.000', '2720.000', '2025-05-12 04:35:21'),
-(93, 2, '2025-05-12', 1, '30.000', '10.000', '160000.000', '-3200.000', '2025-05-12 04:35:22'),
-(94, 2, '2025-05-12', 2, '10.000', '25.000', '160000.000', '8260.000', '2025-05-12 04:35:22'),
-(95, 2, '2025-05-12', 3, '25.000', '50.000', '160000.000', '4000.000', '2025-05-12 04:35:22');
+CREATE TABLE `meter_reading_history` (
+  `history_id` bigint(20) NOT NULL,
+  `reading_id` bigint(20) NOT NULL,
+  `old_r0` decimal(14,3) DEFAULT NULL,
+  `old_r8` decimal(14,3) DEFAULT NULL,
+  `old_r16` decimal(14,3) DEFAULT NULL,
+  `old_r24` decimal(14,3) DEFAULT NULL,
+  `new_r0` decimal(14,3) DEFAULT NULL,
+  `new_r8` decimal(14,3) DEFAULT NULL,
+  `new_r16` decimal(14,3) DEFAULT NULL,
+  `new_r24` decimal(14,3) DEFAULT NULL,
+  `changed_by` int(11) DEFAULT NULL,
+  `changed_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `comment` varchar(255) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- --------------------------------------------------------
 
@@ -486,20 +494,34 @@ INSERT INTO `meter_readings` (`id`, `meter_id`, `date`, `shift_id`, `reading_sta
 --
 
 CREATE TABLE `meter_replacements` (
-  `id` int(11) NOT NULL,
+  `id` bigint(20) NOT NULL,
   `meter_id` int(11) NOT NULL,
-  `replacement_dt` datetime NOT NULL,
+  `replacement_date` date NOT NULL,
+  `replacement_time` time NOT NULL,
   `old_serial` varchar(50) NOT NULL,
-  `old_coefficient` decimal(9,3) NOT NULL,
-  `old_scale` varchar(20) NOT NULL,
-  `old_reading` decimal(12,3) NOT NULL,
+  `old_coefficient` decimal(10,4) NOT NULL,
+  `old_scale` decimal(12,3) NOT NULL,
+  `old_reading` decimal(14,3) NOT NULL,
   `new_serial` varchar(50) NOT NULL,
-  `new_coefficient` decimal(9,3) NOT NULL,
-  `new_scale` varchar(20) NOT NULL,
-  `new_reading` decimal(12,3) NOT NULL,
-  `downtime_minutes` int(11) NOT NULL,
-  `power_at_replacement` decimal(6,1) DEFAULT NULL,
+  `new_coefficient` decimal(10,4) NOT NULL,
+  `new_scale` decimal(12,3) NOT NULL,
+  `new_reading` decimal(14,3) NOT NULL,
+  `downtime_min` int(11) NOT NULL DEFAULT '0',
+  `power_mw` decimal(8,3) NOT NULL DEFAULT '0.000',
+  `created_by` int(11) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `meter_types`
+--
+
+CREATE TABLE `meter_types` (
+  `id` int(11) NOT NULL,
+  `name` varchar(100) NOT NULL,
+  `description` text
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- --------------------------------------------------------
@@ -567,7 +589,8 @@ INSERT INTO `parameter_values` (`id`, `parameter_id`, `equipment_id`, `value`, `
 (11, 5, 1, '12.00', '2025-05-08', 1, 1, '2025-05-08 23:54:17'),
 (12, 5, 1, '12.00', '2025-05-08', 2, 1, '2025-05-08 23:54:33'),
 (13, 10, 3, '13.00', '2025-05-09', 1, 1, '2025-05-09 00:01:42'),
-(14, 6, 4, '125.00', '2025-05-09', 1, 1, '2025-05-09 00:01:45');
+(14, 6, 4, '125.00', '2025-05-09', 1, 1, '2025-05-09 00:01:45'),
+(15, 5, 1, '2321.00', '2025-05-14', 1, 1, '2025-05-14 17:23:26');
 
 -- --------------------------------------------------------
 
@@ -689,22 +712,36 @@ ALTER TABLE `function_coeff_sets`
 --
 ALTER TABLE `meters`
   ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `ux_meters_metric_name` (`energy_metric_id`,`name`);
+  ADD KEY `meter_type_id` (`meter_type_id`),
+  ADD KEY `equipment_id` (`equipment_id`);
 
 --
 -- Indexes for table `meter_readings`
 --
 ALTER TABLE `meter_readings`
   ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `ux_reading_unique` (`meter_id`,`date`,`shift_id`),
-  ADD KEY `fk_readings_shift` (`shift_id`);
+  ADD UNIQUE KEY `ux_reading_meter_date` (`meter_id`,`date`),
+  ADD KEY `meter_id` (`meter_id`);
+
+--
+-- Indexes for table `meter_reading_history`
+--
+ALTER TABLE `meter_reading_history`
+  ADD PRIMARY KEY (`history_id`),
+  ADD KEY `reading_id` (`reading_id`);
 
 --
 -- Indexes for table `meter_replacements`
 --
 ALTER TABLE `meter_replacements`
   ADD PRIMARY KEY (`id`),
-  ADD KEY `fk_repl_old_meter` (`meter_id`);
+  ADD KEY `meter_id` (`meter_id`);
+
+--
+-- Indexes for table `meter_types`
+--
+ALTER TABLE `meter_types`
+  ADD PRIMARY KEY (`id`);
 
 --
 -- Indexes for table `parameters`
@@ -758,7 +795,7 @@ ALTER TABLE `equipment`
 -- AUTO_INCREMENT for table `equipment_events`
 --
 ALTER TABLE `equipment_events`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=233;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=235;
 
 --
 -- AUTO_INCREMENT for table `equipment_types`
@@ -788,18 +825,30 @@ ALTER TABLE `function_coeff_sets`
 -- AUTO_INCREMENT for table `meters`
 --
 ALTER TABLE `meters`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `meter_readings`
 --
 ALTER TABLE `meter_readings`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=96;
+  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `meter_reading_history`
+--
+ALTER TABLE `meter_reading_history`
+  MODIFY `history_id` bigint(20) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `meter_replacements`
 --
 ALTER TABLE `meter_replacements`
+  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `meter_types`
+--
+ALTER TABLE `meter_types`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
@@ -812,7 +861,7 @@ ALTER TABLE `parameters`
 -- AUTO_INCREMENT for table `parameter_values`
 --
 ALTER TABLE `parameter_values`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16;
 
 --
 -- AUTO_INCREMENT for table `shifts`
@@ -864,17 +913,29 @@ ALTER TABLE `function_coeff_sets`
   ADD CONSTRAINT `fk_coeffsets_function` FOREIGN KEY (`function_id`) REFERENCES `functions` (`id`) ON DELETE CASCADE;
 
 --
+-- Constraints for table `meters`
+--
+ALTER TABLE `meters`
+  ADD CONSTRAINT `fk_meters_equipment` FOREIGN KEY (`equipment_id`) REFERENCES `equipment` (`id`) ON UPDATE CASCADE,
+  ADD CONSTRAINT `fk_meters_type` FOREIGN KEY (`meter_type_id`) REFERENCES `meter_types` (`id`) ON UPDATE CASCADE;
+
+--
 -- Constraints for table `meter_readings`
 --
 ALTER TABLE `meter_readings`
-  ADD CONSTRAINT `fk_readings_meter` FOREIGN KEY (`meter_id`) REFERENCES `meters` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `fk_readings_shift` FOREIGN KEY (`shift_id`) REFERENCES `shifts` (`id`);
+  ADD CONSTRAINT `fk_readings_meter` FOREIGN KEY (`meter_id`) REFERENCES `meters` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+--
+-- Constraints for table `meter_reading_history`
+--
+ALTER TABLE `meter_reading_history`
+  ADD CONSTRAINT `fk_history_reading` FOREIGN KEY (`reading_id`) REFERENCES `meter_readings` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
 -- Constraints for table `meter_replacements`
 --
 ALTER TABLE `meter_replacements`
-  ADD CONSTRAINT `fk_repl_old_meter` FOREIGN KEY (`meter_id`) REFERENCES `meters` (`id`) ON DELETE CASCADE;
+  ADD CONSTRAINT `fk_repl_meter` FOREIGN KEY (`meter_id`) REFERENCES `meters` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
 -- Constraints for table `parameters`
