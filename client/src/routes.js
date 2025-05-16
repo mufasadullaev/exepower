@@ -7,8 +7,6 @@ const EquipmentEvents = React.lazy(() => import('./views/events/EquipmentEvents'
 const OperatingHours = React.lazy(() => import('./views/stats/OperatingHours'))
 const ShiftSchedule = React.lazy(() => import('./views/shifts/ShiftSchedule'))
 const FunctionVariables = React.lazy(() => import('./views/functions/FunctionVariables'))
-import EnergyMeters from './views/energy/EnergyMeters'
-const MeterReadings = React.lazy(() => import('./views/energy/MeterReadings'))
 
 const routes = [
   { path: '', exact: true, name: 'Home' },
@@ -19,7 +17,6 @@ const routes = [
   { path: 'operating-hours', name: 'Наработки', element: OperatingHours },
   { path: 'shift-schedule', name: 'График вахт', element: ShiftSchedule },
   { path: 'function-variables', name: 'Переменные ПГУ', element: FunctionVariables },
-  { path: 'meters', name: 'Счётчики электроэнергии', element: EnergyMeters },
 ]
 
 export default routes

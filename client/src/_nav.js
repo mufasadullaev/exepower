@@ -50,12 +50,6 @@ const _nav = [
     to: '/functions/variables',
     icon: <CIcon icon={cilCalculator} customClassName="nav-icon" />,
   },
-  {
-    component: CNavItem,
-    name: 'Счётчики',
-    to: '/meters',
-    icon: <CIcon icon={cilSpeedometer} customClassName="nav-icon" />,
-  },
 ]
 
 export default _nav
