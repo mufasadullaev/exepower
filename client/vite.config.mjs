@@ -50,31 +50,22 @@ export default defineConfig(() => {
           rewrite: (path) => path
         },
         // Add specific endpoints to ensure proper handling
-        '/api/energy_metrics': {
+        '/api/equipment-events': {
           target: 'http://exepower',
           changeOrigin: true,
-          secure: false
         },
-        '/api/meters': {
+        '/api/equipment-stats': {
           target: 'http://exepower',
           changeOrigin: true,
-          secure: false
         },
-        '/api/meter_readings': {
+        '/api/functions': {
           target: 'http://exepower',
           changeOrigin: true,
-          secure: false
-        },
-        '/api/meter_replacements': {
-          target: 'http://exepower',
-          changeOrigin: true,
-          secure: false
         },
         '/api/shifts': {
           target: 'http://exepower',
           changeOrigin: true,
-          secure: false
-        }
+        },
       },
     },
   }

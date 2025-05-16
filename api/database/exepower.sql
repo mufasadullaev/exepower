@@ -24,24 +24,55 @@ SET time_zone = "+00:00";
 -- --------------------------------------------------------
 
 --
--- Table structure for table `energy_metrics`
+-- Table structure for table `equipment_types`
 --
 
-CREATE TABLE `energy_metrics` (
+CREATE TABLE `equipment_types` (
   `id` int(11) NOT NULL,
-  `name` varchar(100) NOT NULL,
+  `name` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `description` text COLLATE utf8mb4_unicode_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `equipment_types`
+--
+
+INSERT INTO `equipment_types` (`id`, `name`, `description`) VALUES
+(1, 'ТГ', 'Турбогенератор (Блок)'),
+(2, 'ПГУ', 'Парогазовая установка');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `functions`
+--
+
+CREATE TABLE `functions` (
+  `id` int(11) NOT NULL,
+  `name` varchar(255) NOT NULL,
   `description` text
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Dumping data for table `energy_metrics`
+-- Dumping data for table `functions`
 --
 
-INSERT INTO `energy_metrics` (`id`, `name`, `description`) VALUES
-(1, 'Выработка электроэнергии', 'Показатели счётчиков выработки электроэнергии'),
-(2, 'Расход электроэнергии на собственные нужды', 'Показатели расхода электроэнергии на собственные нужды'),
-(3, 'Отпуск электроэнергии', 'Показатели отпуска электроэнергии потребителям'),
-(4, 'Покупка электроэнергии', 'Показатели покупки электроэнергии из внешней сети');
+INSERT INTO `functions` (`id`, `name`, `description`) VALUES
+(1, 'На изменение cosφГТ', 'MW', 'ΔNcosφгт'),
+(2, 'На изменение cosφПТ', 'MW', 'ΔNcosφпт'),
+(5, 'На изменение температуры мокрого термометра в градирню', 'MW', 'ΔNбл'),
+(6, 'На  давление топливного газа', 'MW', 'ΔNРт.газа'),
+(7, 'На температуру топливного газа', 'MW', 'ΔNtт.газа'),
+(8, 'На температуру окружающей среды и относительную влажность (применяется в Вкл условии испар. охл.)', '-', 'ktн.в'),
+(9, 'На температуру на входе компрессора (применяется в Откл условии испар. охл.)', '-', 'ktвх.к'),
+(10, 'На изменение барометрического давления и температуры на входе компрессора (применяется при условии Вкл и Откл испар. охл.)', '-', 'kРбар'),
+(11, 'На относительную влажность и температуру на входе компрессора (применяется при условии Откл испар. охл.)', '-', 'kφвх.к'),
+(12, 'На отклонение низшей теплоты сгорания топлива', '-', 'kQнр'),
+(13, 'На изменение частоты ГТ (применяется при условии Вкл и Откл испар. охл.)', '-', 'kν'),
+(14, 'Кривая деградации ГТУ', '-', 'kd'),
+(15, 'Исходно-номинальный УРТ ПГУ, g/kWh', '', 'bэ(ином)пгу'),
+(16, 'На занос КВОУ', '-', 'kΔNквоу'),
+(17, 'На включение антиобледенительной системы (АОС)', '-', 'kΔNаос');
 
 -- --------------------------------------------------------
 
@@ -104,60 +135,6 @@ INSERT INTO `equipment_events` (`id`, `equipment_id`, `event_type`, `event_time`
 (230, 1, 'ostanov', '2025-05-10 12:16:00', 2, 1, 1, '', '2025-05-10 07:16:25'),
 (231, 1, 'pusk', '2025-05-11 11:39:00', 2, 1, NULL, '', '2025-05-11 06:39:48'),
 (232, 1, 'ostanov', '2025-05-11 11:39:00', 2, 1, 3, '', '2025-05-11 06:40:04');
-
--- --------------------------------------------------------
-
---
--- Table structure for table `equipment_types`
---
-
-CREATE TABLE `equipment_types` (
-  `id` int(11) NOT NULL,
-  `name` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `description` text COLLATE utf8mb4_unicode_ci
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
---
--- Dumping data for table `equipment_types`
---
-
-INSERT INTO `equipment_types` (`id`, `name`, `description`) VALUES
-(1, 'ТГ', 'Турбогенератор (Блок)'),
-(2, 'ПГУ', 'Парогазовая установка');
-
--- --------------------------------------------------------
-
---
--- Table structure for table `functions`
---
-
-CREATE TABLE `functions` (
-  `id` int(11) NOT NULL,
-  `name` varchar(255) NOT NULL,
-  `symbol` varchar(50) NOT NULL,
-  `unit` varchar(50) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
---
--- Dumping data for table `functions`
---
-
-INSERT INTO `functions` (`id`, `name`, `symbol`, `unit`) VALUES
-(1, 'На изменение cosφГТ', 'MW', 'ΔNcosφгт'),
-(2, 'На изменение cosφПТ', 'MW', 'ΔNcosφпт'),
-(5, 'На изменение температуры мокрого термометра в градирню', 'MW', 'ΔNбл'),
-(6, 'На  давление топливного газа', 'MW', 'ΔNРт.газа'),
-(7, 'На температуру топливного газа', 'MW', 'ΔNtт.газа'),
-(8, 'На температуру окружающей среды и относительную влажность (применяется в Вкл условии испар. охл.)', '-', 'ktн.в'),
-(9, 'На температуру на входе компрессора (применяется в Откл условии испар. охл.)', '-', 'ktвх.к'),
-(10, 'На изменение барометрического давления и температуры на входе компрессора (применяется при условии Вкл и Откл испар. охл.)', '-', 'kРбар'),
-(11, 'На относительную влажность и температуру на входе компрессора (применяется при условии Откл испар. охл.)', '-', 'kφвх.к'),
-(12, 'На отклонение низшей теплоты сгорания топлива', '-', 'kQнр'),
-(13, 'На изменение частоты ГТ (применяется при условии Вкл и Откл испар. охл.)', '-', 'kν'),
-(14, 'Кривая деградации ГТУ', '-', 'kd'),
-(15, 'Исходно-номинальный УРТ ПГУ, g/kWh', '', 'bэ(ином)пгу'),
-(16, 'На занос КВОУ', '-', 'kΔNквоу'),
-(17, 'На включение антиобледенительной системы (АОС)', '-', 'kΔNаос');
 
 -- --------------------------------------------------------
 
@@ -662,13 +639,6 @@ INSERT INTO `users` (`id`, `username`, `password`, `role`, `created_at`, `update
 --
 
 --
--- Indexes for table `energy_metrics`
---
-ALTER TABLE `energy_metrics`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `ux_energy_metrics_name` (`name`);
-
---
 -- Indexes for table `equipment`
 --
 ALTER TABLE `equipment`
@@ -777,12 +747,6 @@ ALTER TABLE `users`
 --
 -- AUTO_INCREMENT for dumped tables
 --
-
---
--- AUTO_INCREMENT for table `energy_metrics`
---
-ALTER TABLE `energy_metrics`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT for table `equipment`
