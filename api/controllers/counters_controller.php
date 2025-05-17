@@ -291,6 +291,91 @@ function saveReplacement() {
                 $input['new_scale'],
                 $input['meter_id']
             ]);
+
+            // Пересчитываем показания за день замены
+            $stmt = $db->prepare('
+                SELECT * FROM meter_readings 
+                WHERE meter_id = ? AND date = ?
+            ');
+            $stmt->execute([$input['meter_id'], $input['replacement_date']]);
+            $reading = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($reading) {
+                $replacementTime = strtotime($input['replacement_time']);
+                $shift8Time = strtotime('08:00:00');
+                $shift16Time = strtotime('16:00:00');
+                $shift24Time = strtotime('24:00:00');
+
+                // Рассчитываем значения смен
+                $shift1 = null;
+                $shift2 = null;
+                $shift3 = null;
+
+                // Смена 1 (0:00-8:00)
+                if (isset($reading['r0']) && isset($reading['r8'])) {
+                    if ($replacementTime <= $shift8Time) {
+                        // Замена произошла до или во время первой смены
+                        $oldPart = ($input['old_reading'] - $reading['r0']) * $input['old_coefficient'] / 1000;
+                        $newPart = ($reading['r8'] - $input['old_reading']) * $input['new_coefficient'] / 1000;
+                        $whileOff = $input['downtime_min'] / 60 * $input['power_mw'];
+                        $shift1 = $oldPart + $newPart + $whileOff;
+                    } else {
+                        // Замена произошла после первой смены
+                        $shift1 = ($reading['r8'] - $reading['r0']) * $input['old_coefficient'] / 1000;
+                    }
+                }
+
+                // Смена 2 (8:00-16:00)
+                if (isset($reading['r8']) && isset($reading['r16'])) {
+                    if ($replacementTime <= $shift8Time) {
+                        // Замена произошла до второй смены
+                        $shift2 = ($reading['r16'] - $reading['r8']) * $input['new_coefficient'] / 1000;
+                    } else if ($replacementTime <= $shift16Time) {
+                        // Замена произошла во время второй смены
+                        $oldPart = ($input['old_reading'] - $reading['r8']) * $input['old_coefficient'] / 1000;
+                        $newPart = ($reading['r16'] - $input['old_reading']) * $input['new_coefficient'] / 1000;
+                        $shift2 = $oldPart + $newPart;
+                    } else {
+                        // Замена произошла после второй смены
+                        $shift2 = ($reading['r16'] - $reading['r8']) * $input['old_coefficient'] / 1000;
+                    }
+                }
+
+                // Смена 3 (16:00-24:00)
+                if (isset($reading['r16']) && isset($reading['r24'])) {
+                    if ($replacementTime <= $shift16Time) {
+                        // Замена произошла до третьей смены
+                        $shift3 = ($reading['r24'] - $reading['r16']) * $input['new_coefficient'] / 1000;
+                    } else if ($replacementTime <= $shift24Time) {
+                        // Замена произошла во время третьей смены
+                        $oldPart = ($input['old_reading'] - $reading['r16']) * $input['old_coefficient'] / 1000;
+                        $newPart = ($reading['r24'] - $input['old_reading']) * $input['new_coefficient'] / 1000;
+                        $shift3 = $oldPart + $newPart;
+                    } else {
+                        // Замена произошла после третьей смены
+                        $shift3 = ($reading['r24'] - $reading['r16']) * $input['old_coefficient'] / 1000;
+                    }
+                }
+
+                $total = ($shift1 !== null ? $shift1 : 0) + 
+                        ($shift2 !== null ? $shift2 : 0) + 
+                        ($shift3 !== null ? $shift3 : 0);
+
+                // Обновляем показания
+                $stmt = $db->prepare('
+                    UPDATE meter_readings 
+                    SET shift1 = ?, shift2 = ?, shift3 = ?, total = ?,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                ');
+                $stmt->execute([
+                    $shift1,
+                    $shift2,
+                    $shift3,
+                    $total,
+                    $reading['id']
+                ]);
+            }
             
             $db->commit();
             sendSuccess(['message' => 'Замена счетчика успешно сохранена']);

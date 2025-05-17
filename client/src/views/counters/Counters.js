@@ -154,14 +154,12 @@ const Counters = () => {
       setError(null)
       setSuccess(null)
 
-      // Получаем текущего пользователя
       const user = authService.getUser()
       if (!user) {
         setError('Пользователь не авторизован')
         return
       }
 
-      // Добавляем user_id к каждому показанию
       const readingsWithUser = Object.entries(readings).reduce((acc, [meterId, reading]) => {
         acc[meterId] = {
           ...reading,
@@ -201,7 +199,6 @@ const Counters = () => {
 
   const handleReplacementSave = async () => {
     try {
-      // Валидация полей
       const requiredFields = [
         'old_reading',
         'new_serial',
@@ -219,14 +216,12 @@ const Counters = () => {
 
       setModalError(null)
       
-      // Получаем текущего пользователя
       const user = authService.getUser()
       if (!user) {
         setModalError('Пользователь не авторизован')
         return
       }
       
-      // Форматируем данные для отправки
       const formattedData = {
         meter_id: selectedMeter.id,
         replacement_date: format(selectedDate, 'yyyy-MM-dd'),
