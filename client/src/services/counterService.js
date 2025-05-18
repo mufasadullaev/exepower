@@ -29,11 +29,22 @@ export const counterService = {
     return response.data
   },
 
+  getReplacement: async (meterId, date) => {
+    const formattedDate = format(date, 'yyyy-MM-dd')
+    const response = await axios.get(`${API_URL}/meter-replacements?meter_id=${meterId}&date=${formattedDate}`)
+    return response.data.data
+  },
+
   saveReplacement: async (meterId, replacementData) => {
     const response = await axios.post(`${API_URL}/meter-replacements`, {
       meter_id: meterId,
       ...replacementData
     })
+    return response.data
+  },
+  
+  updateReplacement: async (replacementId, replacementData) => {
+    const response = await axios.put(`${API_URL}/meter-replacements/${replacementId}`, replacementData)
     return response.data
   },
 

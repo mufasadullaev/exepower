@@ -36,9 +36,12 @@ const Counters = () => {
   const [selectedType, setSelectedType] = useState(null)
   const [meters, setMeters] = useState([])
   const [readings, setReadings] = useState({})
+  const [meterReplacements, setMeterReplacements] = useState({})
   const [showReplacementModal, setShowReplacementModal] = useState(false)
+  const [showConfirmModal, setShowConfirmModal] = useState(false)
   const [selectedMeter, setSelectedMeter] = useState(null)
   const [replacementData, setReplacementData] = useState({
+    id: null,
     old_serial: '',
     old_coefficient: '',
     old_scale: '',
@@ -75,6 +78,7 @@ const Counters = () => {
   useEffect(() => {
     if (meters.length > 0) {
       loadReadings(selectedDate)
+      checkMeterReplacements(selectedDate)
     }
   }, [meters, selectedDate])
 
@@ -128,6 +132,24 @@ const Counters = () => {
     }
   }
 
+  const checkMeterReplacements = async (date) => {
+    try {
+      const replacements = {}
+      
+      // Проверяем каждый счетчик на наличие замены на выбранную дату
+      for (const meter of meters) {
+        const replacement = await counterService.getReplacement(meter.id, date)
+        if (replacement) {
+          replacements[meter.id] = true
+        }
+      }
+      
+      setMeterReplacements(replacements)
+    } catch (error) {
+      console.error('Error checking meter replacements:', error)
+    }
+  }
+
   const handleTypeChange = (e) => {
     setSelectedType(e.target.value)
   }
@@ -178,23 +200,86 @@ const Counters = () => {
     }
   }
 
-  const handleReplacementClick = (meter) => {
+  const handleCancelReplacement = async () => {
+    try {
+      if (!selectedMeter || !replacementData.id) {
+        return;
+      }
+
+      setModalError(null);
+      setShowConfirmModal(true);
+    } catch (error) {
+      console.error('Error cancelling replacement:', error);
+      const errorMessage = error.response?.data?.error?.message || 'Произошла ошибка при отмене замены счетчика';
+      setModalError(errorMessage);
+    }
+  }
+
+  const confirmCancelReplacement = async () => {
+    try {
+      await counterService.cancelReplacement(selectedMeter.id, format(selectedDate, 'yyyy-MM-dd'))
+      setShowConfirmModal(false)
+      setShowReplacementModal(false)
+      setSuccess('Замена счетчика отменена')
+      loadMeters(selectedType)
+      handleSaveReadings()
+      checkMeterReplacements(selectedDate)
+    } catch (error) {
+      console.error('Error cancelling replacement:', error);
+      const errorMessage = error.response?.data?.error?.message || 'Произошла ошибка при отмене замены счетчика';
+      setModalError(errorMessage);
+      setShowConfirmModal(false);
+    }
+  }
+
+  const handleReplacementClick = async (meter) => {
     setSelectedMeter(meter)
-    setReplacementData({
-      old_serial: meter.serial_number,
-      old_coefficient: meter.coefficient_k,
-      old_scale: meter.scale,
-      old_reading: '',
-      new_serial: '',
-      new_coefficient: meter.coefficient_k,
-      new_scale: meter.scale,
-      new_reading: '',
-      replacement_time: '',
-      downtime_min: 0,
-      power_mw: 0,
-      comment: ''
-    })
-    setShowReplacementModal(true)
+    
+    try {
+      // Проверяем наличие замены на выбранную дату
+      const replacement = await counterService.getReplacement(meter.id, selectedDate)
+      
+      if (replacement) {
+        // Если есть данные о замене на выбранную дату, используем их
+        setReplacementData({
+          id: replacement.id,
+          old_serial: replacement.old_serial,
+          old_coefficient: replacement.old_coefficient,
+          old_scale: replacement.old_scale,
+          old_reading: replacement.old_reading,
+          new_serial: replacement.new_serial,
+          new_coefficient: replacement.new_coefficient,
+          new_scale: replacement.new_scale,
+          new_reading: replacement.new_reading,
+          replacement_time: replacement.replacement_time,
+          downtime_min: replacement.downtime_min,
+          power_mw: replacement.power_mw,
+          comment: replacement.comment || ''
+        })
+      } else {
+        // Если данных о замене нет, используем текущие данные счетчика
+        setReplacementData({
+          id: null,
+          old_serial: meter.serial_number,
+          old_coefficient: meter.coefficient_k,
+          old_scale: meter.scale,
+          old_reading: '',
+          new_serial: '',
+          new_coefficient: meter.coefficient_k,
+          new_scale: meter.scale,
+          new_reading: '',
+          replacement_time: '',
+          downtime_min: 0,
+          power_mw: 0,
+          comment: ''
+        })
+      }
+
+      setShowReplacementModal(true)
+    } catch (error) {
+      console.error('Error loading replacement data:', error)
+      setError('Ошибка при загрузке данных о замене счетчика')
+    }
   }
 
   const handleReplacementSave = async () => {
@@ -240,10 +325,20 @@ const Counters = () => {
         user_id: user.id
       }
 
-      await counterService.saveReplacement(selectedMeter.id, formattedData)
+      if (replacementData.id) {
+        // Обновление существующей записи
+        await counterService.updateReplacement(replacementData.id, formattedData)
+        setSuccess('Данные о замене счетчика успешно обновлены')
+      } else {
+        // Создание новой записи
+        await counterService.saveReplacement(selectedMeter.id, formattedData)
+        setSuccess('Замена счетчика успешно сохранена')
+      }
+      
       setShowReplacementModal(false)
-      setSuccess('Замена счетчика успешно сохранена')
       loadMeters(selectedType)
+      handleSaveReadings()
+      checkMeterReplacements(selectedDate)
     } catch (error) {
       console.error('Error saving replacement:', error)
       const errorMessage = error.response?.data?.error?.message || 'Произошла ошибка при сохранении замены счетчика'
@@ -363,7 +458,7 @@ const Counters = () => {
                       <CTableDataCell>{total.toFixed(3)}</CTableDataCell>
                       <CTableDataCell>
                         <CButton
-                          color="primary"
+                          color={meterReplacements[meter.id] ? "warning" : "primary"}
                           size="sm"
                           onClick={() => handleReplacementClick(meter)}
                         >
@@ -520,8 +615,37 @@ const Counters = () => {
           }}>
             Отмена
           </CButton>
+          {replacementData.id && (
+            <CButton color="danger" onClick={handleCancelReplacement}>
+              Отменить замену
+            </CButton>
+          )}
           <CButton color="primary" onClick={handleReplacementSave}>
             Сохранить
+          </CButton>
+        </CModalFooter>
+      </CModal>
+
+      {/* Модальное окно подтверждения удаления */}
+      <CModal 
+        visible={showConfirmModal} 
+        onClose={() => setShowConfirmModal(false)}
+        alignment="center"
+      >
+        <CModalHeader className="bg-danger text-white">
+          <CModalTitle>Подтверждение отмены замены</CModalTitle>
+        </CModalHeader>
+        <CModalBody>
+          <p>Вы действительно хотите отменить замену счетчика?</p>
+          <p><strong>Внимание:</strong> Это действие нельзя будет отменить.</p>
+          <p>Исходные показания и параметры счетчика будут восстановлены.</p>
+        </CModalBody>
+        <CModalFooter>
+          <CButton color="secondary" onClick={() => setShowConfirmModal(false)}>
+            Отмена
+          </CButton>
+          <CButton color="danger" onClick={confirmCancelReplacement}>
+            Удалить данные о замене
           </CButton>
         </CModalFooter>
       </CModal>
