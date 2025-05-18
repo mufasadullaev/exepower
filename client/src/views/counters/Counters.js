@@ -315,15 +315,16 @@ const Counters = () => {
               <CTableBody>
                 {meters.map(meter => {
                   const reading = readings[meter.id] || {}
-                  const shift1 = calculateShift(reading.r0, reading.r8, meter)
-                  const shift2 = calculateShift(reading.r8, reading.r16, meter)
-                  const shift3 = calculateShift(reading.r16, reading.r24, meter)
-                  const total = shift1 + shift2 + shift3
+                  // Преобразуем значения смен в числа
+                  const shift1 = parseFloat(reading.shift1) || 0
+                  const shift2 = parseFloat(reading.shift2) || 0
+                  const shift3 = parseFloat(reading.shift3) || 0
+                  const total = parseFloat(reading.total) || 0
 
                   return (
                     <CTableRow key={meter.id}>
                       <CTableDataCell>
-                        {meter.name})
+                        {meter.name}
                       </CTableDataCell>
                       <CTableDataCell>
                         {meter.coefficient_k}
@@ -356,10 +357,10 @@ const Counters = () => {
                           onChange={e => handleReadingChange(meter.id, 'r24', parseFloat(e.target.value))}
                         />
                       </CTableDataCell>
-                      <CTableDataCell>{shift1?.toFixed(3)}</CTableDataCell>
-                      <CTableDataCell>{shift2?.toFixed(3)}</CTableDataCell>
-                      <CTableDataCell>{shift3?.toFixed(3)}</CTableDataCell>
-                      <CTableDataCell>{total?.toFixed(3)}</CTableDataCell>
+                      <CTableDataCell>{shift1.toFixed(3)}</CTableDataCell>
+                      <CTableDataCell>{shift2.toFixed(3)}</CTableDataCell>
+                      <CTableDataCell>{shift3.toFixed(3)}</CTableDataCell>
+                      <CTableDataCell>{total.toFixed(3)}</CTableDataCell>
                       <CTableDataCell>
                         <CButton
                           color="primary"
