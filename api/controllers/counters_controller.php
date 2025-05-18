@@ -87,6 +87,8 @@ function getReadings() {
  */
 function saveReadings() {
     try {
+        $user = requireAuth();
+        
         $input = json_decode(file_get_contents('php://input'), true);
         
         if (!isset($input['date']) || !isset($input['readings'])) {
@@ -295,7 +297,7 @@ function saveReadings() {
                         $shift2,
                         $shift3,
                         $total,
-                        $_SESSION['user_id'] ?? null,
+                        $user['id'],
                         $existing['id']
                     ]);
                 } else {
@@ -316,7 +318,7 @@ function saveReadings() {
                         $shift2,
                         $shift3,
                         $total,
-                        $_SESSION['user_id'] ?? null
+                        $user['id']
                     ]);
                 }
             }
@@ -333,10 +335,39 @@ function saveReadings() {
 }
 
 /**
+ * Получение информации о замене счетчика по дате
+ */
+function getReplacementByDate() {
+    try {
+        if (!isset($_GET['meter_id']) || !isset($_GET['date'])) {
+            sendError('Не указан счетчик или дата');
+            return;
+        }
+
+        $meterId = $_GET['meter_id'];
+        $date = $_GET['date'];
+        $db = getDbConnection();
+        
+        $stmt = $db->prepare('
+            SELECT * FROM meter_replacements 
+            WHERE meter_id = ? AND replacement_date = ?
+        ');
+        $stmt->execute([$meterId, $date]);
+        $replacement = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        sendSuccess($replacement ? $replacement : null);
+    } catch (Exception $e) {
+        sendError('Ошибка при получении данных о замене: ' . $e->getMessage());
+    }
+}
+
+/**
  * Сохранение замены счетчика
  */
 function saveReplacement() {
     try {
+        $user = requireAuth();
+        
         $input = json_decode(file_get_contents('php://input'), true);
         
         if (!isset($input['meter_id']) || !isset($input['replacement_date'])) {
@@ -376,7 +407,7 @@ function saveReplacement() {
                 $input['new_reading'],
                 $input['downtime_min'],
                 $input['power_mw'],
-                $_SESSION['user_id'] ?? null
+                $user['id']
             ]);
             
             // Обновляем информацию о счетчике
@@ -400,5 +431,171 @@ function saveReplacement() {
         }
     } catch (Exception $e) {
         sendError('Ошибка при сохранении замены счетчика: ' . $e->getMessage());
+    }
+}
+
+/**
+ * Обновление информации о замене счетчика
+ */
+function updateReplacement($replacementId) {
+    try {
+        $user = requireAuth();
+        
+        $input = json_decode(file_get_contents('php://input'), true);
+        
+        if (!isset($input['meter_id']) || !isset($input['replacement_date'])) {
+            sendError('Неверный формат данных');
+            return;
+        }
+
+        // Валидация числовых значений
+        if (!is_numeric($input['new_reading']) || $input['new_reading'] < 0) {
+            sendError('Показание нового счетчика должно быть числом не меньше 0');
+            return;
+        }
+
+        $db = getDbConnection();
+        
+        // Проверяем существование записи
+        $stmt = $db->prepare('SELECT * FROM meter_replacements WHERE id = ?');
+        $stmt->execute([$replacementId]);
+        $existingReplacement = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$existingReplacement) {
+            sendError('Запись о замене счетчика не найдена', 404);
+            return;
+        }
+        
+        $db->beginTransaction();
+        
+        try {
+            // Обновляем информацию о замене
+            $stmt = $db->prepare('
+                UPDATE meter_replacements 
+                SET replacement_date = ?, replacement_time = ?,
+                    old_serial = ?, old_coefficient = ?, old_scale = ?, old_reading = ?,
+                    new_serial = ?, new_coefficient = ?, new_scale = ?, new_reading = ?,
+                    downtime_min = ?, power_mw = ?, comment = ?,
+                    user_id = ?
+                WHERE id = ?
+            ');
+            $stmt->execute([
+                $input['replacement_date'],
+                $input['replacement_time'],
+                $input['old_serial'],
+                $input['old_coefficient'],
+                $input['old_scale'],
+                $input['old_reading'],
+                $input['new_serial'],
+                $input['new_coefficient'],
+                $input['new_scale'],
+                $input['new_reading'],
+                $input['downtime_min'],
+                $input['power_mw'],
+                $input['comment'] ?? '',
+                $user['id'],
+                $replacementId
+            ]);
+            
+            // Обновляем информацию о счетчике
+            $stmt = $db->prepare('
+                UPDATE meters 
+                SET serial_number = ?, coefficient_k = ?, scale = ?
+                WHERE id = ?
+            ');
+            $stmt->execute([
+                $input['new_serial'],
+                $input['new_coefficient'],
+                $input['new_scale'],
+                $input['meter_id']
+            ]);
+            
+            $db->commit();
+            sendSuccess(['message' => 'Данные о замене счетчика успешно обновлены']);
+        } catch (Exception $e) {
+            $db->rollBack();
+            throw $e;
+        }
+    } catch (Exception $e) {
+        sendError('Ошибка при обновлении замены счетчика: ' . $e->getMessage());
+    }
+}
+
+/**
+ * Отмена замены счетчика
+ */
+function cancelReplacement() {
+    try {
+        $user = requireAuth();
+        
+        $input = json_decode(file_get_contents('php://input'), true);
+        
+        if (!isset($input['meter_id']) || !isset($input['replacement_date'])) {
+            sendError('Неверный формат данных');
+            return;
+        }
+        
+        $meterId = $input['meter_id'];
+        $date = $input['replacement_date'];
+        $db = getDbConnection();
+        
+        $db->beginTransaction();
+        
+        try {
+            // Получаем запись о замене
+            $stmt = $db->prepare('
+                SELECT * FROM meter_replacements 
+                WHERE meter_id = ? AND replacement_date = ?
+            ');
+            $stmt->execute([$meterId, $date]);
+            $replacement = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$replacement) {
+                $db->rollBack();
+                sendError('Запись о замене счетчика не найдена');
+                return;
+            }
+            
+            // Восстанавливаем оригинальные данные счетчика
+            $stmt = $db->prepare('
+                UPDATE meters 
+                SET serial_number = ?, coefficient_k = ?, scale = ?
+                WHERE id = ?
+            ');
+            $stmt->execute([
+                $replacement['old_serial'],
+                $replacement['old_coefficient'],
+                $replacement['old_scale'],
+                $meterId
+            ]);
+            
+            // Логируем операцию отмены замены (опционально)
+            $stmt = $db->prepare('
+                INSERT INTO meter_replacement_cancellations 
+                (meter_id, replacement_id, cancellation_date, user_id)
+                VALUES (?, ?, CURRENT_DATE, ?)
+            ');
+            try {
+                $stmt->execute([$meterId, $replacement['id'], $user['id']]);
+            } catch (Exception $e) {
+                // Игнорируем ошибку, если таблица не существует
+                // Это не критичная операция
+            }
+            
+            // Удаляем запись о замене
+            $stmt = $db->prepare('
+                DELETE FROM meter_replacements 
+                WHERE meter_id = ? AND replacement_date = ?
+            ');
+            $stmt->execute([$meterId, $date]);
+            
+            $db->commit();
+            sendSuccess(['message' => 'Замена счетчика успешно отменена']);
+        } catch (Exception $e) {
+            $db->rollBack();
+            throw $e;
+        }
+    } catch (Exception $e) {
+        sendError('Ошибка при отмене замены счетчика: ' . $e->getMessage());
     }
 } 

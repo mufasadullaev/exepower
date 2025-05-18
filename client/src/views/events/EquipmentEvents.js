@@ -30,13 +30,16 @@ import {
   CCol,
   CButtonGroup,
   CInputGroup,
-  CInputGroupText
+  CInputGroupText,
+  CFormSwitch
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { cilCalendar, cilChevronLeft, cilChevronRight } from '@coreui/icons'
 import DatePicker from 'react-datepicker'
 import 'react-datepicker/dist/react-datepicker.css'
 import authService from '../../services/authService'
+import { equipmentToolService } from '../../services/equipmentToolService'
+import { startReasonsService } from '../../services/startReasonsService'
 
 // Типы оборудования
 const EQUIPMENT_TYPES = {
@@ -52,6 +55,7 @@ const EquipmentEvents = () => {
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [events, setEvents] = useState([])
   const [stopReasons, setStopReasons] = useState([])
+  const [startReasons, setStartReasons] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   
@@ -71,6 +75,17 @@ const EquipmentEvents = () => {
   const [deleteModal, setDeleteModal] = useState(false)
   const [deletingEventId, setDeletingEventId] = useState(null)
   const [deletingEventInfo, setDeletingEventInfo] = useState(null)
+
+  // Состояние инструментов
+  const [toolStatus, setToolStatus] = useState({
+    evaporator: 'off',
+    aos: 'off'
+  })
+  const [toolsLoading, setToolsLoading] = useState(false)
+
+  // Состояние для модального окна подтверждения переключения инструмента
+  const [toolConfirmModal, setToolConfirmModal] = useState(false)
+  const [pendingToolToggle, setPendingToolToggle] = useState(null)
 
   // Загрузка списка оборудования при изменении типа
   useEffect(() => {
@@ -114,26 +129,31 @@ const EquipmentEvents = () => {
     fetchEquipment()
   }, [activeEquipmentType])
   
-  // Загрузка причин останова
+  // Загрузка причин останова и пуска
   useEffect(() => {
-    const fetchStopReasons = async () => {
+    const fetchReasons = async () => {
       try {
-        const response = await fetch('http://exepower/api/stop-reasons', {
-          headers: { 'Authorization': `Bearer ${authService.getToken()}` }
-        })
-        const data = await response.json()
+        const [stopResponse, startResponse] = await Promise.all([
+          fetch('http://exepower/api/stop-reasons', {
+            headers: { 'Authorization': `Bearer ${authService.getToken()}` }
+          }),
+          startReasonsService.getStartReasons()
+        ])
         
-        if (!data.success && data.status !== 'success') {
-          throw new Error(data.message || 'Ошибка загрузки причин останова')
+        const stopData = await stopResponse.json()
+        if (stopData.success || stopData.status === 'success') {
+          setStopReasons(stopData.data?.reasons || [])
         }
         
-        setStopReasons(data.data?.reasons || [])
+        if (startResponse.status === 'success') {
+          setStartReasons(startResponse.data?.reasons || [])
+        }
       } catch (err) {
-        console.error('Error fetching stop reasons:', err)
+        console.error('Error fetching reasons:', err)
       }
     }
     
-    fetchStopReasons()
+    fetchReasons()
   }, [])
   
   // Функция для загрузки и группировки событий
@@ -247,7 +267,7 @@ const EquipmentEvents = () => {
     setEventType(type)
     setEventData({
       event_time: new Date(),
-      reason_id: type === 'ostanov' ? stopReasons[0]?.id : null,
+      reason_id: type === 'ostanov' ? stopReasons[0]?.id : (type === 'pusk' ? startReasons[0]?.id : null),
       comment: ''
     })
     setIsEditing(false)
@@ -277,7 +297,7 @@ const EquipmentEvents = () => {
     setEventModal(true);
   }
   
-  // Сохранение события (нового или отредактированного)
+  // Обработчик сохранения события 
   const handleSaveEvent = async () => {
     try {
       // Создаем копию даты события
@@ -290,10 +310,18 @@ const EquipmentEvents = () => {
                           String(eventTime.getHours()).padStart(2, '0') + ':' +
                           String(eventTime.getMinutes()).padStart(2, '0') + ':00';
       
+      const payload = {
+        equipment_id: selectedEquipment.id,
+        event_type: eventType,
+        event_time: eventTimeStr,
+        reason_id: eventData.reason_id,
+        comment: eventData.comment
+      };
+
       // Если это группа ПГУ, создаем или обновляем события для всех компонентов
       if (selectedEquipment.components && selectedEquipment.components.length > 0) {
         if (isEditing) {
-          // При редактировании нужно найти соответствующие события для каждого компонента
+          // Код для редактирования событий групп ПГУ
           const updatePromises = selectedEquipment.components.map(async (component) => {
             // Получаем все события компонента за текущий месяц
             const year = new Date(editingEventInfo.event_time).getFullYear();
@@ -319,14 +347,8 @@ const EquipmentEvents = () => {
             );
             
             if (eventToUpdate) {
-              // Обновляем найденное событие
-              const payload = {
-                equipment_id: component.id,
-                event_type: eventType,
-                event_time: eventTimeStr,
-                reason_id: eventType === 'ostanov' ? eventData.reason_id : null,
-                comment: eventData.comment
-              };
+              // Клонируем payload и обновляем equipment_id для компонента
+              const componentPayload = {...payload, equipment_id: component.id};
               
               const updateResponse = await fetch(`http://exepower/api/equipment-events/${eventToUpdate.id}`, {
                 method: 'PUT',
@@ -334,7 +356,7 @@ const EquipmentEvents = () => {
                   'Content-Type': 'application/json',
                   'Authorization': `Bearer ${authService.getToken()}`
                 },
-                body: JSON.stringify(payload)
+                body: JSON.stringify(componentPayload)
               });
               
               const responseData = await updateResponse.json();
@@ -351,15 +373,10 @@ const EquipmentEvents = () => {
           // Ждем выполнения всех запросов на обновление
           await Promise.all(updatePromises.filter(p => p !== null));
         } else {
-          // При создании нового события создаем его для всех компонентов
+          // Код для создания новых событий для групп ПГУ
           const savePromises = selectedEquipment.components.map(async (component) => {
-            const payload = {
-              equipment_id: component.id,
-              event_type: eventType,
-              event_time: eventTimeStr,
-              reason_id: eventType === 'ostanov' ? eventData.reason_id : null,
-              comment: eventData.comment
-            };
+            // Клонируем payload и обновляем equipment_id для компонента
+            const componentPayload = {...payload, equipment_id: component.id};
             
             const saveResponse = await fetch('http://exepower/api/equipment-events', {
               method: 'POST',
@@ -367,7 +384,7 @@ const EquipmentEvents = () => {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${authService.getToken()}`
               },
-              body: JSON.stringify(payload)
+              body: JSON.stringify(componentPayload)
             });
             
             const responseData = await saveResponse.json();
@@ -382,15 +399,7 @@ const EquipmentEvents = () => {
           await Promise.all(savePromises);
         }
       } else {
-        // Для обычного оборудования сохраняем событие как раньше
-        const payload = {
-          equipment_id: selectedEquipment.id,
-          event_type: eventType,
-          event_time: eventTimeStr,
-          reason_id: eventType === 'ostanov' ? eventData.reason_id : null,
-          comment: eventData.comment
-        };
-        
+        // Код для обычного оборудования
         const url = isEditing 
           ? `http://exepower/api/equipment-events/${editingEventId}` 
           : 'http://exepower/api/equipment-events';
@@ -415,6 +424,11 @@ const EquipmentEvents = () => {
       // Закрываем модальное окно и обновляем список событий
       setEventModal(false);
       await fetchEvents();
+      
+      // Если это был останов, обновляем статус инструментов
+      if (eventType === 'ostanov') {
+        await fetchToolStatus();
+      }
       
     } catch (err) {
       console.error('Error saving event:', err);
@@ -441,9 +455,14 @@ const EquipmentEvents = () => {
     setSelectedDate(newDate)
   }
   
-  // Получение названия причины останова по ID
-  const getReasonNameById = (id) => {
-    return stopReasons.find(reason => reason.id === id)?.name || 'Не указана'
+  // Получение названия причины останова/типа пуска по ID
+  const getReasonNameById = (event) => {
+    if (event.event_type === 'ostanov') {
+      return stopReasons.find(reason => reason.id === event.reason_id)?.name || 'Не указана';
+    } else if (event.event_type === 'pusk') {
+      return startReasons.find(reason => reason.id === event.reason_id)?.name || 'Не указан';
+    }
+    return 'Неизвестно';
   }
   
   // Отображение текущего состояния оборудования
@@ -522,6 +541,9 @@ const EquipmentEvents = () => {
       try {
         const updatedEvents = await fetchAndGroupEvents(selectedEquipment, selectedDate);
         setEvents(updatedEvents);
+        
+        // Обновляем статус инструментов, так как могло измениться состояние оборудования
+        await fetchToolStatus();
       } catch (err) {
         console.error('Error refreshing events:', err);
         setError(`Ошибка обновления списка событий: ${err.message}`);
@@ -532,6 +554,80 @@ const EquipmentEvents = () => {
       console.error('Error deleting event:', err);
       setError(`Ошибка удаления события: ${err.message}`);
       setDeleteModal(false);
+    }
+  }
+  
+  // Загрузка статуса инструментов
+  const fetchToolStatus = async () => {
+    if (!selectedEquipment) return
+    
+    setToolsLoading(true)
+    try {
+      const response = await equipmentToolService.getToolStatus(selectedEquipment.id)
+      if (response.status === 'success') {
+        setToolStatus(response.data)
+      }
+    } catch (error) {
+      console.error('Error fetching tool status:', error)
+      setError('Ошибка при получении статуса инструментов')
+    } finally {
+      setToolsLoading(false)
+    }
+  }
+
+  // Загружаем статус инструментов при изменении оборудования и после каждого события
+  useEffect(() => {
+    fetchToolStatus()
+  }, [selectedEquipment, events])
+
+  // Обработчик запроса на переключение инструмента
+  const handleToolToggleRequest = (toolType) => {
+    if (!selectedEquipment) return
+    
+    const newStatus = toolStatus[toolType] === 'on' ? 'off' : 'on'
+    setPendingToolToggle({
+      toolType,
+      newStatus
+    })
+    setToolConfirmModal(true)
+  }
+
+  // Обработчик подтверждения переключения
+  const handleToolToggleConfirm = async () => {
+    if (!pendingToolToggle) return
+
+    const { toolType, newStatus } = pendingToolToggle
+    setToolConfirmModal(false)
+    
+    try {
+      setToolsLoading(true)
+      const response = await equipmentToolService.toggleTool(
+        selectedEquipment.id,
+        toolType,
+        newStatus === 'on'
+      )
+      
+      if (response.status === 'success') {
+        // Немедленно обновляем локальное состояние
+        setToolStatus(prev => ({
+          ...prev,
+          [toolType]: newStatus
+        }))
+        // Затем запрашиваем актуальное состояние с сервера
+        await fetchToolStatus()
+        // Обновляем список событий
+        await fetchEvents()
+      } else {
+        throw new Error(response.message || 'Ошибка при переключении инструмента')
+      }
+    } catch (error) {
+      console.error(`Error toggling ${toolType}:`, error)
+      setError(`Ошибка при ${newStatus === 'on' ? 'включении' : 'выключении'} ${toolType === 'evaporator' ? 'испарителя' : 'АОС'}`)
+      // В случае ошибки запрашиваем актуальное состояние с сервера
+      await fetchToolStatus()
+    } finally {
+      setToolsLoading(false)
+      setPendingToolToggle(null)
     }
   }
   
@@ -665,6 +761,37 @@ const EquipmentEvents = () => {
           </CCol>
         </CRow>
         
+        {/* Инструменты */}
+        {selectedEquipment && (
+          <CRow className="mb-3">
+            <CCol>
+              <div className="d-flex align-items-center gap-4">
+                <CFormSwitch
+                  id="evaporatorSwitch"
+                  label="Испаритель"
+                  checked={toolStatus.evaporator === 'on'}
+                  onChange={() => handleToolToggleRequest('evaporator')}
+                  disabled={determineEquipmentStatus() !== 'running' || toolsLoading}
+                  className={`${toolStatus.evaporator === 'on' ? 'switch-success' : 'switch-danger'}`}
+                />
+                <CFormSwitch
+                  id="aosSwitch"
+                  label="АОС"
+                  checked={toolStatus.aos === 'on'}
+                  onChange={() => handleToolToggleRequest('aos')}
+                  disabled={determineEquipmentStatus() !== 'running' || toolsLoading}
+                  className={`${toolStatus.aos === 'on' ? 'switch-success' : 'switch-danger'}`}
+                />
+                {determineEquipmentStatus() !== 'running' && (
+                  <small className="text-muted">
+                    Управление инструментами доступно только при запущенном оборудовании
+                  </small>
+                )}
+              </div>
+            </CCol>
+          </CRow>
+        )}
+        
         {selectedEquipment ? (
           <>
             <h5>
@@ -682,7 +809,7 @@ const EquipmentEvents = () => {
                     <CTableRow>
                       <CTableHeaderCell>Дата и время</CTableHeaderCell>
                       <CTableHeaderCell>Тип события</CTableHeaderCell>
-                      <CTableHeaderCell>Причина (для останова)</CTableHeaderCell>
+                      <CTableHeaderCell>Причина (для останова) / Тип (для пуска)</CTableHeaderCell>
                       <CTableHeaderCell>Комментарий</CTableHeaderCell>
                       <CTableHeaderCell>Действия</CTableHeaderCell>
                     </CTableRow>
@@ -695,7 +822,7 @@ const EquipmentEvents = () => {
                           {event.event_type === 'pusk' ? 'Пуск' : 'Останов'}
                         </CTableDataCell>
                         <CTableDataCell>
-                          {event.event_type === 'ostanov' ? getReasonNameById(event.reason_id) : '-'}
+                          {event.reason_name || getReasonNameById(event)}
                         </CTableDataCell>
                         <CTableDataCell>
                           {event.comment || '-'}
@@ -764,13 +891,33 @@ const EquipmentEvents = () => {
                     value={eventData.reason_id || ''}
                     onChange={e => setEventData({...eventData, reason_id: parseInt(e.target.value)})}
                   >
-                    <option value="">Выберите причину</option>
                     {stopReasons.map(reason => (
                       <option key={reason.id} value={reason.id}>
                         {reason.name}
                       </option>
                     ))}
                   </CFormSelect>
+                </div>
+              )}
+
+              {eventType === 'pusk' && (
+                <div className="mb-3">
+                  <CFormLabel>Тип пуска</CFormLabel>
+                  <CFormSelect
+                    value={eventData.reason_id || ''}
+                    onChange={e => setEventData({...eventData, reason_id: parseInt(e.target.value)})}
+                  >
+                    {startReasons.map(reason => (
+                      <option key={reason.id} value={reason.id} title={reason.description}>
+                        {reason.name}
+                      </option>
+                    ))}
+                  </CFormSelect>
+                  {startReasons.find(r => r.id === parseInt(eventData.reason_id))?.description && (
+                    <div className="form-text text-muted mt-1">
+                      {startReasons.find(r => r.id === parseInt(eventData.reason_id)).description}
+                    </div>
+                  )}
                 </div>
               )}
               
@@ -806,8 +953,11 @@ const EquipmentEvents = () => {
                 <p>
                   <strong>Тип:</strong> {deletingEventInfo.event_type === 'pusk' ? 'Пуск' : 'Останов'}<br />
                   <strong>Дата и время:</strong> {formatDateTime(deletingEventInfo.event_time)}<br />
-                  {deletingEventInfo.event_type === 'ostanov' && (
-                    <><strong>Причина:</strong> {getReasonNameById(deletingEventInfo.reason_id)}<br /></>
+                  {deletingEventInfo.event_type === 'ostanov' && deletingEventInfo.reason_id && (
+                    <><strong>Причина останова:</strong> {getReasonNameById(deletingEventInfo)}<br /></>
+                  )}
+                  {deletingEventInfo.event_type === 'pusk' && deletingEventInfo.reason_id && (
+                    <><strong>Тип пуска:</strong> {getReasonNameById(deletingEventInfo)}<br /></>
                   )}
                   {deletingEventInfo.comment && (
                     <><strong>Комментарий:</strong> {deletingEventInfo.comment}<br /></>
@@ -822,6 +972,41 @@ const EquipmentEvents = () => {
             </CButton>
             <CButton color="danger" onClick={confirmDeleteEvent}>
               Да, удалить
+            </CButton>
+          </CModalFooter>
+        </CModal>
+
+        {/* Модальное окно подтверждения переключения инструмента */}
+        <CModal visible={toolConfirmModal} onClose={() => {
+          setToolConfirmModal(false)
+          setPendingToolToggle(null)
+        }}>
+          <CModalHeader closeButton>
+            <CModalTitle>Подтверждение действия</CModalTitle>
+          </CModalHeader>
+          <CModalBody>
+            {pendingToolToggle && (
+              <p>
+                Вы уверены, что хотите {pendingToolToggle.newStatus === 'on' ? 'включить' : 'выключить'} 
+                {' '}{pendingToolToggle.toolType === 'evaporator' ? 'испаритель' : 'АОС'}?
+              </p>
+            )}
+          </CModalBody>
+          <CModalFooter>
+            <CButton 
+              color="secondary" 
+              onClick={() => {
+                setToolConfirmModal(false)
+                setPendingToolToggle(null)
+              }}
+            >
+              Нет
+            </CButton>
+            <CButton 
+              color={pendingToolToggle?.newStatus === 'on' ? 'success' : 'danger'} 
+              onClick={handleToolToggleConfirm}
+            >
+              Да
             </CButton>
           </CModalFooter>
         </CModal>

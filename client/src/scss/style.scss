@@ -65,3 +65,36 @@ body {
     --cui-footer-bg: var(--cui-body-bg);
   }
 }
+
+// Стили для переключателей инструментов
+.form-switch {
+  .form-check-input {
+    width: 3em;
+    height: 1.5em;
+    margin-top: 0.25em;
+    
+    &:checked {
+      background-color: #2eb85c;
+      border-color: #2eb85c;
+    }
+    
+    &:not(:checked) {
+      background-color: #e55353;
+      border-color: #e55353;
+    }
+    
+    &:disabled {
+      opacity: 0.5;
+    }
+  }
+  
+  &.switch-success .form-check-input:checked {
+    background-color: #2eb85c;
+    border-color: #2eb85c;
+  }
+  
+  &.switch-danger .form-check-input:not(:checked) {
+    background-color: #e55353;
+    border-color: #e55353;
+  }
+}

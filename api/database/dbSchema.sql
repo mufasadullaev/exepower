@@ -3,9 +3,9 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1:3306
--- Generation Time: May 18, 2025 at 11:36 AM
--- Server version: 10.1.48-MariaDB
--- PHP Version: 7.3.33
+-- Generation Time: May 18, 2025 at 04:21 PM
+-- Server version: 8.0.30
+-- PHP Version: 8.1.9
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -28,10 +28,10 @@ SET time_zone = "+00:00";
 --
 
 CREATE TABLE `equipment` (
-  `id` int(11) NOT NULL,
-  `name` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `type_id` int(11) NOT NULL,
-  `description` text COLLATE utf8mb4_unicode_ci
+  `id` int NOT NULL,
+  `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `type_id` int NOT NULL,
+  `description` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
@@ -44,8 +44,7 @@ INSERT INTO `equipment` (`id`, `name`, `type_id`, `description`) VALUES
 (3, 'ГТ 1', 2, 'Газовая установка 1'),
 (4, 'ПТ 1', 2, 'Паровая установка 1'),
 (5, 'ГТ 2', 2, 'Газовая установка 2'),
-(6, 'ПТ 2', 2, 'Паровая установка 2'),
-(7, 'ОЧ-130', 1, 'ОЧ-130');
+(6, 'ПТ 2', 2, 'Паровая установка 2');
 
 -- --------------------------------------------------------
 
@@ -54,36 +53,34 @@ INSERT INTO `equipment` (`id`, `name`, `type_id`, `description`) VALUES
 --
 
 CREATE TABLE `equipment_events` (
-  `id` int(11) NOT NULL,
-  `equipment_id` int(11) NOT NULL,
-  `event_type` enum('pusk','ostanov') COLLATE utf8mb4_unicode_ci NOT NULL,
+  `id` int NOT NULL,
+  `equipment_id` int NOT NULL,
+  `event_type` enum('pusk','ostanov') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `event_time` datetime NOT NULL,
-  `shift_id` int(11) DEFAULT NULL,
-  `user_id` int(11) DEFAULT NULL,
-  `reason_id` int(11) DEFAULT NULL,
-  `comment` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `shift_id` int DEFAULT NULL,
+  `user_id` int DEFAULT NULL,
+  `reason_id` int DEFAULT NULL,
+  `comment` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- --------------------------------------------------------
+
 --
--- Dumping data for table `equipment_events`
+-- Table structure for table `equipment_tool_events`
 --
 
-INSERT INTO `equipment_events` (`id`, `equipment_id`, `event_type`, `event_time`, `shift_id`, `user_id`, `reason_id`, `comment`, `created_at`) VALUES
-(220, 3, 'pusk', '2025-05-05 11:49:00', 2, 1, NULL, '', '2025-05-10 06:49:43'),
-(221, 3, 'ostanov', '2025-05-07 12:00:00', 2, 1, 1, '', '2025-05-10 06:49:53'),
-(222, 1, 'pusk', '2025-05-08 11:49:00', 2, 1, NULL, '', '2025-05-10 06:50:01'),
-(223, 3, 'pusk', '2025-05-08 11:50:00', 2, 1, NULL, '', '2025-05-10 06:50:13'),
-(224, 3, 'ostanov', '2025-05-10 11:50:00', 2, 1, 1, '', '2025-05-10 06:50:56'),
-(226, 5, 'pusk', '2025-05-07 12:15:00', 2, 1, NULL, '', '2025-05-10 07:15:37'),
-(227, 5, 'ostanov', '2025-05-10 12:16:00', 2, 1, 1, '', '2025-05-10 07:16:06'),
-(228, 2, 'pusk', '2025-05-08 12:16:00', 2, 1, NULL, '', '2025-05-10 07:16:15'),
-(229, 2, 'ostanov', '2025-05-10 12:16:00', 2, 1, 1, '', '2025-05-10 07:16:18'),
-(230, 1, 'ostanov', '2025-05-10 12:16:00', 2, 1, 1, '', '2025-05-10 07:16:25'),
-(231, 1, 'pusk', '2025-05-11 11:39:00', 2, 1, NULL, '', '2025-05-11 06:39:48'),
-(232, 1, 'ostanov', '2025-05-11 11:39:00', 2, 1, 3, '', '2025-05-11 06:40:04'),
-(233, 3, 'pusk', '2025-05-14 22:18:00', 3, 1, NULL, 'lezgo', '2025-05-14 17:18:35'),
-(234, 3, 'ostanov', '2025-05-14 22:20:00', 3, 1, 1, '', '2025-05-14 17:20:53');
+CREATE TABLE `equipment_tool_events` (
+  `id` int NOT NULL,
+  `equipment_id` int NOT NULL,
+  `tool_type` enum('evaporator','aos') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `event_type` enum('on','off') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `event_time` datetime NOT NULL,
+  `shift_id` int DEFAULT NULL,
+  `user_id` int DEFAULT NULL,
+  `comment` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -92,9 +89,9 @@ INSERT INTO `equipment_events` (`id`, `equipment_id`, `event_type`, `event_time`
 --
 
 CREATE TABLE `equipment_types` (
-  `id` int(11) NOT NULL,
-  `name` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `description` text COLLATE utf8mb4_unicode_ci
+  `id` int NOT NULL,
+  `name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `description` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
@@ -112,11 +109,11 @@ INSERT INTO `equipment_types` (`id`, `name`, `description`) VALUES
 --
 
 CREATE TABLE `functions` (
-  `id` int(11) NOT NULL,
+  `id` int NOT NULL,
   `name` varchar(255) NOT NULL,
   `symbol` varchar(50) NOT NULL,
   `unit` varchar(50) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
 -- Dumping data for table `functions`
@@ -146,11 +143,11 @@ INSERT INTO `functions` (`id`, `name`, `symbol`, `unit`) VALUES
 --
 
 CREATE TABLE `function_coefficients` (
-  `id` int(11) NOT NULL,
-  `coeff_set_id` int(11) NOT NULL,
-  `coeff_index` tinyint(4) NOT NULL,
+  `id` int NOT NULL,
+  `coeff_set_id` int NOT NULL,
+  `coeff_index` tinyint NOT NULL,
   `coeff_value` varchar(60) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
 -- Dumping data for table `function_coefficients`
@@ -366,11 +363,11 @@ INSERT INTO `function_coefficients` (`id`, `coeff_set_id`, `coeff_index`, `coeff
 --
 
 CREATE TABLE `function_coeff_sets` (
-  `id` int(11) NOT NULL,
-  `function_id` int(11) NOT NULL,
+  `id` int NOT NULL,
+  `function_id` int NOT NULL,
   `x_value` double NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
 -- Dumping data for table `function_coeff_sets`
@@ -430,9 +427,9 @@ INSERT INTO `function_coeff_sets` (`id`, `function_id`, `x_value`, `created_at`)
 --
 
 CREATE TABLE `meters` (
-  `id` int(11) NOT NULL,
-  `meter_type_id` int(11) NOT NULL,
-  `equipment_id` int(11) NOT NULL,
+  `id` int NOT NULL,
+  `meter_type_id` int NOT NULL,
+  `equipment_id` int NOT NULL,
   `serial_number` varchar(50) NOT NULL,
   `scale` decimal(12,3) NOT NULL,
   `coefficient_k` decimal(10,3) NOT NULL DEFAULT '1.000',
@@ -440,18 +437,7 @@ CREATE TABLE `meters` (
   `is_active` tinyint(1) NOT NULL DEFAULT '1',
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
---
--- Dumping data for table `meters`
---
-
-INSERT INTO `meters` (`id`, `meter_type_id`, `equipment_id`, `serial_number`, `scale`, `coefficient_k`, `name`, `is_active`, `created_at`, `updated_at`) VALUES
-(1, 1, 3, 'ЫПРЫА', '99999.999', '160000.000', 'PGU1 Energy', 1, '2025-05-16 19:23:16', '2025-05-18 06:45:52'),
-(2, 1, 2, 'ЫПАВ', '99999.999', '1.000', 'PGU2 Energy', 1, '2025-05-16 19:23:16', '2025-05-17 19:11:42'),
-(3, 2, 1, 'TESTIK', '90000.000', '35000.000', 'PGU1 OwnUse', 1, '2025-05-16 19:23:16', '2025-05-16 19:59:47'),
-(4, 3, 1, 'TH-3001', '99999.999', '160000.000', 'КЭС', 1, '2025-05-16 19:23:16', '2025-05-17 11:10:50'),
-(5, 4, 1, 'AX-4001', '99999.000', '135000.000', 'ТГ7', 1, '2025-05-16 19:23:16', '2025-05-17 11:12:12');
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
 
@@ -460,8 +446,8 @@ INSERT INTO `meters` (`id`, `meter_type_id`, `equipment_id`, `serial_number`, `s
 --
 
 CREATE TABLE `meter_readings` (
-  `id` bigint(20) NOT NULL,
-  `meter_id` int(11) NOT NULL,
+  `id` bigint NOT NULL,
+  `meter_id` int NOT NULL,
   `date` date NOT NULL,
   `r0` decimal(14,3) NOT NULL,
   `r8` decimal(14,3) DEFAULT NULL,
@@ -471,19 +457,10 @@ CREATE TABLE `meter_readings` (
   `shift2` decimal(14,3) DEFAULT NULL,
   `shift3` decimal(14,3) DEFAULT NULL,
   `total` decimal(14,3) DEFAULT NULL,
-  `user_id` int(11) DEFAULT NULL,
+  `user_id` int DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
---
--- Dumping data for table `meter_readings`
---
-
-INSERT INTO `meter_readings` (`id`, `meter_id`, `date`, `r0`, `r8`, `r16`, `r24`, `shift1`, `shift2`, `shift3`, `total`, `user_id`, `created_at`, `updated_at`) VALUES
-(31, 1, '2025-05-17', '10.000', '20.000', '30.000', '50.000', '1350.000', '1350.000', '2700.000', '5400.000', NULL, '2025-05-18 06:09:30', '2025-05-18 06:09:30'),
-(32, 1, '2025-05-18', '5.000', '15.000', '5.000', NULL, '1600.000', '900.000', NULL, '2500.000', NULL, '2025-05-18 06:09:40', '2025-05-18 08:36:31'),
-(33, 2, '2025-05-18', '20.000', '30.000', '35.000', NULL, '0.010', '0.005', NULL, '0.015', NULL, '2025-05-18 06:19:20', '2025-05-18 08:36:31');
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
 
@@ -492,8 +469,8 @@ INSERT INTO `meter_readings` (`id`, `meter_id`, `date`, `r0`, `r8`, `r16`, `r24`
 --
 
 CREATE TABLE `meter_reading_history` (
-  `history_id` bigint(20) NOT NULL,
-  `reading_id` bigint(20) NOT NULL,
+  `history_id` bigint NOT NULL,
+  `reading_id` bigint NOT NULL,
   `old_r0` decimal(14,3) DEFAULT NULL,
   `old_r8` decimal(14,3) DEFAULT NULL,
   `old_r16` decimal(14,3) DEFAULT NULL,
@@ -502,10 +479,10 @@ CREATE TABLE `meter_reading_history` (
   `new_r8` decimal(14,3) DEFAULT NULL,
   `new_r16` decimal(14,3) DEFAULT NULL,
   `new_r24` decimal(14,3) DEFAULT NULL,
-  `user_id` int(11) DEFAULT NULL,
+  `user_id` int DEFAULT NULL,
   `changed_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `comment` varchar(255) DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
 
@@ -514,8 +491,8 @@ CREATE TABLE `meter_reading_history` (
 --
 
 CREATE TABLE `meter_replacements` (
-  `id` bigint(20) NOT NULL,
-  `meter_id` int(11) NOT NULL,
+  `id` bigint NOT NULL,
+  `meter_id` int NOT NULL,
   `replacement_date` date NOT NULL,
   `replacement_time` time NOT NULL,
   `old_serial` varchar(50) NOT NULL,
@@ -526,18 +503,12 @@ CREATE TABLE `meter_replacements` (
   `new_coefficient` decimal(10,4) NOT NULL,
   `new_scale` decimal(12,3) NOT NULL,
   `new_reading` decimal(14,3) NOT NULL,
-  `downtime_min` int(11) NOT NULL DEFAULT '0',
+  `downtime_min` int NOT NULL DEFAULT '0',
   `power_mw` decimal(8,3) NOT NULL DEFAULT '0.000',
-  `user_id` int(11) DEFAULT NULL,
+  `user_id` int DEFAULT NULL,
+  `comment` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
---
--- Dumping data for table `meter_replacements`
---
-
-INSERT INTO `meter_replacements` (`id`, `meter_id`, `replacement_date`, `replacement_time`, `old_serial`, `old_coefficient`, `old_scale`, `old_reading`, `new_serial`, `new_coefficient`, `new_scale`, `new_reading`, `downtime_min`, `power_mw`, `user_id`, `created_at`) VALUES
-(32, 1, '2025-05-18', '10:30:00', 'ПЫАЫП', '160000.0000', '99999.999', '15.000', 'ЫПРЫА', '160000.0000', '99999.999', '0.000', 60, '100.000', NULL, '2025-05-18 06:45:52');
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
 
@@ -546,10 +517,10 @@ INSERT INTO `meter_replacements` (`id`, `meter_id`, `replacement_date`, `replace
 --
 
 CREATE TABLE `meter_types` (
-  `id` int(11) NOT NULL,
+  `id` int NOT NULL,
   `name` varchar(100) NOT NULL,
   `description` text
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
 -- Dumping data for table `meter_types`
@@ -568,28 +539,12 @@ INSERT INTO `meter_types` (`id`, `name`, `description`) VALUES
 --
 
 CREATE TABLE `parameters` (
-  `id` int(11) NOT NULL,
-  `name` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `description` text COLLATE utf8mb4_unicode_ci,
-  `unit` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `equipment_type_id` int(11) NOT NULL
+  `id` int NOT NULL,
+  `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `description` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+  `unit` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `equipment_type_id` int NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
---
--- Dumping data for table `parameters`
---
-
-INSERT INTO `parameters` (`id`, `name`, `description`, `unit`, `equipment_type_id`) VALUES
-(1, 'Мощность', 'Активная мощность', 'МВт', 1),
-(2, 'Давление пара', 'Давление пара перед турбиной', 'МПа', 1),
-(3, 'Температура пара', 'Температура пара перед турбиной', '°C', 1),
-(4, 'Расход пара', 'Расход пара на турбину', 'т/ч', 1),
-(5, 'Вакуум', 'Вакуум в конденсаторе', 'кПа', 1),
-(6, 'Мощность ГТ', 'Активная мощность газовой турбины', 'МВт', 2),
-(7, 'Мощность ПТ', 'Активная мощность паровой турбины', 'МВт', 2),
-(8, 'Температура выхлопных газов', 'Температура газов на выходе из ГТ', '°C', 2),
-(9, 'Расход газа', 'Расход газа на ГТ', 'м³/ч', 2),
-(10, 'Давление пара ВД', 'Давление пара высокого давления', 'МПа', 2);
 
 -- --------------------------------------------------------
 
@@ -598,36 +553,15 @@ INSERT INTO `parameters` (`id`, `name`, `description`, `unit`, `equipment_type_i
 --
 
 CREATE TABLE `parameter_values` (
-  `id` int(11) NOT NULL,
-  `parameter_id` int(11) NOT NULL,
-  `equipment_id` int(11) NOT NULL,
+  `id` int NOT NULL,
+  `parameter_id` int NOT NULL,
+  `equipment_id` int NOT NULL,
   `value` decimal(10,2) NOT NULL,
   `date` date NOT NULL,
-  `shift_id` int(11) NOT NULL,
-  `user_id` int(11) NOT NULL,
+  `shift_id` int NOT NULL,
+  `user_id` int NOT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
---
--- Dumping data for table `parameter_values`
---
-
-INSERT INTO `parameter_values` (`id`, `parameter_id`, `equipment_id`, `value`, `date`, `shift_id`, `user_id`, `created_at`) VALUES
-(1, 1, 1, '95.50', '2025-05-08', 1, 1, '2025-05-08 23:09:07'),
-(2, 2, 1, '6.20', '2025-05-01', 1, 1, '2025-05-08 23:09:07'),
-(3, 3, 1, '540.00', '2025-05-01', 2, 1, '2025-05-08 23:09:07'),
-(4, 4, 1, '18.75', '2025-05-01', 3, 1, '2025-05-08 23:09:07'),
-(5, 5, 2, '0.85', '2025-05-02', 1, 1, '2025-05-08 23:09:07'),
-(6, 6, 3, '120.30', '2025-05-02', 2, 1, '2025-05-08 23:09:07'),
-(7, 7, 3, '480.00', '2025-05-02', 2, 1, '2025-05-08 23:09:07'),
-(8, 8, 4, '30.10', '2025-05-03', 1, 1, '2025-05-08 23:09:07'),
-(9, 9, 4, '75.00', '2025-05-03', 3, 1, '2025-05-08 23:09:07'),
-(10, 10, 2, '5.50', '2025-05-04', 1, 1, '2025-05-08 23:09:07'),
-(11, 5, 1, '12.00', '2025-05-08', 1, 1, '2025-05-08 23:54:17'),
-(12, 5, 1, '12.00', '2025-05-08', 2, 1, '2025-05-08 23:54:33'),
-(13, 10, 3, '13.00', '2025-05-09', 1, 1, '2025-05-09 00:01:42'),
-(14, 6, 4, '125.00', '2025-05-09', 1, 1, '2025-05-09 00:01:45'),
-(15, 5, 1, '2321.00', '2025-05-14', 1, 1, '2025-05-14 17:23:26');
 
 -- --------------------------------------------------------
 
@@ -636,8 +570,8 @@ INSERT INTO `parameter_values` (`id`, `parameter_id`, `equipment_id`, `value`, `
 --
 
 CREATE TABLE `shifts` (
-  `id` int(11) NOT NULL,
-  `name` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `id` int NOT NULL,
+  `name` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `start_time` time NOT NULL,
   `end_time` time NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -647,9 +581,30 @@ CREATE TABLE `shifts` (
 --
 
 INSERT INTO `shifts` (`id`, `name`, `start_time`, `end_time`) VALUES
-(1, 'Смена 1', '00:00:00', '08:00:00'),
-(2, 'Смена 2', '08:00:00', '16:00:00'),
-(3, 'Смена 3', '16:00:00', '00:00:00');
+(1, 'Смена 1', '00:00:00', '07:59:59'),
+(2, 'Смена 2', '08:00:00', '15:59:59'),
+(3, 'Смена 3', '16:00:00', '23:59:59');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `start_reasons`
+--
+
+CREATE TABLE `start_reasons` (
+  `id` int NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `description` text
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+--
+-- Dumping data for table `start_reasons`
+--
+
+INSERT INTO `start_reasons` (`id`, `name`, `description`) VALUES
+(1, 'Холодный', 'Пуск оборудования из холодного состояния'),
+(2, 'Неостывший', 'Пуск оборудования из неостывшего состояния'),
+(3, 'Горячий', 'Пуск оборудования из горячего состояния');
 
 -- --------------------------------------------------------
 
@@ -658,9 +613,9 @@ INSERT INTO `shifts` (`id`, `name`, `start_time`, `end_time`) VALUES
 --
 
 CREATE TABLE `stop_reasons` (
-  `id` int(11) NOT NULL,
-  `name` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `description` text COLLATE utf8mb4_unicode_ci
+  `id` int NOT NULL,
+  `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `description` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
@@ -679,10 +634,10 @@ INSERT INTO `stop_reasons` (`id`, `name`, `description`) VALUES
 --
 
 CREATE TABLE `users` (
-  `id` int(11) NOT NULL,
-  `username` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `password` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `role` enum('рядовой','инженер','менеджер') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'рядовой',
+  `id` int NOT NULL,
+  `username` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `password` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `role` enum('рядовой','инженер','менеджер') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'рядовой',
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -714,6 +669,16 @@ ALTER TABLE `equipment_events`
   ADD KEY `user_id` (`user_id`),
   ADD KEY `reason_id` (`reason_id`),
   ADD KEY `idx_eq_time` (`equipment_id`,`event_time`);
+
+--
+-- Indexes for table `equipment_tool_events`
+--
+ALTER TABLE `equipment_tool_events`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_equipment_tool` (`equipment_id`,`tool_type`),
+  ADD KEY `idx_equipment_time` (`equipment_id`,`event_time`),
+  ADD KEY `shift_id` (`shift_id`),
+  ADD KEY `user_id` (`user_id`);
 
 --
 -- Indexes for table `equipment_types`
@@ -805,6 +770,12 @@ ALTER TABLE `shifts`
   ADD UNIQUE KEY `name` (`name`);
 
 --
+-- Indexes for table `start_reasons`
+--
+ALTER TABLE `start_reasons`
+  ADD PRIMARY KEY (`id`);
+
+--
 -- Indexes for table `stop_reasons`
 --
 ALTER TABLE `stop_reasons`
@@ -826,97 +797,109 @@ ALTER TABLE `users`
 -- AUTO_INCREMENT for table `equipment`
 --
 ALTER TABLE `equipment`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
 -- AUTO_INCREMENT for table `equipment_events`
 --
 ALTER TABLE `equipment_events`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=235;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=286;
+
+--
+-- AUTO_INCREMENT for table `equipment_tool_events`
+--
+ALTER TABLE `equipment_tool_events`
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=77;
 
 --
 -- AUTO_INCREMENT for table `equipment_types`
 --
 ALTER TABLE `equipment_types`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT for table `functions`
 --
 ALTER TABLE `functions`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=18;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=18;
 
 --
 -- AUTO_INCREMENT for table `function_coefficients`
 --
 ALTER TABLE `function_coefficients`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=202;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=202;
 
 --
 -- AUTO_INCREMENT for table `function_coeff_sets`
 --
 ALTER TABLE `function_coeff_sets`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=47;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=47;
 
 --
 -- AUTO_INCREMENT for table `meters`
 --
 ALTER TABLE `meters`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- AUTO_INCREMENT for table `meter_readings`
 --
 ALTER TABLE `meter_readings`
-  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=34;
+  MODIFY `id` bigint NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=36;
 
 --
 -- AUTO_INCREMENT for table `meter_reading_history`
 --
 ALTER TABLE `meter_reading_history`
-  MODIFY `history_id` bigint(20) NOT NULL AUTO_INCREMENT;
+  MODIFY `history_id` bigint NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `meter_replacements`
 --
 ALTER TABLE `meter_replacements`
-  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=33;
+  MODIFY `id` bigint NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=38;
 
 --
 -- AUTO_INCREMENT for table `meter_types`
 --
 ALTER TABLE `meter_types`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT for table `parameters`
 --
 ALTER TABLE `parameters`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
 
 --
 -- AUTO_INCREMENT for table `parameter_values`
 --
 ALTER TABLE `parameter_values`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=19;
 
 --
 -- AUTO_INCREMENT for table `shifts`
 --
 ALTER TABLE `shifts`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+
+--
+-- AUTO_INCREMENT for table `start_reasons`
+--
+ALTER TABLE `start_reasons`
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT for table `stop_reasons`
 --
 ALTER TABLE `stop_reasons`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- Constraints for dumped tables
@@ -936,6 +919,14 @@ ALTER TABLE `equipment_events`
   ADD CONSTRAINT `equipment_events_ibfk_2` FOREIGN KEY (`shift_id`) REFERENCES `shifts` (`id`),
   ADD CONSTRAINT `equipment_events_ibfk_3` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`),
   ADD CONSTRAINT `equipment_events_ibfk_4` FOREIGN KEY (`reason_id`) REFERENCES `stop_reasons` (`id`);
+
+--
+-- Constraints for table `equipment_tool_events`
+--
+ALTER TABLE `equipment_tool_events`
+  ADD CONSTRAINT `equipment_tool_events_ibfk_1` FOREIGN KEY (`equipment_id`) REFERENCES `equipment` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `equipment_tool_events_ibfk_2` FOREIGN KEY (`shift_id`) REFERENCES `shifts` (`id`),
+  ADD CONSTRAINT `equipment_tool_events_ibfk_3` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`);
 
 --
 -- Constraints for table `function_coefficients`

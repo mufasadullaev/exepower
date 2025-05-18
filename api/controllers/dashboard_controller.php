@@ -11,54 +11,155 @@ require_once __DIR__ . '/../helpers/db.php';
  * Получение данных для дашборда
  */
 function getDashboardData() {
-    // Проверка аутентификации
     $user = requireAuth();
     
-    // Получение списка оборудования
-    $equipment = fetchAll("
-        SELECT e.id, e.name, e.description, et.name as type_name 
-        FROM equipment e
-        JOIN equipment_types et ON e.type_id = et.id
-        ORDER BY et.name, e.name
-    ");
-    
-    // Получение списка смен
-    $shifts = fetchAll("SELECT id, name, start_time, end_time FROM shifts ORDER BY id");
-    
-    // Получение последних значений параметров (можно добавить фильтрацию по дате)
-    $latestValues = fetchAll("
-        SELECT 
-            pv.id, 
-            pv.value, 
-            pv.date, 
-            p.name as parameter_name, 
-            p.unit, 
-            e.name as equipment_name,
-            s.name as shift_name,
-            u.username as user_name
-        FROM parameter_values pv
-        JOIN parameters p ON pv.parameter_id = p.id
-        JOIN equipment e ON pv.equipment_id = e.id
-        JOIN shifts s ON pv.shift_id = s.id
-        JOIN users u ON pv.user_id = u.id
-        ORDER BY pv.date DESC, pv.id DESC
-        LIMIT 20
-    ");
-    
-    // Формирование статистики
-    $stats = [
-        'equipmentCount' => count($equipment),
-        'parametersCount' => fetchOne("SELECT COUNT(*) as count FROM parameters")['count'],
-        'valuesCount' => fetchOne("SELECT COUNT(*) as count FROM parameter_values")['count'],
-        'lastUpdate' => !empty($latestValues) ? $latestValues[0]['date'] : null
-    ];
-    
-    return sendSuccess([
-        'equipment' => $equipment,
-        'shifts' => $shifts,
-        'latestValues' => $latestValues,
-        'stats' => $stats
-    ]);
+    try {
+        // 1. Состояние оборудования
+        $equipmentStatus = fetchAll("
+            SELECT 
+                CASE 
+                    WHEN e.name LIKE 'ГТ%' THEN CONCAT('ПГУ', SUBSTRING(e.name, 3))
+                    ELSE e.name 
+                END as name,
+                et.name as type_name,
+                CASE 
+                    WHEN latest_event.event_type = 'pusk' THEN 'Запущен'
+                    WHEN latest_event.event_type = 'ostanov' THEN 
+                        CONCAT('Остановлен (', COALESCE(sr.name, 'Не указана'), ')')
+                    ELSE 'Нет данных'
+                END as status
+            FROM equipment e
+            JOIN equipment_types et ON e.type_id = et.id
+            LEFT JOIN (
+                SELECT 
+                    equipment_id,
+                    event_type,
+                    reason_id,
+                    event_time
+                FROM equipment_events ee1
+                WHERE event_time = (
+                    SELECT MAX(event_time)
+                    FROM equipment_events ee2
+                    WHERE ee2.equipment_id = ee1.equipment_id
+                )
+            ) latest_event ON e.id = latest_event.equipment_id
+            LEFT JOIN stop_reasons sr ON latest_event.reason_id = sr.id
+            WHERE e.name NOT LIKE 'ПТ%'
+            ORDER BY 
+                CASE 
+                    WHEN e.name LIKE 'Блок%' THEN 1
+                    WHEN e.name LIKE 'ГТ%' THEN 2
+                    ELSE 3
+                END,
+                e.name
+        ");
+
+        // 2. Работающие вахты
+        // Получаем текущую дату
+        $currentDate = new DateTime();
+        $referenceDate = new DateTime('2025-04-01'); // Опорная дата - 1 апреля 2025
+        
+        // Вычисляем разницу в днях
+        $daysDiff = $currentDate->diff($referenceDate)->days;
+        
+        // Паттерны смен для каждой вахты (8-дневный цикл)
+        $patterns = [
+            ['3', '3', 'B', '1', '1', '2', '2', 'B'], // Вахта 1
+            ['1', '2', '2', 'B', '3', '3', 'B', '1'], // Вахта 2
+            ['2', 'B', '3', '3', 'B', '1', '1', '2'], // Вахта 3
+            ['B', '1', '1', '2', '2', 'B', '3', '3']  // Вахта 4
+        ];
+        
+        // Вычисляем индекс в паттерне
+        $patternIndex = ($daysDiff % 8);
+        
+        // Определяем какая вахта работает в каждую смену
+        $activeShifts = [];
+        foreach ($shifts = fetchAll("SELECT id, name FROM shifts ORDER BY id") as $shift) {
+            $shiftNumber = $shift['id']; // 1, 2 или 3 - номер смены
+            $activeVahta = null;
+            
+            // Проверяем каждую вахту
+            for ($vahtaNumber = 0; $vahtaNumber < 4; $vahtaNumber++) {
+                $shiftValue = $patterns[$vahtaNumber][$patternIndex];
+                if ($shiftValue == $shiftNumber) {
+                    $activeVahta = $vahtaNumber + 1;
+                    break;
+                }
+            }
+            
+            $activeShifts[] = [
+                'name' => $shift['name'],
+                'vahta' => $activeVahta ? "Вахта №{$activeVahta}" : 'Нет активной вахты'
+            ];
+        }
+
+        // 3. Статистика по станции
+        $powerStats = fetchOne("
+            SELECT 
+                COALESCE(SUM(CASE WHEN m.meter_type_id = 1 THEN mr.total ELSE 0 END), 0) as generation,
+                COALESCE(SUM(CASE WHEN m.meter_type_id = 2 THEN mr.total ELSE 0 END), 0) as consumption
+            FROM meter_readings mr
+            JOIN meters m ON mr.meter_id = m.id
+            WHERE mr.date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+                AND mr.date <= CURDATE()
+        ");
+
+        // 4. Время работы
+        $workingHours = fetchAll("
+            SELECT 
+                CASE 
+                    WHEN e.name LIKE 'ГТ%' THEN CONCAT('ПГУ', SUBSTRING(e.name, 3))
+                    ELSE e.name 
+                END as name,
+                et.name as type_name,
+                COUNT(DISTINCT DATE(ee_start.event_time)) as working_days,
+                COALESCE(
+                    SUM(
+                        TIMESTAMPDIFF(
+                            HOUR,
+                            ee_start.event_time,
+                            COALESCE(ee_stop.event_time, NOW())
+                        )
+                    ),
+                    0
+                ) as working_hours
+            FROM equipment e
+            JOIN equipment_types et ON e.type_id = et.id
+            LEFT JOIN equipment_events ee_start ON e.id = ee_start.equipment_id 
+                AND ee_start.event_type = 'pusk'
+                AND ee_start.event_time >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+            LEFT JOIN equipment_events ee_stop ON e.id = ee_stop.equipment_id 
+                AND ee_stop.event_type = 'ostanov'
+                AND ee_stop.event_time > ee_start.event_time
+                AND ee_stop.event_time = (
+                    SELECT MIN(event_time)
+                    FROM equipment_events ee3
+                    WHERE ee3.equipment_id = ee_start.equipment_id
+                        AND ee3.event_type = 'ostanov'
+                        AND ee3.event_time > ee_start.event_time
+                )
+            WHERE e.name NOT LIKE 'ПТ%'
+            GROUP BY e.id, e.name, et.name
+            ORDER BY 
+                CASE 
+                    WHEN e.name LIKE 'Блок%' THEN 1
+                    WHEN e.name LIKE 'ГТ%' THEN 2
+                    ELSE 3
+                END,
+                e.name
+        ");
+
+        return sendSuccess([
+            'equipmentStatus' => $equipmentStatus,
+            'activeShifts' => $activeShifts,
+            'powerStats' => $powerStats,
+            'workingHours' => $workingHours
+        ]);
+        
+    } catch (Exception $e) {
+        return sendError('Ошибка при получении данных: ' . $e->getMessage());
+    }
 }
 
 /**

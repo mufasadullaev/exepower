@@ -29,6 +29,7 @@ require_once 'controllers/equipment_events_controller.php';
 require_once 'controllers/equipment_stats_controller.php';
 require_once 'controllers/functions_controller.php';
 require_once 'controllers/counters_controller.php';
+require_once 'controllers/equipment_tools_controller.php';
 
 $request_uri = $_SERVER['REQUEST_URI'];
 $path = parse_url($request_uri, PHP_URL_PATH);
@@ -103,6 +104,10 @@ try {
             getStopReasons();
             break;
             
+        case 'start-reasons':
+            getStartReasons();
+            break;
+            
         case 'equipment-stats':
             getEquipmentStats();
             break;
@@ -164,15 +169,39 @@ try {
             break;
 
         case 'meter-replacements':
-            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+                getReplacementByDate();
+            } elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 saveReplacement();
             } else {
                 sendError('Метод не поддерживается', 405);
             }
             break;
             
-        case 'debug':
-            require_once 'debug.php';
+        case (preg_match('/^meter-replacements\/(\d+)$/', $path, $matches) ? true : false):
+            $replacementId = $matches[1];
+            if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
+                updateReplacement($replacementId);
+            } else {
+                sendError('Метод не поддерживается', 405);
+            }
+            break;
+            
+        case 'meter-replacements/cancel':
+            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                cancelReplacement();
+            } else {
+                sendError('Метод не поддерживается', 405);
+            }
+            break;
+        
+        case (preg_match('/^equipment-tools\/status\/(\d+)$/', $path, $matches) ? true : false):
+            $equipmentId = $matches[1];
+            return getToolStatus($equipmentId);
+            break;
+        
+        case 'equipment-tools/toggle':
+            return toggleTool();
             break;
         
         default:

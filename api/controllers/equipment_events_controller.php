@@ -40,7 +40,11 @@ function getEquipmentEvents() {
             ee.event_type,
             ee.event_time,
             ee.reason_id,
-            sr.name as reason_name,
+            CASE 
+                WHEN ee.event_type = 'ostanov' THEN sr.name
+                WHEN ee.event_type = 'pusk' THEN str.name
+                ELSE NULL
+            END as reason_name,
             ee.comment,
             ee.shift_id,
             s.name as shift_name,
@@ -49,7 +53,8 @@ function getEquipmentEvents() {
             ee.created_at
         FROM equipment_events ee
         JOIN equipment e ON ee.equipment_id = e.id
-        LEFT JOIN stop_reasons sr ON ee.reason_id = sr.id
+        LEFT JOIN stop_reasons sr ON ee.event_type = 'ostanov' AND ee.reason_id = sr.id
+        LEFT JOIN start_reasons str ON ee.event_type = 'pusk' AND ee.reason_id = str.id
         LEFT JOIN shifts s ON ee.shift_id = s.id
         LEFT JOIN users u ON ee.user_id = u.id
         WHERE ee.equipment_id = ?
@@ -146,6 +151,11 @@ function createEquipmentEvent() {
         
         error_log("Event created with ID: $eventId and time: $eventTime");
         
+        // Если это останов, то выключаем все инструменты
+        if ($eventType === 'ostanov') {
+            turnOffAllTools($equipmentId, $shiftId, $user['id']);
+        }
+        
         // Получение созданного события
         $event = fetchOne("
             SELECT 
@@ -155,7 +165,11 @@ function createEquipmentEvent() {
                 ee.event_type,
                 ee.event_time,
                 ee.reason_id,
-                sr.name as reason_name,
+                CASE 
+                    WHEN ee.event_type = 'ostanov' THEN sr.name
+                    WHEN ee.event_type = 'pusk' THEN str.name
+                    ELSE NULL
+                END as reason_name,
                 ee.comment,
                 ee.shift_id,
                 s.name as shift_name,
@@ -164,7 +178,8 @@ function createEquipmentEvent() {
                 ee.created_at
             FROM equipment_events ee
             JOIN equipment e ON ee.equipment_id = e.id
-            LEFT JOIN stop_reasons sr ON ee.reason_id = sr.id
+            LEFT JOIN stop_reasons sr ON ee.event_type = 'ostanov' AND ee.reason_id = sr.id
+            LEFT JOIN start_reasons str ON ee.event_type = 'pusk' AND ee.reason_id = str.id
             LEFT JOIN shifts s ON ee.shift_id = s.id
             LEFT JOIN users u ON ee.user_id = u.id
             WHERE ee.id = ?
@@ -239,6 +254,11 @@ function updateEquipmentEvent($eventId) {
         
         error_log("Event updated with ID: $eventId and time: $eventTime");
         
+        // Если изменили тип события на останов, то выключаем все инструменты
+        if ($eventType === 'ostanov' && $event['event_type'] !== 'ostanov') {
+            turnOffAllTools($event['equipment_id'], getCurrentShift(), $user['id']);
+        }
+        
         // Получение обновленного события
         $updatedEvent = fetchOne("
             SELECT 
@@ -248,7 +268,11 @@ function updateEquipmentEvent($eventId) {
                 ee.event_type,
                 ee.event_time,
                 ee.reason_id,
-                sr.name as reason_name,
+                CASE 
+                    WHEN ee.event_type = 'ostanov' THEN sr.name
+                    WHEN ee.event_type = 'pusk' THEN str.name
+                    ELSE NULL
+                END as reason_name,
                 ee.comment,
                 ee.shift_id,
                 s.name as shift_name,
@@ -257,7 +281,8 @@ function updateEquipmentEvent($eventId) {
                 ee.created_at
             FROM equipment_events ee
             JOIN equipment e ON ee.equipment_id = e.id
-            LEFT JOIN stop_reasons sr ON ee.reason_id = sr.id
+            LEFT JOIN stop_reasons sr ON ee.event_type = 'ostanov' AND ee.reason_id = sr.id
+            LEFT JOIN start_reasons str ON ee.event_type = 'pusk' AND ee.reason_id = str.id
             LEFT JOIN shifts s ON ee.shift_id = s.id
             LEFT JOIN users u ON ee.user_id = u.id
             WHERE ee.id = ?
@@ -288,7 +313,19 @@ function getStopReasons() {
         'reasons' => $reasons
     ]);
 }
-
+function getStartReasons() {
+    $user = requireAuth();
+    
+    try {
+        $reasons = fetchAll("SELECT * FROM start_reasons ORDER BY id");
+        
+        return sendSuccess([
+            'reasons' => $reasons
+        ]);
+    } catch (Exception $e) {
+        return sendError('Ошибка при получении типов пусков: ' . $e->getMessage());
+    }
+} 
 /**
  * Validate event chronology
  * Checks that the event time is valid in relation to other events
@@ -422,5 +459,46 @@ function getCurrentShift() {
         return 2; // Вторая смена (дневная)
     } else {
         return 3; // Третья смена (вечерняя)
+    }
+}
+
+/**
+ * Turn off all tools for the equipment
+ */
+function turnOffAllTools($equipmentId, $shiftId, $userId) {
+    try {
+        // Получаем список активных инструментов для оборудования
+        $activeTools = fetchAll("
+            SELECT t1.tool_type
+            FROM equipment_tool_events t1
+            INNER JOIN (
+                SELECT tool_type, MAX(event_time) as max_time
+                FROM equipment_tool_events
+                WHERE equipment_id = ?
+                GROUP BY tool_type
+            ) t2 ON t1.tool_type = t2.tool_type AND t1.event_time = t2.max_time
+            WHERE t1.equipment_id = ? AND t1.event_type = 'on'
+        ", [$equipmentId, $equipmentId]);
+        
+        $currentTime = date('Y-m-d H:i:s');
+        
+        // Выключаем каждый активный инструмент
+        foreach ($activeTools as $tool) {
+            insert('equipment_tool_events', [
+                'equipment_id' => $equipmentId,
+                'tool_type' => $tool['tool_type'],
+                'event_type' => 'off',
+                'event_time' => $currentTime,
+                'shift_id' => $shiftId,
+                'user_id' => $userId
+            ]);
+            
+            error_log("Tool {$tool['tool_type']} turned off for equipment $equipmentId");
+        }
+        
+        return count($activeTools) > 0;
+    } catch (Exception $e) {
+        error_log("Error turning off tools: " . $e->getMessage());
+        return false;
     }
 } 
