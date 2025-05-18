@@ -1,40 +1,48 @@
 // Dashboard service for fetching dashboard data from the API
-import authService from './authService';
-
-// Используем абсолютный URL для API
-const API_URL = 'http://exepower/api';
+import api from './api'
 
 export const dashboardService = {
   /**
    * Get dashboard data
-   * @returns {Promise<Object>} Dashboard data
+   * @returns {Promise<Object>} - Dashboard data
    */
   getDashboardData: async () => {
     try {
-      const token = authService.getToken();
-      
-      if (!token) {
-        throw new Error('Authentication token not found');
-      }
-      
-      console.log('Fetching dashboard data from:', API_URL + '/dashboard');
-      const response = await fetch(`${API_URL}/dashboard`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to fetch dashboard data');
-      }
-      
-      const data = await response.json();
-      console.log('Dashboard data response:', data);
-      return data.data;
+      const response = await api.get('/dashboard');
+      return response.data.data;
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get parameters for equipment
+   * @param {string} equipmentType - Type of equipment (block or pgu)
+   * @returns {Promise<Array>} - Parameters list
+   */
+  getParameters: async (equipmentType) => {
+    try {
+      const response = await api.get(`/parameters?type=${equipmentType}`);
+      return response.data.data;
+    } catch (error) {
+      console.error('Error fetching parameters:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get parameter values
+   * @param {Object} queryParams - Query parameters
+   * @returns {Promise<Array>} - Parameter values
+   */
+  getParameterValues: async (queryParams) => {
+    try {
+      const queryString = new URLSearchParams(queryParams).toString();
+      const response = await api.get(`/parameter-values?${queryString}`);
+      return response.data.data;
+    } catch (error) {
+      console.error('Error fetching parameter values:', error);
       throw error;
     }
   }

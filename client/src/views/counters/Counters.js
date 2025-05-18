@@ -182,15 +182,7 @@ const Counters = () => {
         return
       }
 
-      const readingsWithUser = Object.entries(readings).reduce((acc, [meterId, reading]) => {
-        acc[meterId] = {
-          ...reading,
-          user_id: user.id
-        }
-        return acc
-      }, {})
-
-      await counterService.saveReadings(selectedDate, readingsWithUser)
+      await counterService.saveReadings(selectedDate, readings)
       loadReadings(selectedDate)
       setSuccess('Показания успешно сохранены')
     } catch (error) {
@@ -217,6 +209,13 @@ const Counters = () => {
 
   const confirmCancelReplacement = async () => {
     try {
+      const user = authService.getUser()
+      if (!user) {
+        setModalError('Пользователь не авторизован')
+        setShowConfirmModal(false)
+        return
+      }
+
       await counterService.cancelReplacement(selectedMeter.id, format(selectedDate, 'yyyy-MM-dd'))
       setShowConfirmModal(false)
       setShowReplacementModal(false)
@@ -225,10 +224,10 @@ const Counters = () => {
       handleSaveReadings()
       checkMeterReplacements(selectedDate)
     } catch (error) {
-      console.error('Error cancelling replacement:', error);
-      const errorMessage = error.response?.data?.error?.message || 'Произошла ошибка при отмене замены счетчика';
-      setModalError(errorMessage);
-      setShowConfirmModal(false);
+      console.error('Error cancelling replacement:', error)
+      const errorMessage = error.response?.data?.error?.message || 'Произошла ошибка при отмене замены счетчика'
+      setModalError(errorMessage)
+      setShowConfirmModal(false)
     }
   }
 
@@ -321,10 +320,9 @@ const Counters = () => {
         new_reading: parseFloat(replacementData.new_reading),
         downtime_min: parseInt(replacementData.downtime_min) || 0,
         power_mw: parseFloat(replacementData.power_mw) || 0,
-        comment: replacementData.comment || '',
-        user_id: user.id
+        comment: replacementData.comment || ''
       }
-
+      
       if (replacementData.id) {
         // Обновление существующей записи
         await counterService.updateReplacement(replacementData.id, formattedData)
