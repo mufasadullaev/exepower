@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1:3306
--- Generation Time: May 16, 2025 at 10:01 PM
+-- Generation Time: May 18, 2025 at 11:36 AM
 -- Server version: 10.1.48-MariaDB
 -- PHP Version: 7.3.33
 
@@ -435,12 +435,23 @@ CREATE TABLE `meters` (
   `equipment_id` int(11) NOT NULL,
   `serial_number` varchar(50) NOT NULL,
   `scale` decimal(12,3) NOT NULL,
-  `coefficient_k` decimal(10,4) NOT NULL DEFAULT '1.0000',
+  `coefficient_k` decimal(10,3) NOT NULL DEFAULT '1.000',
   `name` varchar(100) NOT NULL,
   `is_active` tinyint(1) NOT NULL DEFAULT '1',
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+--
+-- Dumping data for table `meters`
+--
+
+INSERT INTO `meters` (`id`, `meter_type_id`, `equipment_id`, `serial_number`, `scale`, `coefficient_k`, `name`, `is_active`, `created_at`, `updated_at`) VALUES
+(1, 1, 3, 'ЫПРЫА', '99999.999', '160000.000', 'PGU1 Energy', 1, '2025-05-16 19:23:16', '2025-05-18 06:45:52'),
+(2, 1, 2, 'ЫПАВ', '99999.999', '1.000', 'PGU2 Energy', 1, '2025-05-16 19:23:16', '2025-05-17 19:11:42'),
+(3, 2, 1, 'TESTIK', '90000.000', '35000.000', 'PGU1 OwnUse', 1, '2025-05-16 19:23:16', '2025-05-16 19:59:47'),
+(4, 3, 1, 'TH-3001', '99999.999', '160000.000', 'КЭС', 1, '2025-05-16 19:23:16', '2025-05-17 11:10:50'),
+(5, 4, 1, 'AX-4001', '99999.000', '135000.000', 'ТГ7', 1, '2025-05-16 19:23:16', '2025-05-17 11:12:12');
 
 -- --------------------------------------------------------
 
@@ -460,10 +471,19 @@ CREATE TABLE `meter_readings` (
   `shift2` decimal(14,3) DEFAULT NULL,
   `shift3` decimal(14,3) DEFAULT NULL,
   `total` decimal(14,3) DEFAULT NULL,
-  `created_by` int(11) DEFAULT NULL,
+  `user_id` int(11) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+--
+-- Dumping data for table `meter_readings`
+--
+
+INSERT INTO `meter_readings` (`id`, `meter_id`, `date`, `r0`, `r8`, `r16`, `r24`, `shift1`, `shift2`, `shift3`, `total`, `user_id`, `created_at`, `updated_at`) VALUES
+(31, 1, '2025-05-17', '10.000', '20.000', '30.000', '50.000', '1350.000', '1350.000', '2700.000', '5400.000', NULL, '2025-05-18 06:09:30', '2025-05-18 06:09:30'),
+(32, 1, '2025-05-18', '5.000', '15.000', '5.000', NULL, '1600.000', '900.000', NULL, '2500.000', NULL, '2025-05-18 06:09:40', '2025-05-18 08:36:31'),
+(33, 2, '2025-05-18', '20.000', '30.000', '35.000', NULL, '0.010', '0.005', NULL, '0.015', NULL, '2025-05-18 06:19:20', '2025-05-18 08:36:31');
 
 -- --------------------------------------------------------
 
@@ -482,7 +502,7 @@ CREATE TABLE `meter_reading_history` (
   `new_r8` decimal(14,3) DEFAULT NULL,
   `new_r16` decimal(14,3) DEFAULT NULL,
   `new_r24` decimal(14,3) DEFAULT NULL,
-  `changed_by` int(11) DEFAULT NULL,
+  `user_id` int(11) DEFAULT NULL,
   `changed_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `comment` varchar(255) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -508,9 +528,16 @@ CREATE TABLE `meter_replacements` (
   `new_reading` decimal(14,3) NOT NULL,
   `downtime_min` int(11) NOT NULL DEFAULT '0',
   `power_mw` decimal(8,3) NOT NULL DEFAULT '0.000',
-  `created_by` int(11) DEFAULT NULL,
+  `user_id` int(11) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+--
+-- Dumping data for table `meter_replacements`
+--
+
+INSERT INTO `meter_replacements` (`id`, `meter_id`, `replacement_date`, `replacement_time`, `old_serial`, `old_coefficient`, `old_scale`, `old_reading`, `new_serial`, `new_coefficient`, `new_scale`, `new_reading`, `downtime_min`, `power_mw`, `user_id`, `created_at`) VALUES
+(32, 1, '2025-05-18', '10:30:00', 'ПЫАЫП', '160000.0000', '99999.999', '15.000', 'ЫПРЫА', '160000.0000', '99999.999', '0.000', 60, '100.000', NULL, '2025-05-18 06:45:52');
 
 -- --------------------------------------------------------
 
@@ -523,6 +550,16 @@ CREATE TABLE `meter_types` (
   `name` varchar(100) NOT NULL,
   `description` text
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+--
+-- Dumping data for table `meter_types`
+--
+
+INSERT INTO `meter_types` (`id`, `name`, `description`) VALUES
+(1, 'Выработка электроэнергии', 'Учёт выработанной энергии'),
+(2, 'Расход на собственные нужды', 'Учёт расхода на собственные нужды станции'),
+(3, 'Тиристорные', 'Учёт тиристорных возбудителей'),
+(4, 'Расход на хозяйственные нужды', 'Учёт расхода на хозяйственные нужды');
 
 -- --------------------------------------------------------
 
@@ -825,13 +862,13 @@ ALTER TABLE `function_coeff_sets`
 -- AUTO_INCREMENT for table `meters`
 --
 ALTER TABLE `meters`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- AUTO_INCREMENT for table `meter_readings`
 --
 ALTER TABLE `meter_readings`
-  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=34;
 
 --
 -- AUTO_INCREMENT for table `meter_reading_history`
@@ -843,13 +880,13 @@ ALTER TABLE `meter_reading_history`
 -- AUTO_INCREMENT for table `meter_replacements`
 --
 ALTER TABLE `meter_replacements`
-  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=33;
 
 --
 -- AUTO_INCREMENT for table `meter_types`
 --
 ALTER TABLE `meter_types`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT for table `parameters`
