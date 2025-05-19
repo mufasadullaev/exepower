@@ -31,7 +31,10 @@ function getEquipmentEvents() {
         return sendError('Оборудование не найдено', 404);
     }
     
-    // SQL запрос и параметры
+    // Получаем последнее событие для определения текущего состояния
+    $lastEvent = getLastEquipmentEvent($equipmentId);
+    
+    // SQL запрос и параметры для получения событий за период
     $sql = "
         SELECT 
             ee.id,
@@ -88,7 +91,8 @@ function getEquipmentEvents() {
     return sendSuccess([
         'equipment' => $equipment,
         'events' => $events,
-        'date' => $month ?? $date
+        'date' => $month ?? $date,
+        'last_event' => $lastEvent
     ]);
 }
 
@@ -501,4 +505,42 @@ function turnOffAllTools($equipmentId, $shiftId, $userId) {
         error_log("Error turning off tools: " . $e->getMessage());
         return false;
     }
+}
+
+/**
+ * Get last equipment event
+ * Retrieves the most recent event for specific equipment
+ */
+function getLastEquipmentEvent($equipmentId) {
+    $sql = "
+        SELECT 
+            ee.id,
+            ee.equipment_id,
+            e.name as equipment_name,
+            ee.event_type,
+            ee.event_time,
+            ee.reason_id,
+            CASE 
+                WHEN ee.event_type = 'ostanov' THEN sr.name
+                WHEN ee.event_type = 'pusk' THEN str.name
+                ELSE NULL
+            END as reason_name,
+            ee.comment,
+            ee.shift_id,
+            s.name as shift_name,
+            ee.user_id,
+            u.username as user_name,
+            ee.created_at
+        FROM equipment_events ee
+        JOIN equipment e ON ee.equipment_id = e.id
+        LEFT JOIN stop_reasons sr ON ee.event_type = 'ostanov' AND ee.reason_id = sr.id
+        LEFT JOIN start_reasons str ON ee.event_type = 'pusk' AND ee.reason_id = str.id
+        LEFT JOIN shifts s ON ee.shift_id = s.id
+        LEFT JOIN users u ON ee.user_id = u.id
+        WHERE ee.equipment_id = ?
+        ORDER BY ee.event_time DESC
+        LIMIT 1
+    ";
+    
+    return fetchOne($sql, [$equipmentId]);
 } 
