@@ -54,6 +54,7 @@ const EquipmentEvents = () => {
   const [selectedEquipment, setSelectedEquipment] = useState(null)
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [events, setEvents] = useState([])
+  const [lastEvent, setLastEvent] = useState(null)  // Добавляем состояние для последнего события
   const [stopReasons, setStopReasons] = useState([])
   const [startReasons, setStartReasons] = useState([])
   const [loading, setLoading] = useState(true)
@@ -224,6 +225,8 @@ const EquipmentEvents = () => {
       }
       
       allEvents = data.data?.events || [];
+      // Сохраняем последнее событие
+      setLastEvent(data.data?.last_event || null);
     }
     
     return allEvents;
@@ -251,15 +254,8 @@ const EquipmentEvents = () => {
   
   // Определение текущего состояния оборудования (работает или остановлено)
   const determineEquipmentStatus = () => {
-    if (!events || events.length === 0) return 'unknown'
-    
-    // Сортируем события по времени (от последнего к первому)
-    const sortedEvents = [...events].sort((a, b) => 
-      new Date(b.event_time) - new Date(a.event_time)
-    )
-    
-    // Последнее событие определяет текущий статус
-    return sortedEvents[0]?.event_type === 'pusk' ? 'running' : 'stopped'
+    if (!lastEvent) return 'unknown'
+    return lastEvent.event_type === 'pusk' ? 'running' : 'stopped'
   }
   
   // Обработчик нажатия на кнопку "Пуск" или "Останов"
