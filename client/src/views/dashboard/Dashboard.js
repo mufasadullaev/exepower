@@ -18,7 +18,7 @@ import { dashboardService } from '../../services/dashboardService'
 
 const Dashboard = () => {
   const [loading, setLoading] = useState(true)
-  const [equipmentStatus, setEquipmentStatus] = useState([])
+  const [dashboardRows, setDashboardRows] = useState([])
   const [activeShifts, setActiveShifts] = useState([])
   const [powerStats, setPowerStats] = useState({
     generation: 0,
@@ -38,8 +38,8 @@ const Dashboard = () => {
       setLoading(true)
       const response = await dashboardService.getDashboardData()
       const data = response.data
-      
-      setEquipmentStatus(data.equipmentStatus)
+
+      setDashboardRows(data.dashboardRows)
       setActiveShifts(data.activeShifts)
       setPowerStats(data.powerStats)
       setWorkingHours(data.workingHours)
@@ -51,12 +51,12 @@ const Dashboard = () => {
   }
 
   const getStatusBadge = (status) => {
-    if (status === 'Запущен') {
+    if (status.includes('Запущен') || status.includes('Включен')) {
       return <CBadge color="success">{status}</CBadge>
-    } else if (status.includes('Остановлен')) {
+    } else if (status.includes('Остановлен') || status.includes('Выключен')) {
       return <CBadge color="danger">{status}</CBadge>
     }
-    return <CBadge color="secondary">{status}</CBadge>
+    return <CBadge color="warning">{status}</CBadge>
   }
 
   if (loading) {
@@ -70,7 +70,7 @@ const Dashboard = () => {
   return (
     <>
       <CRow>
-        <CCol md={6}>
+        <CCol md={8}>
           <CCard className="mb-4">
             <CCardHeader>
               <strong>Состояние оборудования</strong>
@@ -81,13 +81,17 @@ const Dashboard = () => {
                   <CTableRow>
                     <CTableHeaderCell>Оборудование</CTableHeaderCell>
                     <CTableHeaderCell>Состояние</CTableHeaderCell>
+                    <CTableHeaderCell>Испаритель</CTableHeaderCell>
+                    <CTableHeaderCell>АОС</CTableHeaderCell>
                   </CTableRow>
                 </CTableHead>
                 <CTableBody>
-                  {equipmentStatus.map((item, index) => (
+                  {dashboardRows.map((item, index) => (
                     <CTableRow key={index}>
                       <CTableDataCell>{item.name}</CTableDataCell>
                       <CTableDataCell>{getStatusBadge(item.status)}</CTableDataCell>
+                      <CTableDataCell>{getStatusBadge(item.evaporator)}</CTableDataCell>
+                      <CTableDataCell>{getStatusBadge(item.aos)}</CTableDataCell>
                     </CTableRow>
                   ))}
                 </CTableBody>
@@ -95,7 +99,8 @@ const Dashboard = () => {
             </CCardBody>
           </CCard>
         </CCol>
-
+      </CRow>
+      <CRow>            
         <CCol md={6}>
           <CCard className="mb-4">
             <CCardHeader>
