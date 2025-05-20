@@ -101,7 +101,7 @@ const Dashboard = () => {
         </CCol>
       </CRow>
       <CRow>            
-        <CCol md={6}>
+        <CCol md={4}>
           <CCard className="mb-4">
             <CCardHeader>
               <strong>Работающие вахты</strong>
@@ -130,57 +130,24 @@ const Dashboard = () => {
             </CCardBody>
           </CCard>
         </CCol>
-      </CRow>
-
-      <CRow>
-        <CCol md={6}>
+        <CCol md={4}>
           <CCard className="mb-4">
             <CCardHeader>
-              <strong>Статистика по станции (за последнюю неделю)</strong>
+              <strong>По станции (посл. неделя)</strong>
             </CCardHeader>
             <CCardBody>
               <div className="mb-3">
-                <h4>Выработка энергии</h4>
-                <div className="h2 mb-3">
+                <strong>Выработка энергии</strong>
+                <div className="h4 m-2">
                   {powerStats.generation.toLocaleString()} МВт·ч
                 </div>
               </div>
               <div>
-                <h4>Расход энергии</h4>
-                <div className="h2">
+                <h5>Расход энергии</h5>
+                <div className="h4 m-2">
                   {powerStats.consumption.toLocaleString()} МВт·ч
                 </div>
               </div>
-            </CCardBody>
-          </CCard>
-        </CCol>
-
-        <CCol md={6}>
-          <CCard className="mb-4">
-            <CCardHeader>
-              <strong>Время работы за последнюю неделю</strong>
-            </CCardHeader>
-            <CCardBody>
-              <CTable hover>
-                <CTableHead>
-                  <CTableRow>
-                    <CTableHeaderCell>Оборудование</CTableHeaderCell>
-                    <CTableHeaderCell>Тип</CTableHeaderCell>
-                    <CTableHeaderCell>Дней работы</CTableHeaderCell>
-                    <CTableHeaderCell>Часов работы</CTableHeaderCell>
-                  </CTableRow>
-                </CTableHead>
-                <CTableBody>
-                  {workingHours.map((item, index) => (
-                    <CTableRow key={index}>
-                      <CTableDataCell>{item.name}</CTableDataCell>
-                      <CTableDataCell>{item.type_name}</CTableDataCell>
-                      <CTableDataCell>{item.working_days}</CTableDataCell>
-                      <CTableDataCell>{Math.round(item.working_hours)}</CTableDataCell>
-                    </CTableRow>
-                  ))}
-                </CTableBody>
-              </CTable>
             </CCardBody>
           </CCard>
         </CCol>
