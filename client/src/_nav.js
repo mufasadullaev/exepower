@@ -52,6 +52,12 @@ const _nav = [
     to: '/operating-hours',
     icon: <CIcon icon={cilChart} customClassName="nav-icon" />,
   },
+  {
+    component: CNavItem,
+    name: 'Расчеты',
+    to: '/calculations',
+    icon: <CIcon icon={cilCalculator} customClassName="nav-icon" />,
+  },
 ]
 
 export default _nav
