@@ -1,20 +1,49 @@
 <?php
 // Конфигурационный файл
 
-// Пароль для доступа к приложению
-define('MASTER_PASSWORD', 'admin123');
+// Функция для чтения .env файла
+function loadEnv($path) {
+    if (!file_exists($path)) {
+        die(".env file not found");
+    }
+
+    $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    foreach ($lines as $line) {
+        if (strpos($line, '#') === 0 || empty(trim($line))) {
+            continue;
+        }
+
+        list($name, $value) = explode('=', $line, 2);
+        $name = trim($name);
+        $value = trim($value);
+        
+        // Обработка переменных в значениях (например, ${APP_URL})
+        if (preg_match('/\${([^}]+)}/', $value, $matches)) {
+            $envVar = $matches[1];
+            if (isset($_ENV[$envVar])) {
+                $value = str_replace('${' . $envVar . '}', $_ENV[$envVar], $value);
+            }
+        }
+
+        putenv("$name=$value");
+        $_ENV[$name] = $value;
+    }
+}
+
+// Загрузка .env файла
+loadEnv(__DIR__ . '/../.env');
 
 // Секретный ключ для JWT
-define('JWT_SECRET', 'your_jwt_secret_key_here');
+define('JWT_SECRET', getenv('JWT_SECRET'));
 
 // Срок действия токена (в секундах)
-define('TOKEN_EXPIRY', 86400); // 24 часа
+define('TOKEN_EXPIRY', getenv('JWT_EXPIRATION')); 
 
 // Настройки базы данных
-define('DB_HOST', 'localhost');
-define('DB_NAME', 'exepower');
-define('DB_USER', 'root');
-define('DB_PASS', '');
+define('DB_HOST', getenv('DB_HOST'));
+define('DB_NAME', getenv('DB_NAME'));
+define('DB_USER', getenv('DB_USER'));
+define('DB_PASS', getenv('DB_PASS'));
 
 // Функция для подключения к базе данных
 function getDbConnection() {

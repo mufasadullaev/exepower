@@ -14,37 +14,21 @@ function login() {
     // Получение данных из запроса
     $requestData = json_decode(file_get_contents('php://input'), true);
     
-    if (!isset($requestData['password'])) {
-        return sendError('Пароль не указан', 400);
-    }
-    
-    $password = $requestData['password'];
-    
-    // Для обратной совместимости - проверка мастер-пароля
-    if ($password === MASTER_PASSWORD) {
-        $user = [
-            'id' => 1,
-            'username' => 'admin',
-            'role' => 'менеджер'
-        ];
-        
-        $token = generateJWT($user);
-        
-        return sendSuccess([
-            'token' => $token,
-            'user' => $user
-        ]);
-    }
-    
-    // Проверка учетных данных в базе
-    $username = $requestData['username'] ?? '';
-    
-    if (empty($username)) {
+    // Проверка обязательных полей
+    if (!isset($requestData['username']) || empty($requestData['username'])) {
         return sendError('Имя пользователя не указано', 400);
     }
     
+    if (!isset($requestData['password']) || empty($requestData['password'])) {
+        return sendError('Пароль не указан', 400);
+    }
+    
+    $username = $requestData['username'];
+    $password = $requestData['password'];
+    
+    // Проверка учетных данных в базе
     $user = fetchOne(
-        "SELECT id, username, password, role FROM users WHERE username = ?",
+        "SELECT id, username, password, role FROM users WHERE username = ? AND active = 1",
         [$username]
     );
     

@@ -100,49 +100,65 @@ function getEquipmentEvents() {
  * Create a new equipment event
  */
 function createEquipmentEvent() {
-    // Проверка аутентификации
-    $user = requireAuth();
-    
-    // Получение данных из запроса
-    $requestData = json_decode(file_get_contents('php://input'), true);
-    
-    // Отладка входящих данных
-    error_log("Creating event with data: " . json_encode($requestData));
-    
-    // Проверка обязательных полей
-    if (!isset($requestData['equipment_id']) || !isset($requestData['event_type']) || !isset($requestData['event_time'])) {
-        return sendError('Не все обязательные поля заполнены', 400);
-    }
-    
-    $equipmentId = $requestData['equipment_id'];
-    $eventType = $requestData['event_type'];
-    $eventTime = $requestData['event_time'];
-    $reasonId = $requestData['reason_id'] ?? null;
-    $comment = $requestData['comment'] ?? null;
-    
-    error_log("Event time received: $eventTime");
-    
-    // Проверка корректности типа события
-    if ($eventType !== 'pusk' && $eventType !== 'ostanov') {
-        return sendError('Неверный тип события. Допустимые значения: pusk, ostanov', 400);
-    }
-    
-    // Для останова требуется указать причину
-    if ($eventType === 'ostanov' && !$reasonId) {
-        return sendError('Для останова необходимо указать причину', 400);
-    }
-    
-    // Проверка хронологии событий
-    $validationResult = validateEventChronology($equipmentId, $eventType, $eventTime);
-    if (!$validationResult['valid']) {
-        return sendError($validationResult['message'], 400);
-    }
-    
-    // Определение текущей смены
-    $shiftId = getCurrentShift();
-    
-    // Создание события
     try {
+        error_log("DEBUG: Starting createEquipmentEvent");
+        
+        // Проверка аутентификации
+        $user = requireAuth();
+        error_log("DEBUG: Auth passed, user: " . json_encode($user));
+        
+        // Получение данных из запроса
+        $rawInput = file_get_contents('php://input');
+        error_log("DEBUG: Raw input: " . $rawInput);
+        
+        $requestData = json_decode($rawInput, true);
+        error_log("DEBUG: Decoded request data: " . json_encode($requestData));
+        
+        // Проверка обязательных полей
+        if (!isset($requestData['equipment_id']) || !isset($requestData['event_type']) || !isset($requestData['event_time'])) {
+            error_log("DEBUG: Missing required fields");
+            error_log("DEBUG: equipment_id present: " . isset($requestData['equipment_id']));
+            error_log("DEBUG: event_type present: " . isset($requestData['event_type']));
+            error_log("DEBUG: event_time present: " . isset($requestData['event_time']));
+            return sendError('Не все обязательные поля заполнены', 400);
+        }
+        
+        $equipmentId = $requestData['equipment_id'];
+        $eventType = $requestData['event_type'];
+        $eventTime = $requestData['event_time'];
+        $reasonId = $requestData['reason_id'] ?? null;
+        $comment = $requestData['comment'] ?? null;
+        
+        error_log("DEBUG: Parsed values - equipmentId: $equipmentId, eventType: $eventType, eventTime: $eventTime, reasonId: $reasonId");
+        
+        // Проверка корректности типа события
+        if ($eventType !== 'pusk' && $eventType !== 'ostanov') {
+            error_log("DEBUG: Invalid event type: $eventType");
+            return sendError('Неверный тип события. Допустимые значения: pusk, ostanov', 400);
+        }
+        
+        // Для останова требуется указать причину
+        if ($eventType === 'ostanov' && !$reasonId) {
+            error_log("DEBUG: Missing reason_id for ostanov event");
+            return sendError('Для останова необходимо указать причину', 400);
+        }
+        
+        // Проверка хронологии событий
+        error_log("DEBUG: Validating event chronology");
+        $validationResult = validateEventChronology($equipmentId, $eventType, $eventTime);
+        error_log("DEBUG: Validation result: " . json_encode($validationResult));
+        
+        if (!$validationResult['valid']) {
+            error_log("DEBUG: Chronology validation failed");
+            return sendError($validationResult['message'], 400);
+        }
+        
+        // Определение текущей смены
+        $shiftId = getCurrentShift();
+        error_log("DEBUG: Current shift ID: $shiftId");
+        
+        // Создание события
+        error_log("DEBUG: Attempting to insert event into database");
         $eventId = insert('equipment_events', [
             'equipment_id' => $equipmentId,
             'event_type' => $eventType,
@@ -153,14 +169,16 @@ function createEquipmentEvent() {
             'user_id' => $user['id']
         ]);
         
-        error_log("Event created with ID: $eventId and time: $eventTime");
+        error_log("DEBUG: Event created with ID: $eventId");
         
         // Если это останов, то выключаем все инструменты
         if ($eventType === 'ostanov') {
+            error_log("DEBUG: Turning off tools for equipment $equipmentId");
             turnOffAllTools($equipmentId, $shiftId, $user['id']);
         }
         
         // Получение созданного события
+        error_log("DEBUG: Fetching created event details");
         $event = fetchOne("
             SELECT 
                 ee.id,
@@ -189,13 +207,15 @@ function createEquipmentEvent() {
             WHERE ee.id = ?
         ", [$eventId]);
         
-        error_log("Event retrieved from DB: " . json_encode($event));
+        error_log("DEBUG: Successfully retrieved event: " . json_encode($event));
         
         return sendSuccess([
             'message' => 'Событие успешно создано',
             'event' => $event
         ]);
     } catch (Exception $e) {
+        error_log("ERROR in createEquipmentEvent: " . $e->getMessage());
+        error_log("ERROR stack trace: " . $e->getTraceAsString());
         return sendError('Ошибка при создании события: ' . $e->getMessage(), 500);
     }
 }
