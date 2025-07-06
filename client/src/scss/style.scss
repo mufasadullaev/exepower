@@ -66,35 +66,135 @@ body {
   }
 }
 
-// Стили для переключателей инструментов
+// Original CoreUI switch styles (reverted)
 .form-switch {
   .form-check-input {
     width: 3em;
     height: 1.5em;
     margin-top: 0.25em;
-    
+
     &:checked {
       background-color: #2eb85c;
       border-color: #2eb85c;
     }
-    
+
     &:not(:checked) {
       background-color: #e55353;
       border-color: #e55353;
     }
-    
+
     &:disabled {
       opacity: 0.5;
     }
   }
-  
+
   &.switch-success .form-check-input:checked {
     background-color: #2eb85c;
     border-color: #2eb85c;
   }
-  
+
   &.switch-danger .form-check-input:not(:checked) {
     background-color: #e55353;
-    border-color: #e55353;
+  }
+}
+
+// Modern styles for tool switches
+.tool-switch {
+  display: flex;
+  align-items: center;
+
+  .form-check-input {
+    width: 3.5em;
+    height: 1.8em;
+    margin-top: 0;
+    margin-right: 0.75rem;
+    cursor: pointer;
+    border-radius: 1em;
+    border-width: 2px;
+    border-style: solid;
+    transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+
+    // Add subtle shadow
+    box-shadow: rgba(0, 0, 0, 0.1) 0px 1px 3px 0px, rgba(0, 0, 0, 0.06) 0px 1px 2px 0px;
+
+    .tool-switch--on & {
+      background-color: #007bff;
+      border-color: #0056b3;
+    }
+
+    .tool-switch--off & {
+      background-color: #ced4da;
+      border-color: #adb5bd;
+    }
+
+    &:focus {
+      box-shadow: 0 0 0 0.25rem rgba(0, 123, 255, 0.25);
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  }
+
+  .form-check-label {
+    margin-left: 0;
+    font-weight: normal;
+    color: var(--cui-body-color);
+  }
+}
+
+// Styles for the container block around each tool switch
+.tool-item-block {
+  border: 1px solid var(--cui-border-color);
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  background-color: var(--cui-card-bg);
+  box-shadow: var(--cui-box-shadow-sm);
+
+  // Ensure the form-switch inside is a flex container for alignment
+  .form-switch {
+    display: flex;
+    align-items: center;
+    margin-bottom: 0;
+
+    .form-check-input {
+      width: 3.5em;
+      height: 1.8em;
+      margin-top: 0;
+      margin-right: 0.75rem;
+      cursor: pointer;
+      border-radius: 1em;
+      border-width: 2px;
+      border-style: solid;
+      transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+      flex-shrink: 0;
+
+      &:checked {
+        background-color: #28a745;
+        border-color: #218838;
+      }
+
+      &:not(:checked) {
+        background-color: #6c757d;
+        border-color: #5a6268;
+      }
+
+      &:focus {
+        box-shadow: 0 0 0 0.25rem rgba(40, 167, 69, 0.25);
+      }
+
+      &:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+    }
+
+    .form-check-label {
+      margin-left: 0;
+      font-weight: normal;
+      color: var(--cui-body-color);
+      flex-grow: 1;
+    }
   }
 }

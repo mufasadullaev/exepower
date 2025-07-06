@@ -762,22 +762,26 @@ const EquipmentEvents = () => {
           <CRow className="mb-3">
             <CCol>
               <div className="d-flex align-items-center gap-4">
-                <CFormSwitch
-                  id="evaporatorSwitch"
-                  label="Испаритель"
-                  checked={toolStatus.evaporator === 'on'}
-                  onChange={() => handleToolToggleRequest('evaporator')}
-                  disabled={determineEquipmentStatus() !== 'running' || toolsLoading}
-                  className={`${toolStatus.evaporator === 'on' ? 'switch-success' : 'switch-danger'}`}
-                />
-                <CFormSwitch
-                  id="aosSwitch"
-                  label="АОС"
-                  checked={toolStatus.aos === 'on'}
-                  onChange={() => handleToolToggleRequest('aos')}
-                  disabled={determineEquipmentStatus() !== 'running' || toolsLoading}
-                  className={`${toolStatus.aos === 'on' ? 'switch-success' : 'switch-danger'}`}
-                />
+                <div className="tool-item-block">
+                  <CFormSwitch
+                    id="evaporatorSwitch"
+                    label="Испаритель"
+                    checked={toolStatus.evaporator === 'on'}
+                    onChange={() => handleToolToggleRequest('evaporator')}
+                    disabled={determineEquipmentStatus() !== 'running' || toolsLoading}
+                    className={`tool-switch tool-switch--${toolStatus.evaporator}`}
+                  />
+                </div>
+                <div className="tool-item-block">
+                  <CFormSwitch
+                    id="aosSwitch"
+                    label="АОС"
+                    checked={toolStatus.aos === 'on'}
+                    onChange={() => handleToolToggleRequest('aos')}
+                    disabled={determineEquipmentStatus() !== 'running' || toolsLoading}
+                    className={`tool-switch tool-switch--${toolStatus.aos}`}
+                  />
+                </div>
                 {determineEquipmentStatus() !== 'running' && (
                   <small className="text-muted">
                     Управление инструментами доступно только при запущенном оборудовании
