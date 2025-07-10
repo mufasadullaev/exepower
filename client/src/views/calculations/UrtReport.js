@@ -17,20 +17,32 @@ const SHIFTS = [
 ]
 
 export default function UrtReport() {
-  const [date, setDate] = useState(new Date())
   const [mode, setMode] = useState('day')
+  const [date, setDate] = useState(new Date())
+  const [dateRange, setDateRange] = useState([null, null])
   const [shift, setShift] = useState(1)
   const navigate = useNavigate()
 
+  const isPeriod = mode === 'period'
+  const isShift = mode === 'shift'
+
   const handleShow = (e) => {
     e.preventDefault()
-    const formattedDate = date.toISOString().slice(0, 10)
-    navigate(`/calculations/urt/result?date=${formattedDate}&shift=${shift}&mode=${mode}`)
+    let params = `mode=${mode}`
+    if (isPeriod && dateRange[0] && dateRange[1]) {
+      params += `&date=${dateRange[0].toISOString().slice(0, 10)}&date_end=${dateRange[1].toISOString().slice(0, 10)}`
+    } else {
+      params += `&date=${date.toISOString().slice(0, 10)}`
+    }
+    if (isShift) {
+      params += `&shift=${shift}`
+    }
+    navigate(`/calculations/urt/result?${params}`)
   }
 
   return (
     <div style={{
-      maxWidth: 480,
+      maxWidth: 520,
       margin: '40px auto',
       background: '#fff',
       borderRadius: 16,
@@ -47,15 +59,32 @@ export default function UrtReport() {
         Анализ УРТ на отпущенную электроэнергию
       </h2>
       <div style={{ marginBottom: 24, textAlign: 'center' }}>
-        <DatePicker
-          selected={date}
-          onChange={setDate}
-          dateFormat="dd.MM.yyyy"
-          showMonthDropdown
-          showYearDropdown
-          dropdownMode="select"
-          className="form-control"
-        />
+        {isPeriod ? (
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 12 }}>
+            <DatePicker
+              selectsRange
+              startDate={dateRange[0]}
+              endDate={dateRange[1]}
+              onChange={(update) => setDateRange(update)}
+              dateFormat="dd.MM.yyyy"
+              isClearable={true}
+              placeholderText="Выберите период"
+              className="form-control"
+              inline
+            />
+          </div>
+        ) : (
+          <DatePicker
+            selected={date}
+            onChange={setDate}
+            dateFormat="dd.MM.yyyy"
+            showMonthDropdown
+            showYearDropdown
+            dropdownMode="select"
+            className="form-control"
+            inline
+          />
+        )}
       </div>
       <div style={{
         background: '#f5f6fa',
@@ -81,25 +110,28 @@ export default function UrtReport() {
               </label>
             ))}
           </div>
-          <div>
-            {SHIFTS.map(s => (
-              <label key={s.value} style={{ display: 'block', marginBottom: 6, cursor: 'pointer' }}>
-                <input
-                  type="radio"
-                  name="shift"
-                  value={s.value}
-                  checked={shift === s.value}
-                  onChange={() => setShift(s.value)}
-                  style={{ marginRight: 6 }}
-                />
-                {s.label}
-              </label>
-            ))}
-          </div>
+          {isShift && (
+            <div>
+              <div style={{ fontWeight: 500, marginBottom: 6 }}>Смена:</div>
+              {SHIFTS.map(s => (
+                <label key={s.value} style={{ display: 'block', marginBottom: 6, cursor: 'pointer' }}>
+                  <input
+                    type="radio"
+                    name="shift"
+                    value={s.value}
+                    checked={shift === s.value}
+                    onChange={() => setShift(s.value)}
+                    style={{ marginRight: 6 }}
+                  />
+                  {s.label}
+                </label>
+              ))}
+            </div>
+          )}
         </div>
       </div>
       <div style={{ color: '#4b5563', fontSize: '0.98rem', marginBottom: 24, textAlign: 'center' }}>
-        Для анализа УРТ выберите дату, форму отображения и нажмите кнопку «Отобразить»
+        Для анализа УРТ выберите дату или период, форму отображения и нажмите кнопку «Отобразить»
       </div>
       <div style={{ display: 'flex', gap: 16, justifyContent: 'center' }}>
         <button
