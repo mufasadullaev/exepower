@@ -27,8 +27,8 @@ const FunctionVariables = React.lazy(() => import('./views/functions/FunctionVar
 const Counters = React.lazy(() => import('./views/counters/Counters'))
 const Calculations = React.lazy(() => import('./views/calculations/Calculations'))
 const TepCalculation = React.lazy(() => import('./views/calculations/TepCalculation'))
-const UrtReport = React.lazy(() => import('./views/calculations/UrtReport'))
-const UrtResultTable = React.lazy(() => import('./views/calculations/UrtResultTable'))
+const PguReport = React.lazy(() => import('./views/calculations/PguReport'))
+const PguResultTable = React.lazy(() => import('./views/calculations/PguResultTable'))
 const Raport = React.lazy(() => import('./views/calculations/Raport'))
 
 // Components
@@ -104,8 +104,8 @@ const App = () => {
             <Route path="/calculations" element={<DefaultLayout />}>
               <Route index element={<Calculations />} />
               <Route path="tep" element={<TepCalculation />} />
-              <Route path="urt" element={<UrtReport />} />
-              <Route path="urt/result" element={<UrtResultTable />} />
+              <Route path="pgu" element={<PguReport />} />
+              <Route path="pgu/result" element={<PguResultTable />} />
               <Route path="raport" element={<Raport />} />
             </Route>
           </Route>

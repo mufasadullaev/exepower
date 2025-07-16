@@ -16,7 +16,7 @@ const SHIFTS = [
   { value: 3, label: '3 смена' },
 ]
 
-export default function UrtReport() {
+export default function PguReport() {
   const [mode, setMode] = useState('day')
   const [date, setDate] = useState(new Date())
   const [dateRange, setDateRange] = useState([null, null])
@@ -25,19 +25,33 @@ export default function UrtReport() {
 
   const isPeriod = mode === 'period'
   const isShift = mode === 'shift'
+  const isMonth = mode === 'month'
 
   const handleShow = (e) => {
     e.preventDefault()
     let params = `mode=${mode}`
     if (isPeriod && dateRange[0] && dateRange[1]) {
-      params += `&date=${dateRange[0].toISOString().slice(0, 10)}&date_end=${dateRange[1].toISOString().slice(0, 10)}`
+      const start = dateRange[0]
+      const end = dateRange[1]
+      const startStr = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`
+      const endStr = `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}-${String(end.getDate()).padStart(2, '0')}`
+      params += `&date=${startStr}&date_end=${endStr}`
+    } else if (isMonth) {
+      const d = date
+      const firstDayStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
+      const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+      params += `&date=${firstDayStr}&date_end=${dateStr}`
     } else {
-      params += `&date=${date.toISOString().slice(0, 10)}`
+      const d = date
+      const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+      params += `&date=${dateStr}`
     }
+    // Only add shift if mode is 'shift'
     if (isShift) {
       params += `&shift=${shift}`
     }
-    navigate(`/calculations/urt/result?${params}`)
+    console.log('PGU report params:', params)
+    navigate(`/calculations/pgu/result?${params}`)
   }
 
   return (
@@ -56,7 +70,7 @@ export default function UrtReport() {
         fontWeight: 600,
         fontSize: '1.2rem'
       }}>
-        Анализ УРТ на отпущенную электроэнергию
+        Распет ПГУ
       </h2>
       <div style={{ marginBottom: 24, textAlign: 'center' }}>
         {isPeriod ? (
@@ -131,7 +145,7 @@ export default function UrtReport() {
         </div>
       </div>
       <div style={{ color: '#4b5563', fontSize: '0.98rem', marginBottom: 24, textAlign: 'center' }}>
-        Для анализа УРТ выберите дату или период, форму отображения и нажмите кнопку «Отобразить»
+        Для анализа ПГУ выберите дату или период, форму отображения и нажмите кнопку «Отобразить»
       </div>
       <div style={{ display: 'flex', gap: 16, justifyContent: 'center' }}>
         <button

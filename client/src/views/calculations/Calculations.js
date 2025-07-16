@@ -40,9 +40,9 @@ const Calculations = () => {
           style={hovered === 2 ? { ...buttonStyle, ...buttonHover } : buttonStyle}
           onMouseEnter={() => setHovered(2)}
           onMouseLeave={() => setHovered(null)}
-          onClick={() => navigate('/calculations/urt')}
+          onClick={() => navigate('/calculations/pgu')}
         >
-          Отчет по УРТ
+          Распет ПГУ
         </button>
         <button
           style={hovered === 3 ? { ...buttonStyle, ...buttonHover } : buttonStyle}

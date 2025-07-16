@@ -41,7 +41,6 @@ export const authService = {
    */
   login: async (password) => {
     try {
-      console.log('Sending login request to:', API_URL + '/auth/login');
       const response = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: {
@@ -49,18 +48,22 @@ export const authService = {
         },
         body: JSON.stringify({ password })
       });
-      
-      const data = await response.json();
-      console.log('Login response:', data);
-      
+      let data = null;
+      try {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          data = await response.json();
+        } else {
+          data = { message: 'Server error: invalid response' };
+        }
+      } catch (e) {
+        data = { message: 'Server error: invalid JSON' };
+      }
       if (!response.ok) {
         throw new Error(data.message || 'Login failed');
       }
-      
-      // Store token in localStorage
       safeLocalStorage.setItem('token', data.data.token);
       safeLocalStorage.setItem('user', JSON.stringify(data.data.user));
-      
       return true;
     } catch (error) {
       console.error('Login error:', error);
@@ -76,7 +79,6 @@ export const authService = {
    */
   loginWithUsername: async (username, password) => {
     try {
-      console.log('Sending login request with username to:', API_URL + '/auth/login');
       const response = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: {
@@ -84,18 +86,22 @@ export const authService = {
         },
         body: JSON.stringify({ username, password })
       });
-      
-      const data = await response.json();
-      console.log('Login response:', data);
-      
+      let data = null;
+      try {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          data = await response.json();
+        } else {
+          data = { message: 'Server error: invalid response' };
+        }
+      } catch (e) {
+        data = { message: 'Server error: invalid JSON' };
+      }
       if (!response.ok) {
         throw new Error(data.message || 'Login failed');
       }
-      
-      // Store token in localStorage
       safeLocalStorage.setItem('token', data.data.token);
       safeLocalStorage.setItem('user', JSON.stringify(data.data.user));
-      
       return true;
     } catch (error) {
       console.error('Login error:', error);

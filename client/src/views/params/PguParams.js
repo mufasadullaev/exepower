@@ -332,7 +332,7 @@ const PguParams = () => {
               <CTableRow key={param.id}>
                 <CTableDataCell>{idx + 1}</CTableDataCell>
                 <CTableDataCell>{param.name}</CTableDataCell>
-                <CTableDataCell>{param.unit}</CTableDataCell>
+                <CTableDataCell>{param.description}</CTableDataCell>
                 {units.map(unit => (
                   <CTableDataCell key={unit.id}>
                     <CFormInput
