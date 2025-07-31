@@ -31,6 +31,7 @@
     "chart.js": "^4.4.7",
     "classnames": "^2.5.1",
     "core-js": "^3.40.0",
+    "date-fns": "^4.1.0",
     "prop-types": "^15.8.1",
     "react": "^19.0.0",
     "react-datepicker": "^8.3.0",

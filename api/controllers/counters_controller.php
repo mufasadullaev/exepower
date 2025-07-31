@@ -569,18 +569,17 @@ function cancelReplacement() {
                 $meterId
             ]);
             
-            // Логируем операцию отмены замены (опционально)
+            // Логируем операцию отмены замены
+            error_log("Attempting to log cancellation: meter_id=$meterId, replacement_id={$replacement['id']}, date=$date, user_id={$user['id']}");
+            
             $stmt = $db->prepare('
                 INSERT INTO meter_replacement_cancellations 
                 (meter_id, replacement_id, cancellation_date, user_id)
-                VALUES (?, ?, CURRENT_DATE, ?)
+                VALUES (?, ?, ?, ?)
             ');
-            try {
-                $stmt->execute([$meterId, $replacement['id'], $user['id']]);
-            } catch (Exception $e) {
-                // Игнорируем ошибку, если таблица не существует
-                // Это не критичная операция
-            }
+            $stmt->execute([$meterId, $replacement['id'], $date, $user['id']]);
+            
+            error_log("Cancellation logged successfully");
             
             // Удаляем запись о замене
             $stmt = $db->prepare('

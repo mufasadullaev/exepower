@@ -28,7 +28,7 @@ function login() {
     
     // Проверка учетных данных в базе
     $user = fetchOne(
-        "SELECT id, username, password, role FROM users WHERE username = ? AND active = 1",
+        "SELECT id, username, password, role FROM users WHERE username = ?",
         [$username]
     );
     
