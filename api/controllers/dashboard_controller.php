@@ -210,13 +210,310 @@ function getParameters()
 
     // Получение параметров для указанного типа оборудования
     $parameters = fetchAll(
-        "SELECT id, name, description, unit FROM parameters WHERE equipment_type_id = ? ORDER BY name",
+        "SELECT id, name, description, unit FROM parameters WHERE equipment_type_id = ? ORDER BY id",
         [$equipmentTypeId]
     );
 
     return sendSuccess([
         'parameters' => $parameters
     ]);
+}
+
+/**
+ * Получение значения cell на основе parameter_id и equipment_id
+ */
+function getCellValue($parameterId, $equipmentId) {
+    $mapping = [
+        // Отпуск тепла на теплоцентраль (parameter_id: 11)
+        11 => [
+            4 => 'E6',  // ПТ 1
+            6 => 'H6'   // ПТ 2
+        ],
+        // Отпуск тепла на блоки (parameter_id: 12)
+        12 => [
+            4 => 'E7',  // ПТ 1
+            6 => 'H7'   // ПТ 2
+        ],
+        // Барометрическое давление (parameter_id: 13)
+        13 => [
+            3 => 'D14', // ГТ 1
+            5 => 'G14'  // ГТ 2
+        ],
+        // Относительная влажность атмосферного воздуха (parameter_id: 14)
+        14 => [
+            3 => 'D15', // ГТ 1
+            5 => 'G15'  // ГТ 2
+        ],
+        // Относительная влажность на входе компрессора (parameter_id: 15)
+        15 => [
+            3 => 'D16', // ГТ 1
+            5 => 'G16'  // ГТ 2
+        ],
+        // cosφГТ (parameter_id: 16)
+        16 => [
+            3 => 'D17', // ГТ 1
+            5 => 'G17'  // ГТ 2
+        ],
+        // Частота ГТ (parameter_id: 17)
+        17 => [
+            3 => 'D18', // ГТ 1
+            5 => 'G18'  // ГТ 2
+        ],
+        // cosφПТ (parameter_id: 18)
+        18 => [
+            4 => 'E19', // ПТ 1
+            6 => 'H19'  // ПТ 2
+        ],
+        // Температура влажного термометра на входе в градирни (parameter_id: 19)
+        19 => [
+            4 => 'E20', // ПТ 1
+            6 => 'H20'  // ПТ 2
+        ],
+        // Температура наружного воздуха (parameter_id: 20)
+        20 => [
+            3 => 'D21', // ГТ 1
+            5 => 'G21'  // ГТ 2
+        ],
+        // Температура воздуха на входе в компрессор (parameter_id: 21)
+        21 => [
+            3 => 'D22', // ГТ 1
+            5 => 'G22'  // ГТ 2
+        ],
+        // Давление природного газа на входе в ГДКС (parameter_id: 22)
+        22 => [
+            3 => 'D25', // ГТ 1
+            5 => 'G25'  // ГТ 2
+        ],
+        // Температура природного газа на входе в ГДКС (parameter_id: 23)
+        23 => [
+            3 => 'D26', // ГТ 1
+            5 => 'G26'  // ГТ 2
+        ],
+        // Расход топлива на ГТУ (parameter_id: 24)
+        24 => [
+            3 => 'D27', // ГТ 1
+            5 => 'G27'  // ГТ 2
+        ],
+        // Плотность природного газа (parameter_id: 25)
+        25 => [
+            3 => 'D28', // ГТ 1
+            5 => 'G28'  // ГТ 2
+        ],
+        // Соотношение Н/С (parameter_id: 26)
+        26 => [
+            3 => 'D29', // ГТ 1
+            5 => 'G29'  // ГТ 2
+        ],
+        // Низшая теплота сгорания топлива на ГТУ (parameter_id: 27)
+        27 => [
+            3 => 'D30', // ГТ 1
+            5 => 'G30'  // ГТ 2
+        ],
+        // Сопротивление КВОУ (parameter_id: 28)
+        28 => [
+            3 => 'D31', // ГТ 1
+            5 => 'G31'  // ГТ 2
+        ]
+    ];
+
+    return $mapping[$parameterId][$equipmentId] ?? null;
+}
+
+/**
+ * Копирование значений из parameter_values в pgu_fullparam_values
+ */
+function copyToPguFullParams($equipmentId, $date, $shiftId, $userId) {
+    // Определяем pgu_id на основе equipment_id
+    $pguMapping = [
+        3 => 1, // ГТ 1 -> ПГУ 1
+        4 => 1, // ПТ 1 -> ПГУ 1  
+        5 => 2, // ГТ 2 -> ПГУ 2
+        6 => 2  // ПТ 2 -> ПГУ 2
+    ];
+    
+    $pguId = $pguMapping[$equipmentId] ?? null;
+    if (!$pguId) {
+        return; // Не ПГУ оборудование
+    }
+    
+    // Определяем букву для cell
+    $cellLetter = $pguId == 1 ? 'F' : 'G';
+    
+    // Маппинг parameter_values cell -> pgu_fullparam_values cell
+    $cellMapping = [
+        // ПГУ 1 (F)
+        'E6' => ['row_num' => 14, 'cell' => 'F14'],   // Отпуск тепла на теплоцентраль
+        'D14' => ['row_num' => 23, 'cell' => 'F23'],  // Барометрическое давление
+        'D15' => ['row_num' => 24, 'cell' => 'F24'],  // Относительная влажность атмосферного воздуха
+        'D16' => ['row_num' => 25, 'cell' => 'F25'],  // Относительная влажность на входе компрессора
+        'D21' => ['row_num' => 26, 'cell' => 'F20'],  // Температура наружного воздуха
+        'E20' => ['row_num' => 26, 'cell' => 'F26'],  // Температура влажного термометра на входе в градирни
+        'D17' => ['row_num' => 27, 'cell' => 'F27'],  // cosφГТ
+        'D18' => ['row_num' => 28, 'cell' => 'F28'],  // Частота ГТ
+        'E19' => ['row_num' => 29, 'cell' => 'F29'],  // cosφПТ
+        'D30' => ['row_num' => 30, 'cell' => 'F30'],  // Низшая теплота сгорания топлива на ГТУ
+        'D25' => ['row_num' => 32, 'cell' => 'F32'],  // Давление природного газа на входе в ГДКС
+        'D26' => ['row_num' => 33, 'cell' => 'F33'],  // Температура природного газа на входе в ГДКС
+        'D31' => ['row_num' => 35, 'cell' => 'F35'],  // Сопротивление КВОУ
+        'D29' => ['row_num' => 37, 'cell' => 'F37'],  // Соотношение Н/С
+        'D28' => ['row_num' => 43, 'cell' => 'F43'],  // Плотность природного газа
+        
+        // ПГУ 2 (G)
+        'H6' => ['row_num' => 14, 'cell' => 'G14'],   // Отпуск тепла на теплоцентраль
+        'G14' => ['row_num' => 23, 'cell' => 'G23'],  // Барометрическое давление
+        'G15' => ['row_num' => 24, 'cell' => 'G24'],  // Относительная влажность атмосферного воздуха
+        'G16' => ['row_num' => 25, 'cell' => 'G25'],  // Относительная влажность на входе компрессора
+        'H20' => ['row_num' => 26, 'cell' => 'G26'],  // Температура влажного термометра на входе в градирни
+        'G17' => ['row_num' => 27, 'cell' => 'G27'],  // cosφГТ
+        'G18' => ['row_num' => 28, 'cell' => 'G28'],  // Частота ГТ
+        'H19' => ['row_num' => 29, 'cell' => 'G29'],  // cosφПТ
+        'G30' => ['row_num' => 30, 'cell' => 'G30'],  // Низшая теплота сгорания топлива на ГТУ
+        'G25' => ['row_num' => 32, 'cell' => 'G32'],  // Давление природного газа на входе в ГДКС
+        'G26' => ['row_num' => 33, 'cell' => 'G33'],  // Температура природного газа на входе в ГДКС
+        'G31' => ['row_num' => 35, 'cell' => 'G35'],  // Сопротивление КВОУ
+        'G29' => ['row_num' => 37, 'cell' => 'G37'],  // Соотношение Н/С
+        'G28' => ['row_num' => 43, 'cell' => 'G43']   // Плотность природного газа
+    ];
+    
+    // Получаем все значения parameter_values для данной даты и смены
+    $paramValues = fetchAll(
+        "SELECT pv.*, p.name as param_name 
+         FROM parameter_values pv 
+         JOIN parameters p ON pv.parameter_id = p.id 
+         WHERE pv.date = ? AND pv.shift_id = ? AND pv.cell IS NOT NULL",
+        [$date, $shiftId]
+    );
+    
+    foreach ($paramValues as $paramValue) {
+        $sourceCell = $paramValue['cell'];
+        $mapping = $cellMapping[$sourceCell] ?? null;
+        
+        if (!$mapping) {
+            continue; // Нет маппинга для этой ячейки
+        }
+        
+        // Проверяем, существует ли уже запись
+        $existingValue = fetchOne(
+            "SELECT id FROM pgu_fullparam_values 
+             WHERE fullparam_id = (SELECT id FROM pgu_fullparams WHERE row_num = ?) 
+             AND pgu_id = ? AND date = ? AND shift_id = ?",
+            [$mapping['row_num'], $pguId, $date, $shiftId]
+        );
+        
+        if ($existingValue) {
+            // Обновляем существующую запись
+            update(
+                'pgu_fullparam_values',
+                ['value' => $paramValue['value'], 'cell' => $mapping['cell']],
+                'id = ?',
+                [$existingValue['id']]
+            );
+        } else {
+            // Создаем новую запись
+            insert('pgu_fullparam_values', [
+                'fullparam_id' => fetchOne("SELECT id FROM pgu_fullparams WHERE row_num = ?", [$mapping['row_num']])['id'],
+                'pgu_id' => $pguId,
+                'date' => $date,
+                'shift_id' => $shiftId,
+                'value' => $paramValue['value'],
+                'cell' => $mapping['cell']
+            ]);
+        }
+    }
+    
+    // Расчетные значения F15/G15 и F36/G36
+    calculateDerivedValues($pguId, $date, $shiftId, $cellLetter);
+    
+    // Копирование данных выработки электроэнергии из meter_readings
+    copyMeterReadingsToFullParams($pguId, $date, $shiftId, $cellLetter);
+}
+
+/**
+ * Расчет производных значений
+ */
+function calculateDerivedValues($pguId, $date, $shiftId, $cellLetter) {
+    // Получаем значения для расчетов
+    $values = fetchAll(
+        "SELECT cell, value FROM pgu_fullparam_values 
+         WHERE pgu_id = ? AND date = ? AND shift_id = ?",
+        [$pguId, $date, $shiftId]
+    );
+    
+    $valueMap = [];
+    foreach ($values as $value) {
+        $valueMap[$value['cell']] = $value['value'];
+    }
+    
+    // Расчет F15/G15 = (F12 - F13 - F14 * 0.02) / F12 * 100
+    if (isset($valueMap[$cellLetter . '12']) && isset($valueMap[$cellLetter . '13']) && isset($valueMap[$cellLetter . '14'])) {
+        $f12 = $valueMap[$cellLetter . '12'];
+        $f13 = $valueMap[$cellLetter . '13'];
+        $f14 = $valueMap[$cellLetter . '14'];
+        
+        $f15 = ($f12 - $f13 - $f14 * 0.02) / $f12 * 100;
+        
+        // Сохраняем F15/G15
+        $rowNum15 = 15;
+        $existingValue = fetchOne(
+            "SELECT id FROM pgu_fullparam_values 
+             WHERE fullparam_id = (SELECT id FROM pgu_fullparams WHERE row_num = ?) 
+             AND pgu_id = ? AND date = ? AND shift_id = ?",
+            [$rowNum15, $pguId, $date, $shiftId]
+        );
+        
+        if ($existingValue) {
+            update(
+                'pgu_fullparam_values',
+                ['value' => $f15, 'cell' => $cellLetter . '15'],
+                'id = ?',
+                [$existingValue['id']]
+            );
+        } else {
+            insert('pgu_fullparam_values', [
+                'fullparam_id' => fetchOne("SELECT id FROM pgu_fullparams WHERE row_num = ?", [$rowNum15])['id'],
+                'pgu_id' => $pguId,
+                'date' => $date,
+                'shift_id' => $shiftId,
+                'value' => $f15,
+                'cell' => $cellLetter . '15'
+            ]);
+        }
+    }
+    
+    // Расчет F36/G36 = F21 - F20
+    if (isset($valueMap[$cellLetter . '21']) && isset($valueMap[$cellLetter . '20'])) {
+        $f21 = $valueMap[$cellLetter . '21'];
+        $f20 = $valueMap[$cellLetter . '20'];
+        
+        $f36 = $f21 - $f20;
+        
+        // Сохраняем F36/G36
+        $rowNum36 = 36;
+        $existingValue = fetchOne(
+            "SELECT id FROM pgu_fullparam_values 
+             WHERE fullparam_id = (SELECT id FROM pgu_fullparams WHERE row_num = ?) 
+             AND pgu_id = ? AND date = ? AND shift_id = ?",
+            [$rowNum36, $pguId, $date, $shiftId]
+        );
+        
+        if ($existingValue) {
+            update(
+                'pgu_fullparam_values',
+                ['value' => $f36, 'cell' => $cellLetter . '36'],
+                'id = ?',
+                [$existingValue['id']]
+            );
+        } else {
+            insert('pgu_fullparam_values', [
+                'fullparam_id' => fetchOne("SELECT id FROM pgu_fullparams WHERE row_num = ?", [$rowNum36])['id'],
+                'pgu_id' => $pguId,
+                'date' => $date,
+                'shift_id' => $shiftId,
+                'value' => $f36,
+                'cell' => $cellLetter . '36'
+            ]);
+        }
+    }
 }
 
 /**
@@ -263,6 +560,9 @@ function saveParameterValues()
             $parameterId = $value['parameterId'];
             $paramValue = $value['value'];
 
+            // Получаем значение cell для данного параметра и оборудования
+            $cellValue = getCellValue($parameterId, $equipmentId);
+
             // Проверка существования записи
             $existingValue = fetchOne(
                 "SELECT id FROM parameter_values 
@@ -274,7 +574,7 @@ function saveParameterValues()
                 // Обновление существующего значения
                 update(
                     'parameter_values',
-                    ['value' => $paramValue],
+                    ['value' => $paramValue, 'cell' => $cellValue],
                     'id = ?',
                     [$existingValue['id']]
                 );
@@ -286,12 +586,16 @@ function saveParameterValues()
                     'value' => $paramValue,
                     'date' => $date,
                     'shift_id' => $shiftId,
-                    'user_id' => $user['id']
+                    'user_id' => $user['id'],
+                    'cell' => $cellValue
                 ]);
             }
 
             $savedCount++;
         }
+
+        // Копирование значений в pgu_fullparam_values
+        copyToPguFullParams($equipmentId, $date, $shiftId, $user['id']);
 
         // Подтверждение транзакции
         $db->commit();
@@ -388,4 +692,112 @@ function getParameterValues()
         'date' => $date,
         'shiftId' => $shiftId
     ]);
+}
+
+/**
+ * Копирование данных выработки электроэнергии из meter_readings в pgu_fullparam_values
+ */
+function copyMeterReadingsToFullParams($pguId, $date, $shiftId, $cellLetter) {
+    // Маппинг оборудования ПГУ к счетчикам выработки электроэнергии
+    $pguMeterMapping = [
+        1 => [3, 4], // ПГУ 1: ГТ 1 (id=3), ПТ 1 (id=4)
+        2 => [5, 6]  // ПГУ 2: ГТ 2 (id=5), ПТ 2 (id=6)
+    ];
+    
+    $equipmentIds = $pguMeterMapping[$pguId] ?? [];
+    if (empty($equipmentIds)) {
+        return;
+    }
+    
+    // Получаем счетчики выработки электроэнергии для данного ПГУ
+    $meters = fetchAll(
+        "SELECT m.id, m.equipment_id, m.coefficient_k, mr.shift1, mr.shift2, mr.shift3
+         FROM meters m
+         LEFT JOIN meter_readings mr ON m.id = mr.meter_id AND mr.date = ?
+         WHERE m.equipment_id IN (" . implode(',', $equipmentIds) . ") 
+         AND m.meter_type_id = 1 AND m.is_active = 1",
+        [$date]
+    );
+    
+    if (empty($meters)) {
+        return;
+    }
+    
+    // Суммируем выработку по сменам для ПГУ
+    $shiftValues = [
+        1 => 0, // shift1
+        2 => 0, // shift2  
+        3 => 0  // shift3
+    ];
+    
+    foreach ($meters as $meter) {
+        $shiftValues[1] += ($meter['shift1'] ?? 0);
+        $shiftValues[2] += ($meter['shift2'] ?? 0);
+        $shiftValues[3] += ($meter['shift3'] ?? 0);
+    }
+    
+    // Определяем, какую смену сохранять
+    $shiftValue = $shiftValues[$shiftId] ?? 0;
+    
+    // Маппинг для выработки электроэнергии
+    $energyMapping = [
+        // Выработка э.э газовой турбиной (row_num = 10)
+        10 => $cellLetter . '10',
+        // Выработка э.э паровой турбиной (row_num = 11)  
+        11 => $cellLetter . '11'
+    ];
+    
+    // Сохраняем выработку газовой турбины (F10/G10)
+    $rowNum10 = 10;
+    $existingValue10 = fetchOne(
+        "SELECT id FROM pgu_fullparam_values 
+         WHERE fullparam_id = (SELECT id FROM pgu_fullparams WHERE row_num = ?) 
+         AND pgu_id = ? AND date = ? AND shift_id = ?",
+        [$rowNum10, $pguId, $date, $shiftId]
+    );
+    
+    if ($existingValue10) {
+        update(
+            'pgu_fullparam_values',
+            ['value' => $shiftValue, 'cell' => $energyMapping[10]],
+            'id = ?',
+            [$existingValue10['id']]
+        );
+    } else {
+        insert('pgu_fullparam_values', [
+            'fullparam_id' => fetchOne("SELECT id FROM pgu_fullparams WHERE row_num = ?", [$rowNum10])['id'],
+            'pgu_id' => $pguId,
+            'date' => $date,
+            'shift_id' => $shiftId,
+            'value' => $shiftValue,
+            'cell' => $energyMapping[10]
+        ]);
+    }
+    
+    // Сохраняем выработку паровой турбины (F11/G11)
+    $rowNum11 = 11;
+    $existingValue11 = fetchOne(
+        "SELECT id FROM pgu_fullparam_values 
+         WHERE fullparam_id = (SELECT id FROM pgu_fullparams WHERE row_num = ?) 
+         AND pgu_id = ? AND date = ? AND shift_id = ?",
+        [$rowNum11, $pguId, $date, $shiftId]
+    );
+    
+    if ($existingValue11) {
+        update(
+            'pgu_fullparam_values',
+            ['value' => $shiftValue, 'cell' => $energyMapping[11]],
+            'id = ?',
+            [$existingValue11['id']]
+        );
+    } else {
+        insert('pgu_fullparam_values', [
+            'fullparam_id' => fetchOne("SELECT id FROM pgu_fullparams WHERE row_num = ?", [$rowNum11])['id'],
+            'pgu_id' => $pguId,
+            'date' => $date,
+            'shift_id' => $shiftId,
+            'value' => $shiftValue,
+            'cell' => $energyMapping[11]
+        ]);
+    }
 }

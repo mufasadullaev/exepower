@@ -18,6 +18,7 @@ import {
   CTabContent,
   CTabPane
 } from '@coreui/react'
+import { useNavigate } from 'react-router-dom'
 import DatePicker, { registerLocale } from 'react-datepicker'
 import ru from 'date-fns/locale/ru'
 import 'react-datepicker/dist/react-datepicker.css'
@@ -28,6 +29,8 @@ import './Calculations.scss'
 registerLocale('ru', ru)
 
 const Calculations = () => {
+  const navigate = useNavigate()
+  
   // Состояние для типа периода
   const [periodType, setPeriodType] = useState('shift') // 'shift', 'day' или 'period'
   
@@ -160,7 +163,27 @@ const Calculations = () => {
     }
 
     console.log('Запуск расчетов с параметрами:', calculationData)
-    // Здесь будет логика отправки данных в API
+    
+    // Если выбран таб ПГУ, перенаправляем на страницу результатов
+    if (activeTab === 'pgu') {
+      const date = periodType === 'period' 
+        ? `${startDate.toISOString().split('T')[0]} - ${endDate.toISOString().split('T')[0]}`
+        : selectedDate.toISOString().split('T')[0]
+      
+      const shifts = selectedItemsList.join(', ')
+      
+      navigate('/pgu-results', {
+        state: {
+          date,
+          periodType,
+          shifts,
+          calculationData
+        }
+      })
+      return
+    }
+    
+    // Здесь будет логика отправки данных в API для других табов
   }
 
   return (

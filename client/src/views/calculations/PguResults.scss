@@ -1,0 +1,92 @@
+// Стили для страницы результатов ПГУ
+.pgu-results {
+  .table-responsive {
+    border-radius: 0.375rem;
+  }
+  
+  .table th {
+    background-color: #f8f9fa;
+    border-bottom: 2px solid #dee2e6;
+    font-weight: 600;
+  }
+  
+  .table td {
+    vertical-align: middle;
+  }
+  
+  .badge {
+    font-size: 0.75rem;
+  }
+  
+  .btn-group {
+    .btn {
+      margin-right: 0.5rem;
+      
+      &:last-child {
+        margin-right: 0;
+      }
+    }
+  }
+  
+  .alert {
+    border-radius: 0.375rem;
+  }
+  
+  .card-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+  }
+  
+  .spinner-border {
+    width: 3rem;
+    height: 3rem;
+  }
+  
+  // Стили для темного режима
+  [data-coreui-theme="dark"] & {
+    .table th {
+      background-color: #2b3035;
+      border-bottom: 2px solid #495057;
+      color: #e9ecef;
+    }
+    
+    .table td {
+      color: #e9ecef;
+    }
+    
+    .card-header {
+      background-color: #2b3035;
+      border-bottom: 1px solid #495057;
+      color: #e9ecef;
+    }
+    
+    .card {
+      background-color: #2b3035;
+      border-color: #495057;
+    }
+    
+    .table {
+      color: #e9ecef;
+    }
+  }
+  
+  // Стили для печати
+  @media print {
+    .btn {
+      display: none !important;
+    }
+    
+    .card-header {
+      background-color: white !important;
+    }
+    
+    .table {
+      border: 1px solid #dee2e6;
+    }
+    
+    .table th,
+    .table td {
+      border: 1px solid #dee2e6;
+    }
+  }
+} 

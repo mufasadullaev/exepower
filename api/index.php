@@ -30,6 +30,7 @@ require_once 'controllers/equipment_stats_controller.php';
 require_once 'controllers/functions_controller.php';
 require_once 'controllers/counters_controller.php';
 require_once 'controllers/equipment_tools_controller.php';
+require_once 'controllers/pgu_results_controller.php';
 
 $request_uri = $_SERVER['REQUEST_URI'];
 $path = parse_url($request_uri, PHP_URL_PATH);
@@ -202,6 +203,22 @@ try {
         
         case 'equipment-tools/toggle':
             return toggleTool();
+            break;
+            
+        case 'pgu-result-params':
+            getPguResultParams();
+            break;
+            
+        case 'pgu-result-values':
+            if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+                $data = $_GET;
+                getPguResultValues($data);
+            } elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                $data = json_decode(file_get_contents('php://input'), true);
+                savePguResultValues($data);
+            } else {
+                sendError('Метод не поддерживается', 405);
+            }
             break;
         
         default:

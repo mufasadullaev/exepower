@@ -9,6 +9,7 @@ const OperatingHours = React.lazy(() => import('./views/stats/OperatingHours'))
 const ShiftSchedule = React.lazy(() => import('./views/shifts/ShiftSchedule'))
 const FunctionVariables = React.lazy(() => import('./views/functions/FunctionVariables'))
 const Calculations = React.lazy(() => import('./views/calculations/Calculations'))
+const PguResults = React.lazy(() => import('./views/calculations/PguResults'))
 
 const routes = [
   {
@@ -30,6 +31,7 @@ const routes = [
   { path: 'shift-schedule', name: 'График вахт', element: ShiftSchedule },
   { path: 'function-variables', name: 'Переменные ПГУ', element: FunctionVariables },
   { path: 'calculations', name: 'Расчеты', element: Calculations },
+  { path: 'pgu-results', name: 'Результаты ПГУ', element: PguResults },
 ]
 
 export default routes
