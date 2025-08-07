@@ -3,13 +3,13 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1:3306
--- Generation Time: May 18, 2025 at 04:21 PM
+-- Generation Time: Aug 07, 2025 at 04:41 PM
 -- Server version: 8.0.30
 -- PHP Version: 8.1.9
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
-SET time_zone = "+00:00";
+SET time_zone = "+05:00";
 
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
@@ -64,6 +64,15 @@ CREATE TABLE `equipment_events` (
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+--
+-- Dumping data for table `equipment_events`
+--
+
+INSERT INTO `equipment_events` (`id`, `equipment_id`, `event_type`, `event_time`, `shift_id`, `user_id`, `reason_id`, `comment`, `created_at`) VALUES
+(292, 1, 'pusk', '2025-06-01 00:00:00', 3, 1, 1, '', '2025-07-23 20:31:33'),
+(293, 1, 'ostanov', '2025-06-30 23:59:00', 3, 1, 1, '', '2025-07-23 20:31:56'),
+(296, 1, 'pusk', '2025-08-07 14:45:00', 2, 1, 1, '', '2025-08-07 09:45:20');
+
 -- --------------------------------------------------------
 
 --
@@ -81,6 +90,16 @@ CREATE TABLE `equipment_tool_events` (
   `comment` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `equipment_tool_events`
+--
+
+INSERT INTO `equipment_tool_events` (`id`, `equipment_id`, `tool_type`, `event_type`, `event_time`, `shift_id`, `user_id`, `comment`, `created_at`) VALUES
+(77, 1, 'evaporator', 'on', '2025-08-07 12:45:26', 2, 1, NULL, '2025-08-07 09:45:26'),
+(78, 1, 'aos', 'on', '2025-08-07 12:45:28', 2, 1, NULL, '2025-08-07 09:45:28'),
+(79, 1, 'aos', 'off', '2025-08-07 12:45:32', 2, 1, NULL, '2025-08-07 09:45:32'),
+(80, 1, 'evaporator', 'off', '2025-08-07 14:59:46', 2, 1, NULL, '2025-08-07 11:59:46');
 
 -- --------------------------------------------------------
 
@@ -439,6 +458,36 @@ CREATE TABLE `meters` (
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+--
+-- Dumping data for table `meters`
+--
+
+INSERT INTO `meters` (`id`, `meter_type_id`, `equipment_id`, `serial_number`, `scale`, `coefficient_k`, `name`, `is_active`, `created_at`, `updated_at`) VALUES
+(6, 1, 1, 'TG7-GEN-001', '999999.999', '1000.000', 'Счетчик выработки ТГ7', 1, '2025-08-07 06:44:57', '2025-08-07 06:44:57'),
+(7, 1, 2, 'TG8-GEN-001', '999999.999', '1000.000', 'Счетчик выработки ТГ8', 1, '2025-08-07 06:44:57', '2025-08-07 06:44:57'),
+(8, 1, 3, 'GT1-GEN-001', '999999.999', '1000.000', 'Счетчик выработки ГТ1', 1, '2025-08-07 06:44:57', '2025-08-07 06:44:57'),
+(9, 1, 4, 'PT1-GEN-001', '999999.999', '1000.000', 'Счетчик выработки ПТ1', 1, '2025-08-07 06:44:57', '2025-08-07 06:44:57'),
+(10, 1, 5, 'GT2-GEN-001', '999999.999', '1000.000', 'Счетчик выработки ГТ2', 1, '2025-08-07 06:44:57', '2025-08-07 06:44:57'),
+(11, 1, 6, 'PT2-GEN-001', '999999.999', '1000.000', 'Счетчик выработки ПТ2', 1, '2025-08-07 06:44:57', '2025-08-07 06:44:57'),
+(12, 2, 1, 'TG7-OWN-001', '99999.999', '1000.000', 'Счетчик собственных нужд ТГ7', 1, '2025-08-07 06:44:57', '2025-08-07 06:44:57'),
+(13, 2, 2, 'TG8-OWN-001', '99999.999', '1000.000', 'Счетчик собственных нужд ТГ8', 1, '2025-08-07 06:44:57', '2025-08-07 06:44:57'),
+(14, 2, 3, 'GT1-OWN-001', '99999.999', '1000.000', 'Счетчик собственных нужд ГТ1', 1, '2025-08-07 06:44:57', '2025-08-07 06:44:57'),
+(15, 2, 4, 'PT1-OWN-001', '99999.999', '1000.000', 'Счетчик собственных нужд ПТ1', 1, '2025-08-07 06:44:57', '2025-08-07 06:44:57'),
+(16, 2, 5, 'GT2-OWN-001', '99999.999', '1000.000', 'Счетчик собственных нужд ГТ2', 1, '2025-08-07 06:44:57', '2025-08-07 06:44:57'),
+(17, 2, 6, 'PT2-OWN-001', '99999.999', '1000.000', 'Счетчик собственных нужд ПТ2', 1, '2025-08-07 06:44:57', '2025-08-07 06:44:57'),
+(18, 3, 1, 'TG7-TIR-001', '99999.999', '1000.000', 'Тиристорный счетчик ТГ7', 1, '2025-08-07 06:44:57', '2025-08-07 06:44:57'),
+(19, 3, 2, 'TG8-TIR-001', '99999.999', '1000.000', 'Тиристорный счетчик ТГ8', 1, '2025-08-07 06:44:57', '2025-08-07 06:44:57'),
+(20, 3, 3, 'GT1-TIR-001', '99999.999', '1000.000', 'Тиристорный счетчик ГТ1', 1, '2025-08-07 06:44:57', '2025-08-07 06:44:57'),
+(21, 3, 4, 'PT1-TIR-001', '99999.999', '1000.000', 'Тиристорный счетчик ПТ1', 1, '2025-08-07 06:44:57', '2025-08-07 06:44:57'),
+(22, 3, 5, 'GT2-TIR-001', '99999.999', '1000.000', 'Тиристорный счетчик ГТ2', 1, '2025-08-07 06:44:57', '2025-08-07 06:44:57'),
+(23, 3, 6, 'PT2-TIR-001', '99999.999', '1000.000', 'Тиристорный счетчик ПТ2', 1, '2025-08-07 06:44:57', '2025-08-07 06:44:57'),
+(24, 4, 1, 'TG7-HOU-001', '99999.999', '1000.000', 'Счетчик хозяйственных нужд ТГ7', 1, '2025-08-07 06:44:57', '2025-08-07 06:44:57'),
+(25, 4, 2, 'TG8-HOU-001', '99999.999', '1000.000', 'Счетчик хозяйственных нужд ТГ8', 1, '2025-08-07 06:44:57', '2025-08-07 06:44:57'),
+(26, 4, 3, 'GT1-HOU-001', '99999.999', '1000.000', 'Счетчик хозяйственных нужд ГТ1', 1, '2025-08-07 06:44:57', '2025-08-07 06:44:57'),
+(27, 4, 4, 'PT1-HOU-001', '99999.999', '1000.000', 'Счетчик хозяйственных нужд ПТ1', 1, '2025-08-07 06:44:57', '2025-08-07 06:44:57'),
+(28, 4, 5, 'GT2-HOU-001', '99999.999', '1000.000', 'Счетчик хозяйственных нужд ГТ2', 1, '2025-08-07 06:44:57', '2025-08-07 06:44:57'),
+(29, 4, 6, 'PT2-HOU-001', '99999.999', '1000.000', 'Счетчик хозяйственных нужд ПТ2', 1, '2025-08-07 06:44:57', '2025-08-07 06:44:57');
+
 -- --------------------------------------------------------
 
 --
@@ -461,6 +510,14 @@ CREATE TABLE `meter_readings` (
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+--
+-- Dumping data for table `meter_readings`
+--
+
+INSERT INTO `meter_readings` (`id`, `meter_id`, `date`, `r0`, `r8`, `r16`, `r24`, `shift1`, `shift2`, `shift3`, `total`, `user_id`, `created_at`, `updated_at`) VALUES
+(68, 8, '2025-08-07', '10.000', '20.000', '30.000', '45.000', '10.000', '10.000', '15.000', '35.000', 1, '2025-08-07 08:58:02', '2025-08-07 10:07:02'),
+(69, 10, '2025-08-07', '35.000', '60.000', '100.000', '500.000', '25.000', '40.000', '400.000', '465.000', 1, '2025-08-07 10:07:02', '2025-08-07 10:07:02');
 
 -- --------------------------------------------------------
 
@@ -513,6 +570,22 @@ CREATE TABLE `meter_replacements` (
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `meter_replacement_cancellations`
+--
+
+CREATE TABLE `meter_replacement_cancellations` (
+  `id` bigint NOT NULL,
+  `meter_id` int NOT NULL,
+  `replacement_id` bigint NOT NULL,
+  `cancellation_date` date NOT NULL,
+  `user_id` int DEFAULT NULL,
+  `comment` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `meter_types`
 --
 
@@ -546,6 +619,50 @@ CREATE TABLE `parameters` (
   `equipment_type_id` int NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+--
+-- Dumping data for table `parameters`
+--
+
+INSERT INTO `parameters` (`id`, `name`, `description`, `unit`, `equipment_type_id`) VALUES
+(11, 'Отпуск тепла на теплоцентраль', 'Отпуск тепла на теплоцентраль', 'Гкал', 2),
+(12, 'Отпуск тепла на блоки', 'Отпуск тепла на блоки', 'Гкал', 2),
+(13, 'Барометрическое давление', 'Барометрическое давление', 'мбар', 2),
+(14, 'Относительная влажность атмосферного воздуха', 'Относительная влажность атмосферного воздуха', '%', 2),
+(15, 'Относительная влажность на входе компрессора', 'Относительная влажность на входе компрессора', '%', 2),
+(16, 'cosφГТ', 'Коэффициент мощности газовой турбины', '', 2),
+(17, 'Частота ГТ', 'Частота газовой турбины', 'Гц', 2),
+(18, 'cosφПТ', 'Коэффициент мощности паровой турбины', '', 2),
+(19, 'Температура влажного термометра на входе в градирни', 'Температура влажного термометра на входе в градирни', '°C', 2),
+(20, 'Температура наружного воздуха', 'Температура наружного воздуха', '°C', 2),
+(21, 'Температура воздуха на входе в компрессор', 'Температура воздуха на входе в компрессор', '°C', 2),
+(22, 'Давление природного газа на входе в ГДКС', 'Давление природного газа на входе в ГДКС', 'бар', 2),
+(23, 'Температура природного газа на входе в ГДКС', 'Температура природного газа на входе в ГДКС', '°C', 2),
+(24, 'Расход топлива на ГТУ', 'Расход топлива на ГТУ', 'тысяч м³', 2),
+(25, 'Плотность природного газа', 'Плотность природного газа', 'кг/м³', 2),
+(26, 'Соотношение Н/С', 'Соотношение водорода к углероду', '', 2),
+(27, 'Низшая теплота сгорания топлива на ГТУ', 'Низшая теплота сгорания топлива на ГТУ', 'кДж/кг', 2),
+(28, 'Сопротивление КВОУ', 'Сопротивление котла-утилизатора очистки уходящих газов', 'Па', 2),
+(29, 'P острого пара перед т/а', 'Давление острого пара перед турбоагрегатом', 'kg/sm²', 1),
+(30, 't острого пара перед т/а', 'Температура острого пара перед турбоагрегатом', '°C', 1),
+(31, 't в циркводы на входе', 'Температура циркуляционной воды на входе', '°C', 1),
+(32, 't в циркводы на выходе', 'Температура циркуляционной воды на выходе', '°C', 1),
+(33, 't питательной воды', 'Температура питательной воды', '°C', 1),
+(34, 'Расход дистиллята', 'Расход дистиллята', 'т/ч', 1),
+(35, 'Выработка пара котлами', 'Выработка пара котлами', 't', 1),
+(36, 'Продувка', 'Продувка котла', '%', 1),
+(37, 'Расход питательной воды', 'Расход питательной воды', 't', 1),
+(38, 't пара после промперегрева', 'Температура пара после промежуточного перегрева', '°C', 1),
+(39, 't пара до промперегрева', 'Температура пара до промежуточного перегрева', '°C', 1),
+(40, 't питательной воды ПВД', 'Температура питательной воды после ПВД', '°C', 1),
+(41, 'P кс питательной воды', 'Давление питательной воды', '°C', 1),
+(42, 't холодного воздуха', 'Температура холодного воздуха', '°C', 1),
+(43, 'Факт Qнр (газ)', 'Фактическая низшая теплота сгорания газа', 'kcal/nm³', 1),
+(44, 'Факт Qнр (мазут)', 'Фактическая низшая теплота сгорания мазута', 'kcal/kg', 1),
+(45, 'В топлива за месяц (газ)', 'Расход топлива за месяц (газ)', 'nm³', 1),
+(46, 'В топлива за месяц (мазут)', 'Расход топлива за месяц (мазут)', 't', 1),
+(47, 'Температура уходящих газов', 'Температура уходящих газов', '°C', 1),
+(48, 'α- уходящих', 'Коэффициент избытка воздуха уходящих газов', '', 1);
+
 -- --------------------------------------------------------
 
 --
@@ -560,7 +677,182 @@ CREATE TABLE `parameter_values` (
   `date` date NOT NULL,
   `shift_id` int NOT NULL,
   `user_id` int NOT NULL,
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `cell` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `parameter_values`
+--
+
+INSERT INTO `parameter_values` (`id`, `parameter_id`, `equipment_id`, `value`, `date`, `shift_id`, `user_id`, `created_at`, `cell`) VALUES
+(54, 13, 3, '15.00', '2025-08-07', 1, 1, '2025-08-07 07:01:22', 'D14'),
+(57, 16, 3, '15.00', '2025-08-07', 1, 1, '2025-08-07 07:02:23', 'D17'),
+(58, 16, 3, '10.00', '2025-08-07', 2, 1, '2025-08-07 07:02:23', NULL),
+(59, 16, 3, '10.00', '2025-08-07', 3, 1, '2025-08-07 07:02:23', NULL),
+(61, 18, 4, '15.00', '2025-08-07', 1, 1, '2025-08-07 07:04:07', 'E19'),
+(62, 18, 4, '10.00', '2025-08-07', 2, 1, '2025-08-07 07:04:07', NULL),
+(63, 18, 4, '20.00', '2025-08-07', 3, 1, '2025-08-07 07:04:07', NULL),
+(64, 11, 3, '15.00', '2025-08-07', 1, 1, '2025-08-07 08:54:48', NULL),
+(65, 11, 4, '25.00', '2025-08-07', 1, 1, '2025-08-07 08:55:30', 'E6'),
+(66, 17, 3, '50.00', '2025-08-07', 1, 1, '2025-08-07 13:37:10', 'D18');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `pgu_fullparams`
+--
+
+CREATE TABLE `pgu_fullparams` (
+  `id` int NOT NULL,
+  `code` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `title` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `unit` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `row_num` int DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `pgu_fullparams`
+--
+
+INSERT INTO `pgu_fullparams` (`id`, `code`, `title`, `unit`, `row_num`) VALUES
+(1, 'Эвыр_гту', 'Выработка э.э газовой турбиной', 'x10^3 kWh', 10),
+(2, 'Эвыр_пту', 'Выработка э.э паровой турбиной', 'x10^3 kWh', 11),
+(3, 'Эвыр_пгу', 'Выработка электроэнергии ПГУ', 'x10^3 kWh', 12),
+(4, 'Эотп_пгу', 'Отпуск электроэнергии от блока', 'x10^3 kWh', 13),
+(5, 'Qотп_пгу', 'Отпуск тепла', 'Гкал', 14),
+(6, 'Эсн', 'СН блока э.э., %', '%', 15),
+(7, 'τрабПГУ', 'Число часов работы ПГУ', 'часы', 16),
+(8, 'τАОС', 'Число часов работы ПГУ с системой АОС', 'часы', 17),
+(9, 'τИО', 'Число часов работы ПГУ с испарительным охладителем', 'часы', 18),
+(10, 'τхарак_пт', 'Наработка блока на момент составления характеристик', 'часы', 19),
+(11, 'tн.в', 'Температура наружного воздуха', '°C', 20),
+(12, 'tвх.к', 'Температура на входе компрессора по сухому термометру', '°C', 21),
+(13, 'Испаритель', 'Испаритель включен-1, выключен-0', '', 22),
+(14, 'Рбар', 'Барометрическое давление', 'mbar', 23),
+(15, 'φвоз', 'Относительная влажность атмосферного воздуха', '%', 24),
+(16, 'φвх.к', 'Относительная влажность на входе компрессора', '%', 25),
+(17, 'tвл.т.вх.град', 'Температура влажного термометра на входе в градирни', '°C', 26),
+(18, 'cosφГТ', 'Коэффициент мощности газовой турбины', '', 27),
+(19, 'ν', 'Системная частота (относительная частота вращения двигателя ГТ)', '', 28),
+(20, 'cosφПТ', 'Коэффициент мощности паровой турбины', '', 29),
+(21, 'Qнр', 'Низшая теплота сгорания топлива, kJ/kg', 'kJ/kg', 30),
+(22, 'Qнр_ккал', 'Низшая теплота сгорания топлива, kcal/nm3', 'kcal/nm3', 31),
+(23, 'Ргаза', 'Давление топливного газа', 'bara', 32),
+(24, 'Тгаза', 'Температура топливного газа', '°C', 33),
+(25, 'Qотб', 'Тепловая нагрузка', 'Gcal/h', 34),
+(26, 'ΔРКВОУ', 'Сопротивление КВОУ', 'kPa', 35),
+(27, 'Δt', 'Разница температуры наружного воздуха и на входе компрессора', '°C', 36),
+(28, 'H/C', 'Соотношение H/C', '', 37),
+(29, 'Q′нр', 'Отклонение низшей теплоты от проектной', '%', 38),
+(30, 'τнараб_пгу', 'Эквивалентные часы работы блока', 'часы', 39),
+(31, 'nпуск_пгу', 'Количество пусков ПГУ по диспетчерскому графику', '', 40),
+(32, 'BнатПГУ', 'Количество топлива в натуральном исчислении за месяц', 'м³', 41),
+(33, 'Впгуф', 'Фактический расход топлива на ПГУ (условное)', 'т.усл.топл./мес', 42),
+(34, 'ρг', 'Плотность природного газа', 'kg/m³', 43);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `pgu_fullparam_values`
+--
+
+CREATE TABLE `pgu_fullparam_values` (
+  `id` bigint NOT NULL,
+  `fullparam_id` int NOT NULL,
+  `pgu_id` int NOT NULL,
+  `date` date NOT NULL,
+  `shift_id` int NOT NULL,
+  `value` decimal(20,4) DEFAULT NULL,
+  `cell` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `pgu_fullparam_values`
+--
+
+INSERT INTO `pgu_fullparam_values` (`id`, `fullparam_id`, `pgu_id`, `date`, `shift_id`, `value`, `cell`) VALUES
+(96, 14, 1, '2025-08-07', 1, '15.0000', 'F23'),
+(97, 18, 1, '2025-08-07', 1, '15.0000', 'F27'),
+(98, 20, 1, '2025-08-07', 1, '15.0000', 'F29'),
+(99, 5, 1, '2025-08-07', 1, '25.0000', 'F14'),
+(100, 1, 1, '2025-08-07', 1, '10.0000', 'F10'),
+(101, 2, 1, '2025-08-07', 1, '10.0000', 'F11'),
+(102, 19, 1, '2025-08-07', 1, '50.0000', 'F28');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `pgu_result_params`
+--
+
+CREATE TABLE `pgu_result_params` (
+  `id` int NOT NULL,
+  `name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `unit` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `symbol` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `pgu_result_params`
+--
+
+INSERT INTO `pgu_result_params` (`id`, `name`, `unit`, `symbol`) VALUES
+(38, 'Электрическая нагрузка ПГУ, MW, брутто', 'MW', 'Nпгубр'),
+(39, 'Электрическая нагрузка ПГУ, MW, нетто', 'MW', 'Nпгун'),
+(40, 'Электрическая нагрузка ГТУ, MW, нетто', 'MW', 'Nгтун'),
+(41, 'Электрическая нагрузка ПТУ, MW, нетто', 'MW', 'Nптун'),
+(42, 'Исходно-номинальный УРТ ПГУ, g/kWh', 'g/kWh', 'bэ(ином)пгу'),
+(43, 'Фактический расход топлива за месяц на ПГУ в пересчете на условное, т.усл.топл./мес', 'т.усл.топл./мес', 'Впгуф'),
+(44, 'на изменение cosφГТ, MW', 'MW', 'ΔNcosφгт'),
+(45, 'на изменение cosφПТ, MW', 'MW', 'ΔNcosφпт'),
+(46, 'на отпуск тепла на блоки, MW', 'MW', 'ΔNт.бл'),
+(47, 'на изменение температуры мокрого термометра в градирню, MW', 'MW', 'ΔNбл'),
+(48, 'на давление топливного газа, MW', 'MW', 'ΔNРт.газа'),
+(49, 'на температуру топливного газа, MW', 'MW', 'ΔNtт.газа'),
+(50, 'на температуру окружающей среды и относительную влажность (при Вкл испар. охл.)', NULL, 'ktн.в'),
+(51, 'на температуру на входе компрессора (при Откл. испар. охл.)', NULL, 'ktвх.к'),
+(52, 'на изменение барометрического давления и температуры на входе компрессора (при Вкл и Откл испар. охл.)', NULL, 'kРбар'),
+(53, 'на относительную влажность и температуру на входе компрессора (при Откл испар. охл.)', NULL, 'kφвх.к'),
+(54, 'на отклонение низшей теплоты сгорания топлива', NULL, 'kQнр'),
+(55, 'на изменение частоты ГТ (при Вкл и Откл испар. охл.)', NULL, 'kν'),
+(56, 'Кривая деградации ГТУ', NULL, 'kd'),
+(57, 'Кривая деградации ГТУ, MW', 'MW', 'ΔNkd'),
+(58, 'на занос КВОУ', NULL, 'kΔNквоу'),
+(59, 'на включение антиобледенительной системы (АОС)', NULL, 'kΔNаос'),
+(60, 'Расчетная мощность, приведённая к фактическим внешним условиям ПГУ, MW', 'MW', 'N′пгу'),
+(61, 'Изменение мощности ПГУ на внешние факторы, MW', 'MW', 'ΔN'),
+(62, 'Расход топлива на изменение мощности за счёт изменения внешних факторов, т.усл.топл.', 'т.усл.топл.', 'ΔB'),
+(63, 'Исходно-номинальный расход топлива на ПГУ по энергетическим характеристикам, т.усл.топл.', 'т.усл.топл.', 'Вт'),
+(64, 'Расход топлива на тепловую нагрузку, т.усл.топл.', 'т.усл.топл.', 'ΔBтепл'),
+(65, 'Расход топлива на ПГУ с учётом влияния внешних факторов и тепловой нагрузки, т.усл.топл.', 'т.усл.топл.', 'В′т'),
+(66, 'Мощность тепла топлива ПГУ, MW', 'MW', 'Nтоп'),
+(67, 'КПД нетто ПГУ (установки), %', '%', 'ηбрпгу'),
+(68, 'Электрические СН ПГУ, %', '%', 'эснпгу'),
+(69, 'Электрические СН ПГУ, MW', 'MW', 'Nснпгу'),
+(70, 'Номинальный удельный расход топлива на отпуск электроэнергии, приведённый к внешним факторам, g/kWh', 'g/kWh', 'bэ(ном)'),
+(71, 'Затраты топлива на пуски ПГУ по диспетчерскому графику, g/kWh', 'g/kWh', 'Δbпуск'),
+(72, 'Номинальный удельный расход топлива на отпуск электроэнергии с учётом пусков, g/kWh', 'g/kWh', 'b′э(ном)'),
+(73, 'Фактический удельный расход топлива на отпуск электроэнергии с учётом пусков, g/kWh', 'g/kWh', 'b′э(факт)'),
+(74, 'Экономия (+)/пережог (-) топлива, g/kWh', 'g/kWh', 'b′э(ном)');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `pgu_result_values`
+--
+
+CREATE TABLE `pgu_result_values` (
+  `id` bigint NOT NULL,
+  `param_id` int NOT NULL,
+  `equipment_id` int NOT NULL,
+  `date` date NOT NULL,
+  `shift_id` int DEFAULT NULL COMMENT 'NULL для суточных расчетов',
+  `value` decimal(15,6) NOT NULL,
+  `user_id` int DEFAULT NULL,
+  `period_type` enum('shift','day','period') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `period_start` date DEFAULT NULL,
+  `period_end` date DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
@@ -630,6 +922,66 @@ INSERT INTO `stop_reasons` (`id`, `name`, `description`) VALUES
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `tg_result_params`
+--
+
+CREATE TABLE `tg_result_params` (
+  `id` int NOT NULL,
+  `name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `unit` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `symbol` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `tg_result_params`
+--
+
+INSERT INTO `tg_result_params` (`id`, `name`, `unit`, `symbol`) VALUES
+(1, 'Средняя электрическая нагрузка, MW (факт)', 'MW', 'Nф'),
+(2, 'Исходно-нормативный расход свежего пара', 't/h', 'Do'),
+(3, 'Исходно-нормативный расход пара в конденсатор', 't/h', 'D2'),
+(4, 'Исходно-нормативное значение удельного расхода тепла брутто на турбоагрегат', 'kcal/kWh', 'qтбр(исх)'),
+(5, 'Поправка на температуру охлаждающей воды', 'kcal/kWh', 'Dqтбр(tов)'),
+(6, 'Поправка на изменение расхода охлаждающей воды', 'kcal/kWh', 'Dqтбр(Wов)'),
+(7, 'Поправка на отработанный ресурс времени (старения)', 'kcal/kWh', 'Dqтбр(рес)'),
+(8, 'Поправка на недогрев питательной воды из-за отсутствия ПВД-7 на блоке №7', 'kcal/kWh', 'Dqтбр(пвд-7)'),
+(9, 'Поправка на работу БИУ', 'kcal/kWh', 'Dqтбр(ИУ)'),
+(10, 'Номинальное значение удельного расхода тепла брутто, с учетом работы БИУ', 'kcal/kWh', 'qтiбр(ном)'),
+(11, 'Исходно-нормативное относительное значение расхода электроэнергии на СН т/агрегата блоков', 'MW', 'Nсн К-200'),
+(12, 'То же самое в %', '%', 'Эсн К-200'),
+(13, 'Исходно-нормативное относительное значение расхода электроэнергии на СН подгруппы т/агрегата', NULL, NULL),
+(14, 'Расход электроэнергии на СН \"прочие\" т/агрегата', 'MW', 'Nпр'),
+(15, 'Расход электроэнергии на СН \"прочие\" т/агрегата, %', '%', 'Эпр'),
+(16, 'Расход электроэнергии на береговую насосную', 'kWh', 'ЭБН'),
+(17, 'Расход электроэнергии на береговую насосную, %', '%', 'эБН'),
+(18, 'Суммарный расход электроэнергии на СН с учетом допуска на эксплуатационные условия', 'MW', 'Nтсн(исх)'),
+(19, 'Номинальное относительное значение расхода электроэнергии на СН подгруппы т/агрегатов', '%', 'Этсн(ном)'),
+(20, 'Расчетный расход тепла на турбину', 'Gcal/h', 'Qo'),
+(21, 'Номинальное относительное значение расхода тепла на СН подгруппы т/агрегатов', '%', 'qсн(н)т(пг)'),
+(22, 'Номинальное значение удельного расхода тепла \"нетто\" по подгруппе турбоагрегатов', 'kcal/kWh', 'qн(н)т(пг)');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `tg_result_values`
+--
+
+CREATE TABLE `tg_result_values` (
+  `id` bigint NOT NULL,
+  `param_id` int NOT NULL,
+  `equipment_id` int NOT NULL,
+  `date` date NOT NULL,
+  `shift_id` int DEFAULT NULL COMMENT 'NULL для суточных расчетов',
+  `value` decimal(15,6) NOT NULL,
+  `user_id` int DEFAULT NULL,
+  `period_type` enum('shift','day','period') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `period_start` date DEFAULT NULL,
+  `period_end` date DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `users`
 --
 
@@ -647,7 +999,7 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`id`, `username`, `password`, `role`, `created_at`, `updated_at`) VALUES
-(1, 'admin', '$2y$10$XFE/UQoRJkZsxZWGlPQWIeNI1UtNQ36LNH1BIjTjAZALYWQe.uBVm', 'менеджер', '2025-05-08 21:58:52', '2025-05-08 21:58:52');
+(1, 'admin', '$2y$10$50xU1GGHHTQaXHez3cbu6evqKxXjTOyN234Hp.7F5nam1Fu/MBtSe', 'менеджер', '2025-05-08 21:58:52', '2025-07-23 20:10:52');
 
 --
 -- Indexes for dumped tables
@@ -740,6 +1092,15 @@ ALTER TABLE `meter_replacements`
   ADD KEY `meter_id` (`meter_id`);
 
 --
+-- Indexes for table `meter_replacement_cancellations`
+--
+ALTER TABLE `meter_replacement_cancellations`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `fk_cancellation_meter` (`meter_id`),
+  ADD KEY `fk_cancellation_replacement` (`replacement_id`),
+  ADD KEY `fk_cancellation_user` (`user_id`);
+
+--
 -- Indexes for table `meter_types`
 --
 ALTER TABLE `meter_types`
@@ -763,6 +1124,38 @@ ALTER TABLE `parameter_values`
   ADD KEY `user_id` (`user_id`);
 
 --
+-- Indexes for table `pgu_fullparams`
+--
+ALTER TABLE `pgu_fullparams`
+  ADD PRIMARY KEY (`id`);
+
+--
+-- Indexes for table `pgu_fullparam_values`
+--
+ALTER TABLE `pgu_fullparam_values`
+  ADD PRIMARY KEY (`id`);
+
+--
+-- Indexes for table `pgu_result_params`
+--
+ALTER TABLE `pgu_result_params`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `name` (`name`);
+
+--
+-- Indexes for table `pgu_result_values`
+--
+ALTER TABLE `pgu_result_values`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `unique_pgu_result` (`param_id`,`equipment_id`,`date`,`shift_id`),
+  ADD KEY `idx_pgu_equipment_date` (`equipment_id`,`date`),
+  ADD KEY `idx_pgu_param_date` (`param_id`,`date`),
+  ADD KEY `idx_pgu_period_type_date` (`period_type`,`date`),
+  ADD KEY `idx_pgu_period_range` (`period_start`,`period_end`),
+  ADD KEY `fk_pgu_result_shift` (`shift_id`),
+  ADD KEY `fk_pgu_result_user` (`user_id`);
+
+--
 -- Indexes for table `shifts`
 --
 ALTER TABLE `shifts`
@@ -781,6 +1174,26 @@ ALTER TABLE `start_reasons`
 ALTER TABLE `stop_reasons`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `name` (`name`);
+
+--
+-- Indexes for table `tg_result_params`
+--
+ALTER TABLE `tg_result_params`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `name` (`name`);
+
+--
+-- Indexes for table `tg_result_values`
+--
+ALTER TABLE `tg_result_values`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `unique_tg_result` (`param_id`,`equipment_id`,`date`,`shift_id`),
+  ADD KEY `idx_tg_equipment_date` (`equipment_id`,`date`),
+  ADD KEY `idx_tg_param_date` (`param_id`,`date`),
+  ADD KEY `idx_tg_period_type_date` (`period_type`,`date`),
+  ADD KEY `idx_tg_period_range` (`period_start`,`period_end`),
+  ADD KEY `fk_tg_result_shift` (`shift_id`),
+  ADD KEY `fk_tg_result_user` (`user_id`);
 
 --
 -- Indexes for table `users`
@@ -803,13 +1216,13 @@ ALTER TABLE `equipment`
 -- AUTO_INCREMENT for table `equipment_events`
 --
 ALTER TABLE `equipment_events`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=286;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=297;
 
 --
 -- AUTO_INCREMENT for table `equipment_tool_events`
 --
 ALTER TABLE `equipment_tool_events`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=77;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=81;
 
 --
 -- AUTO_INCREMENT for table `equipment_types`
@@ -839,13 +1252,13 @@ ALTER TABLE `function_coeff_sets`
 -- AUTO_INCREMENT for table `meters`
 --
 ALTER TABLE `meters`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=30;
 
 --
 -- AUTO_INCREMENT for table `meter_readings`
 --
 ALTER TABLE `meter_readings`
-  MODIFY `id` bigint NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=36;
+  MODIFY `id` bigint NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=70;
 
 --
 -- AUTO_INCREMENT for table `meter_reading_history`
@@ -857,7 +1270,13 @@ ALTER TABLE `meter_reading_history`
 -- AUTO_INCREMENT for table `meter_replacements`
 --
 ALTER TABLE `meter_replacements`
-  MODIFY `id` bigint NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=38;
+  MODIFY `id` bigint NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=43;
+
+--
+-- AUTO_INCREMENT for table `meter_replacement_cancellations`
+--
+ALTER TABLE `meter_replacement_cancellations`
+  MODIFY `id` bigint NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT for table `meter_types`
@@ -869,13 +1288,37 @@ ALTER TABLE `meter_types`
 -- AUTO_INCREMENT for table `parameters`
 --
 ALTER TABLE `parameters`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=49;
 
 --
 -- AUTO_INCREMENT for table `parameter_values`
 --
 ALTER TABLE `parameter_values`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=19;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=67;
+
+--
+-- AUTO_INCREMENT for table `pgu_fullparams`
+--
+ALTER TABLE `pgu_fullparams`
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=35;
+
+--
+-- AUTO_INCREMENT for table `pgu_fullparam_values`
+--
+ALTER TABLE `pgu_fullparam_values`
+  MODIFY `id` bigint NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=103;
+
+--
+-- AUTO_INCREMENT for table `pgu_result_params`
+--
+ALTER TABLE `pgu_result_params`
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=75;
+
+--
+-- AUTO_INCREMENT for table `pgu_result_values`
+--
+ALTER TABLE `pgu_result_values`
+  MODIFY `id` bigint NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `shifts`
@@ -894,6 +1337,18 @@ ALTER TABLE `start_reasons`
 --
 ALTER TABLE `stop_reasons`
   MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+
+--
+-- AUTO_INCREMENT for table `tg_result_params`
+--
+ALTER TABLE `tg_result_params`
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=26;
+
+--
+-- AUTO_INCREMENT for table `tg_result_values`
+--
+ALTER TABLE `tg_result_values`
+  MODIFY `id` bigint NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `users`
@@ -966,6 +1421,14 @@ ALTER TABLE `meter_replacements`
   ADD CONSTRAINT `fk_repl_meter` FOREIGN KEY (`meter_id`) REFERENCES `meters` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
+-- Constraints for table `meter_replacement_cancellations`
+--
+ALTER TABLE `meter_replacement_cancellations`
+  ADD CONSTRAINT `fk_cancellation_meter` FOREIGN KEY (`meter_id`) REFERENCES `meters` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT `fk_cancellation_replacement` FOREIGN KEY (`replacement_id`) REFERENCES `meter_replacements` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT `fk_cancellation_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+
+--
 -- Constraints for table `parameters`
 --
 ALTER TABLE `parameters`
@@ -979,6 +1442,24 @@ ALTER TABLE `parameter_values`
   ADD CONSTRAINT `parameter_values_ibfk_2` FOREIGN KEY (`equipment_id`) REFERENCES `equipment` (`id`),
   ADD CONSTRAINT `parameter_values_ibfk_3` FOREIGN KEY (`shift_id`) REFERENCES `shifts` (`id`),
   ADD CONSTRAINT `parameter_values_ibfk_4` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`);
+
+--
+-- Constraints for table `pgu_result_values`
+--
+ALTER TABLE `pgu_result_values`
+  ADD CONSTRAINT `fk_pgu_result_equipment` FOREIGN KEY (`equipment_id`) REFERENCES `equipment` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_pgu_result_param` FOREIGN KEY (`param_id`) REFERENCES `pgu_result_params` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_pgu_result_shift` FOREIGN KEY (`shift_id`) REFERENCES `shifts` (`id`) ON DELETE SET NULL,
+  ADD CONSTRAINT `fk_pgu_result_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL;
+
+--
+-- Constraints for table `tg_result_values`
+--
+ALTER TABLE `tg_result_values`
+  ADD CONSTRAINT `fk_tg_result_equipment` FOREIGN KEY (`equipment_id`) REFERENCES `equipment` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_tg_result_param` FOREIGN KEY (`param_id`) REFERENCES `tg_result_params` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_tg_result_shift` FOREIGN KEY (`shift_id`) REFERENCES `shifts` (`id`) ON DELETE SET NULL,
+  ADD CONSTRAINT `fk_tg_result_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
