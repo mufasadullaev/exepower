@@ -195,6 +195,14 @@ try {
                 sendError('Метод не поддерживается', 405);
             }
             break;
+            
+        case 'counters/bulk-sync':
+            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                bulkSyncMeterReadingsToPguFullParams();
+            } else {
+                sendError('Метод не поддерживается', 405);
+            }
+            break;
         
         case (preg_match('/^equipment-tools\/status\/(\d+)$/', $path, $matches) ? true : false):
             $equipmentId = $matches[1];

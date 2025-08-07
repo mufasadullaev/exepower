@@ -58,6 +58,7 @@ const Counters = () => {
   const [error, setError] = useState(null)
   const [success, setSuccess] = useState(null)
   const [modalError, setModalError] = useState(null)
+  const [syncing, setSyncing] = useState(false)
 
   useEffect(() => {
     loadMeterTypes()
@@ -344,6 +345,25 @@ const Counters = () => {
     }
   }
 
+  const handleBulkSync = async () => {
+    if (!window.confirm('Выполнить массовую синхронизацию данных счетчиков с параметрами ПГУ? Это может занять некоторое время.')) {
+      return
+    }
+    
+    setSyncing(true)
+    setError(null)
+    setSuccess(null)
+    
+    try {
+      const result = await counterService.bulkSyncMeterReadings()
+      setSuccess(`Синхронизация завершена. Обработано: ${result.data.synced_count}, ошибок: ${result.data.error_count}`)
+    } catch (error) {
+      setError('Ошибка при синхронизации: ' + (error.response?.data?.message || error.message))
+    } finally {
+      setSyncing(false)
+    }
+  }
+
   return (
     <CRow>
       <CCol xs={12}>
@@ -378,13 +398,29 @@ const Counters = () => {
                   </CFormSelect>
                 </CCol>
                 <CCol md={4}>
-                  <CFormLabel style={{ display: 'block' }}>Дата</CFormLabel>
+                  <CFormLabel>Дата</CFormLabel>
                   <DatePicker
                     selected={selectedDate}
-                    onChange={date => setSelectedDate(date)}
-                    className="form-control"
+                    onChange={setSelectedDate}
                     dateFormat="dd.MM.yyyy"
+                    className="form-control"
                   />
+                </CCol>
+                <CCol md={4} className="d-flex align-items-end">
+                  <CButton 
+                    color="primary" 
+                    onClick={handleBulkSync}
+                    disabled={syncing}
+                    className="me-2"
+                  >
+                    {syncing ? 'Синхронизация...' : 'Синхронизация с ПГУ'}
+                  </CButton>
+                  <CButton 
+                    color="success" 
+                    onClick={handleSaveReadings}
+                  >
+                    Сохранить
+                  </CButton>
                 </CCol>
               </CRow>
             </div>
@@ -469,11 +505,7 @@ const Counters = () => {
               </CTableBody>
             </CTable>
 
-            <div className="mt-3">
-              <CButton color="primary" onClick={handleSaveReadings}>
-                Сохранить
-              </CButton>
-            </div>
+
           </CCardBody>
         </CCard>
       </CCol>

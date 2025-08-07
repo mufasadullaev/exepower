@@ -4,6 +4,25 @@ require_once __DIR__ . '/../helpers/db.php';
 require_once __DIR__ . '/../helpers/response.php';
 
 /**
+ * Определяет pgu_id на основе equipment_id
+ * @param int $equipmentId ID оборудования
+ * @return int|null pgu_id или null, если оборудование не относится к ПГУ
+ */
+function getPguIdFromEquipment($equipmentId) {
+    // Маппинг equipment_id -> pgu_id
+    $equipmentToPguMap = [
+        1 => null,  // Блок ТГ7 - не ПГУ
+        2 => null,  // Блок ТГ8 - не ПГУ
+        3 => 1,     // ГТ 1 -> ПГУ 1
+        4 => 1,     // ПТ 1 -> ПГУ 1
+        5 => 2,     // ГТ 2 -> ПГУ 2
+        6 => 2      // ПТ 2 -> ПГУ 2
+    ];
+    
+    return $equipmentToPguMap[$equipmentId] ?? null;
+}
+
+/**
  * Получение типов счетчиков
  */
 function getMeterTypes() {
@@ -323,6 +342,16 @@ function saveReadings() {
                 }
             }
             
+            // Синхронизируем данные с pgu_fullparam_values
+            foreach ($readings as $meterId => $reading) {
+                try {
+                    syncMeterReadingsToPguFullParams($meterId, $date, $user['id']);
+                } catch (Exception $syncError) {
+                    error_log("Ошибка синхронизации для счетчика $meterId: " . $syncError->getMessage());
+                    // Не прерываем основную операцию из-за ошибки синхронизации
+                }
+            }
+            
             $db->commit();
             sendSuccess(['message' => 'Показания успешно сохранены']);
         } catch (Exception $e) {
@@ -596,5 +625,230 @@ function cancelReplacement() {
         }
     } catch (Exception $e) {
         sendError('Ошибка при отмене замены счетчика: ' . $e->getMessage());
+    }
+} 
+
+/**
+ * Синхронизация данных счетчиков с pgu_fullparam_values
+ * Копирует значения shift1, shift2, shift3 из meter_readings в pgu_fullparam_values
+ * для параметров ГТ (row_num = 10) и ПТ (row_num = 11)
+ */
+function syncMeterReadingsToPguFullParams($meterId, $date, $userId) {
+    try {
+        $db = getDbConnection();
+        
+        // Получаем информацию о счетчике и оборудовании
+        $stmt = $db->prepare('
+            SELECT m.*, e.id as equipment_id, e.name as equipment_name, e.type_id
+            FROM meters m
+            JOIN equipment e ON m.equipment_id = e.id
+            WHERE m.id = ?
+        ');
+        $stmt->execute([$meterId]);
+        $meter = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$meter) {
+            throw new Exception("Счетчик не найден");
+        }
+        
+        // Проверяем, что это счетчик выработки электроэнергии (тип 1)
+        if ($meter['meter_type_id'] != 1) {
+            error_log("Пропуск синхронизации: счетчик {$meter['id']} не является счетчиком выработки (тип: {$meter['meter_type_id']})");
+            return; // Синхронизируем только счетчики выработки
+        }
+        
+        // Получаем показания счетчика на указанную дату
+        $stmt = $db->prepare('
+            SELECT shift1, shift2, shift3
+            FROM meter_readings
+            WHERE meter_id = ? AND date = ?
+        ');
+        $stmt->execute([$meterId, $date]);
+        $readings = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$readings) {
+            return; // Нет показаний для синхронизации
+        }
+        
+        // Определяем pgu_id на основе оборудования
+        $pguId = getPguIdFromEquipment($meter['equipment_id']);
+        
+        if ($pguId === null) {
+            error_log("Пропуск синхронизации: оборудование {$meter['equipment_id']} не относится к ПГУ");
+            return; // Не синхронизируем для оборудования, которое не относится к ПГУ
+        }
+        
+        // Определяем тип оборудования (ГТ или ПТ) и соответствующий row_num
+        $isGT = strpos($meter['equipment_name'], 'ГТ') !== false;
+        $rowNum = $isGT ? 10 : 11; // ГТ -> row_num = 10, ПТ -> row_num = 11
+        
+        // Определяем букву колонки на основе ПГУ
+        $columnLetter = $pguId == 1 ? 'F' : 'G'; // ПГУ 1 -> F, ПГУ 2 -> G
+        
+        // Получаем ID параметра
+        $stmt = $db->prepare('SELECT id FROM pgu_fullparams WHERE row_num = ?');
+        $stmt->execute([$rowNum]);
+        $fullparam = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$fullparam) {
+            throw new Exception("Параметр с row_num = $rowNum не найден");
+        }
+        
+        $fullparamId = $fullparam['id'];
+        
+        error_log("Синхронизация: оборудование {$meter['equipment_name']} (ID: {$meter['equipment_id']}) -> ПГУ $pguId, row_num=$rowNum, колонка=$columnLetter");
+        
+        // Синхронизируем данные по сменам
+        $shifts = [
+            1 => $readings['shift1'],
+            2 => $readings['shift2'], 
+            3 => $readings['shift3']
+        ];
+        
+        foreach ($shifts as $shiftId => $value) {
+            if ($value === null) {
+                continue; // Пропускаем пустые значения
+            }
+            
+            // Проверяем существование записи
+            $stmt = $db->prepare('
+                SELECT id FROM pgu_fullparam_values 
+                WHERE fullparam_id = ? AND pgu_id = ? AND date = ? AND shift_id = ?
+            ');
+            $stmt->execute([$fullparamId, $pguId, $date, $shiftId]);
+            $existing = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($existing) {
+                // Обновляем существующую запись
+                $stmt = $db->prepare('
+                    UPDATE pgu_fullparam_values 
+                    SET value = ?
+                    WHERE id = ?
+                ');
+                $stmt->execute([$value, $existing['id']]);
+            } else {
+                // Создаем новую запись
+                $stmt = $db->prepare('
+                    INSERT INTO pgu_fullparam_values 
+                    (fullparam_id, pgu_id, date, shift_id, value, cell)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ');
+                $cell = $columnLetter . $rowNum; // F10 для ПГУ1/ГТ, F11 для ПГУ1/ПТ, G10 для ПГУ2/ГТ, G11 для ПГУ2/ПТ
+                $stmt->execute([$fullparamId, $pguId, $date, $shiftId, $value, $cell]);
+            }
+        }
+        
+        error_log("Синхронизация meter_readings -> pgu_fullparam_values: meter_id=$meterId, date=$date, equipment={$meter['equipment_name']}, pgu_id=$pguId, row_num=$rowNum");
+        
+    } catch (Exception $e) {
+        error_log("Ошибка синхронизации meter_readings -> pgu_fullparam_values: " . $e->getMessage());
+        throw $e;
+    }
+}
+
+/**
+ * Удаление данных из pgu_fullparam_values при удалении показаний счетчика
+ */
+function removeMeterReadingsFromPguFullParams($meterId, $date) {
+    try {
+        $db = getDbConnection();
+        
+        // Получаем информацию о счетчике и оборудовании
+        $stmt = $db->prepare('
+            SELECT m.equipment_id, m.meter_type_id, e.name as equipment_name
+            FROM meters m
+            JOIN equipment e ON m.equipment_id = e.id
+            WHERE m.id = ?
+        ');
+        $stmt->execute([$meterId]);
+        $meter = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$meter || $meter['meter_type_id'] != 1) {
+            return; // Только для счетчиков выработки
+        }
+        
+        // Определяем pgu_id на основе оборудования
+        $pguId = getPguIdFromEquipment($meter['equipment_id']);
+        
+        if ($pguId === null) {
+            return; // Не удаляем для оборудования, которое не относится к ПГУ
+        }
+        
+        // Определяем тип оборудования (ГТ или ПТ) и соответствующий row_num
+        $isGT = strpos($meter['equipment_name'], 'ГТ') !== false;
+        $rowNum = $isGT ? 10 : 11; // ГТ -> row_num = 10, ПТ -> row_num = 11
+        
+        // Получаем ID параметра
+        $stmt = $db->prepare('SELECT id FROM pgu_fullparams WHERE row_num = ?');
+        $stmt->execute([$rowNum]);
+        $fullparam = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$fullparam) {
+            return;
+        }
+        
+        // Удаляем записи для всех смен
+        $stmt = $db->prepare('
+            DELETE FROM pgu_fullparam_values 
+            WHERE fullparam_id = ? AND pgu_id = ? AND date = ?
+        ');
+        $stmt->execute([$fullparam['id'], $pguId, $date]);
+        
+        error_log("Удаление данных из pgu_fullparam_values: meter_id=$meterId, date=$date, equipment={$meter['equipment_name']}, pgu_id=$pguId, row_num=$rowNum");
+        
+    } catch (Exception $e) {
+        error_log("Ошибка удаления данных из pgu_fullparam_values: " . $e->getMessage());
+    }
+} 
+
+/**
+ * Массовая синхронизация существующих данных meter_readings в pgu_fullparam_values
+ * Используется для первоначальной настройки или восстановления данных
+ */
+function bulkSyncMeterReadingsToPguFullParams() {
+    try {
+        $user = requireAuth();
+        
+        // Проверяем права доступа (только для менеджеров)
+        if ($user['role'] !== 'менеджер') {
+            sendError('Недостаточно прав для массовой синхронизации', 403);
+            return;
+        }
+        
+        $db = getDbConnection();
+        
+        // Получаем все показания счетчиков выработки
+        $stmt = $db->prepare('
+            SELECT mr.meter_id, mr.date, mr.shift1, mr.shift2, mr.shift3,
+                   m.equipment_id, m.meter_type_id
+            FROM meter_readings mr
+            JOIN meters m ON mr.meter_id = m.id
+            WHERE m.meter_type_id = 1
+            ORDER BY mr.date DESC, mr.meter_id
+        ');
+        $stmt->execute();
+        $allReadings = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        $syncedCount = 0;
+        $errorCount = 0;
+        
+        foreach ($allReadings as $reading) {
+            try {
+                syncMeterReadingsToPguFullParams($reading['meter_id'], $reading['date'], $user['id']);
+                $syncedCount++;
+            } catch (Exception $e) {
+                error_log("Ошибка синхронизации: meter_id={$reading['meter_id']}, date={$reading['date']}: " . $e->getMessage());
+                $errorCount++;
+            }
+        }
+        
+        sendSuccess([
+            'message' => 'Массовая синхронизация завершена',
+            'synced_count' => $syncedCount,
+            'error_count' => $errorCount
+        ]);
+        
+    } catch (Exception $e) {
+        sendError('Ошибка при массовой синхронизации: ' . $e->getMessage());
     }
 } 

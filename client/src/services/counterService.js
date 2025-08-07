@@ -52,5 +52,19 @@ export const counterService = {
       replacement_date: date
     })
     return response.data
+  },
+
+  /**
+   * Массовая синхронизация данных счетчиков с pgu_fullparam_values
+   * @returns {Promise} - Promise resolving to sync result
+   */
+  bulkSyncMeterReadings: async () => {
+    try {
+      const response = await api.post('/counters/bulk-sync')
+      return response.data
+    } catch (error) {
+      console.error('Error during bulk sync:', error)
+      throw error
+    }
   }
 } 
