@@ -631,7 +631,7 @@ function cancelReplacement() {
 /**
  * Синхронизация данных счетчиков с pgu_fullparam_values
  * Копирует значения shift1, shift2, shift3 из meter_readings в pgu_fullparam_values
- * для параметров ГТ (row_num = 10) и ПТ (row_num = 11)
+ * для параметров ГТ (row_num = 10), ПТ (row_num = 11) и рассчитывает отпуск (row_num = 13)
  */
 function syncMeterReadingsToPguFullParams($meterId, $date, $userId) {
     try {
@@ -740,6 +740,9 @@ function syncMeterReadingsToPguFullParams($meterId, $date, $userId) {
         
         error_log("Синхронизация meter_readings -> pgu_fullparam_values: meter_id=$meterId, date=$date, equipment={$meter['equipment_name']}, pgu_id=$pguId, row_num=$rowNum");
         
+        // После синхронизации выработки рассчитываем отпуск электроэнергии (row_num = 13)
+        calculateDeliveryValues($pguId, $date);
+        
     } catch (Exception $e) {
         error_log("Ошибка синхронизации meter_readings -> pgu_fullparam_values: " . $e->getMessage());
         throw $e;
@@ -798,6 +801,174 @@ function removeMeterReadingsFromPguFullParams($meterId, $date) {
         
     } catch (Exception $e) {
         error_log("Ошибка удаления данных из pgu_fullparam_values: " . $e->getMessage());
+    }
+}
+
+/**
+ * Расчет отпуска электроэнергии (row_num = 13) на основе выработки и расходов
+ */
+function calculateDeliveryValues($pguId, $date) {
+    try {
+        $db = getDbConnection();
+        
+        // Определяем букву колонки на основе ПГУ
+        $columnLetter = $pguId == 1 ? 'F' : 'G';
+        
+        // Маппинг оборудования ПГУ к счетчикам
+        $pguMeterMapping = [
+            1 => [3, 4], // ПГУ 1: ГТ 1 (id=3), ПТ 1 (id=4)
+            2 => [5, 6]  // ПГУ 2: ГТ 2 (id=5), ПТ 2 (id=6)
+        ];
+        
+        $equipmentIds = $pguMeterMapping[$pguId] ?? [];
+        if (empty($equipmentIds)) {
+            return;
+        }
+        
+        // Получаем все счетчики для данного ПГУ
+        $generationMeters = fetchAll(
+            "SELECT m.id, m.equipment_id, m.coefficient_k, mr.shift1, mr.shift2, mr.shift3
+             FROM meters m
+             LEFT JOIN meter_readings mr ON m.id = mr.meter_id AND mr.date = ?
+             WHERE m.equipment_id IN (" . implode(',', $equipmentIds) . ") 
+             AND m.meter_type_id = 1 AND m.is_active = 1",
+            [$date]
+        );
+        
+        $ownNeedsMeters = fetchAll(
+            "SELECT m.id, m.equipment_id, m.coefficient_k, mr.shift1, mr.shift2, mr.shift3
+             FROM meters m
+             LEFT JOIN meter_readings mr ON m.id = mr.meter_id AND mr.date = ?
+             WHERE m.equipment_id IN (" . implode(',', $equipmentIds) . ") 
+             AND m.meter_type_id = 2 AND m.is_active = 1",
+            [$date]
+        );
+        
+        $householdNeedsMeters = fetchAll(
+            "SELECT m.id, m.equipment_id, m.coefficient_k, mr.shift1, mr.shift2, mr.shift3
+             FROM meters m
+             LEFT JOIN meter_readings mr ON m.id = mr.meter_id AND mr.date = ?
+             WHERE m.equipment_id IN (" . implode(',', $equipmentIds) . ") 
+             AND m.meter_type_id = 4 AND m.is_active = 1",
+            [$date]
+        );
+        
+        // Суммируем значения по сменам
+        $generationValues = [1 => 0, 2 => 0, 3 => 0];
+        $ownNeedsValues = [1 => 0, 2 => 0, 3 => 0];
+        $householdNeedsValues = [1 => 0, 2 => 0, 3 => 0];
+        
+        foreach ($generationMeters as $meter) {
+            $generationValues[1] += ($meter['shift1'] ?? 0);
+            $generationValues[2] += ($meter['shift2'] ?? 0);
+            $generationValues[3] += ($meter['shift3'] ?? 0);
+        }
+        
+        foreach ($ownNeedsMeters as $meter) {
+            $ownNeedsValues[1] += ($meter['shift1'] ?? 0);
+            $ownNeedsValues[2] += ($meter['shift2'] ?? 0);
+            $ownNeedsValues[3] += ($meter['shift3'] ?? 0);
+        }
+        
+        foreach ($householdNeedsMeters as $meter) {
+            $householdNeedsValues[1] += ($meter['shift1'] ?? 0);
+            $householdNeedsValues[2] += ($meter['shift2'] ?? 0);
+            $householdNeedsValues[3] += ($meter['shift3'] ?? 0);
+        }
+        
+        // Рассчитываем отпуск электроэнергии для каждой смены
+        $deliveryValues = [
+            1 => $generationValues[1] - $ownNeedsValues[1] - $householdNeedsValues[1],
+            2 => $generationValues[2] - $ownNeedsValues[2] - $householdNeedsValues[2],
+            3 => $generationValues[3] - $ownNeedsValues[3] - $householdNeedsValues[3]
+        ];
+        
+        // Получаем ID параметра общей выработки (row_num = 12)
+        $stmt = $db->prepare('SELECT id FROM pgu_fullparams WHERE row_num = ?');
+        $stmt->execute([12]);
+        $fullparam12 = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$fullparam12) {
+            error_log("Параметр с row_num = 12 не найден");
+            return;
+        }
+        
+        // Получаем ID параметра отпуска электроэнергии (row_num = 13)
+        $stmt = $db->prepare('SELECT id FROM pgu_fullparams WHERE row_num = ?');
+        $stmt->execute([13]);
+        $fullparam13 = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$fullparam13) {
+            error_log("Параметр с row_num = 13 не найден");
+            return;
+        }
+        
+        $fullparam12Id = $fullparam12['id'];
+        $fullparam13Id = $fullparam13['id'];
+        
+        // Сохраняем общую выработку (F12/G12) и отпуск электроэнергии (F13/G13) для каждой смены
+        foreach ($deliveryValues as $shiftId => $deliveryValue) {
+            $totalGenerationValue = $generationValues[$shiftId];
+            
+            // Сохраняем общую выработку (F12/G12)
+            $cell12 = $columnLetter . '12'; // F12 или G12
+            $stmt = $db->prepare('
+                SELECT id FROM pgu_fullparam_values 
+                WHERE fullparam_id = ? AND pgu_id = ? AND date = ? AND shift_id = ?
+            ');
+            $stmt->execute([$fullparam12Id, $pguId, $date, $shiftId]);
+            $existing12 = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($existing12) {
+                // Обновляем существующую запись
+                $stmt = $db->prepare('
+                    UPDATE pgu_fullparam_values 
+                    SET value = ?, cell = ?
+                    WHERE id = ?
+                ');
+                $stmt->execute([$totalGenerationValue, $cell12, $existing12['id']]);
+            } else {
+                // Создаем новую запись
+                $stmt = $db->prepare('
+                    INSERT INTO pgu_fullparam_values 
+                    (fullparam_id, pgu_id, date, shift_id, value, cell)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ');
+                $stmt->execute([$fullparam12Id, $pguId, $date, $shiftId, $totalGenerationValue, $cell12]);
+            }
+            
+            // Сохраняем отпуск электроэнергии (F13/G13)
+            $cell13 = $columnLetter . '13'; // F13 или G13
+            $stmt = $db->prepare('
+                SELECT id FROM pgu_fullparam_values 
+                WHERE fullparam_id = ? AND pgu_id = ? AND date = ? AND shift_id = ?
+            ');
+            $stmt->execute([$fullparam13Id, $pguId, $date, $shiftId]);
+            $existing13 = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($existing13) {
+                // Обновляем существующую запись
+                $stmt = $db->prepare('
+                    UPDATE pgu_fullparam_values 
+                    SET value = ?, cell = ?
+                    WHERE id = ?
+                ');
+                $stmt->execute([$deliveryValue, $cell13, $existing13['id']]);
+            } else {
+                // Создаем новую запись
+                $stmt = $db->prepare('
+                    INSERT INTO pgu_fullparam_values 
+                    (fullparam_id, pgu_id, date, shift_id, value, cell)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ');
+                $stmt->execute([$fullparam13Id, $pguId, $date, $shiftId, $deliveryValue, $cell13]);
+            }
+            
+            error_log("Energy calculation: PGU $pguId, Shift $shiftId, Total Generation: $totalGenerationValue, Own needs: {$ownNeedsValues[$shiftId]}, Household needs: {$householdNeedsValues[$shiftId]}, Delivery: $deliveryValue");
+        }
+        
+    } catch (Exception $e) {
+        error_log("Ошибка расчета отпуска электроэнергии: " . $e->getMessage());
     }
 } 
 
