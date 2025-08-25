@@ -16,13 +16,15 @@ import {
   CNavItem,
   CNavLink,
   CTabContent,
-  CTabPane
+  CTabPane,
+  CSpinner
 } from '@coreui/react'
 import { useNavigate } from 'react-router-dom'
 import DatePicker, { registerLocale } from 'react-datepicker'
 import ru from 'date-fns/locale/ru'
 import 'react-datepicker/dist/react-datepicker.css'
 import { calculateActiveVakhtas } from '../../services/calculationsService'
+import { pguCalculationService } from '../../services/pguCalculationService'
 import './Calculations.scss'
 
 // Регистрируем русскую локаль
@@ -59,6 +61,9 @@ const Calculations = () => {
 
   // Состояние для активного таба
   const [activeTab, setActiveTab] = useState('blocks')
+  
+  // Состояние для загрузки
+  const [loading, setLoading] = useState(false)
 
   // Обработчик изменения типа периода
   const handlePeriodTypeChange = (type) => {
@@ -126,7 +131,7 @@ const Calculations = () => {
   }, [selectedDate, periodType])
 
   // Обработчик запуска расчетов
-  const handleCalculate = () => {
+  const handleCalculate = async () => {
     // Для типа "Сутки" не требуется выбор вахт
     let selectedItemsList = []
     if (periodType !== 'day') {
@@ -164,22 +169,39 @@ const Calculations = () => {
 
     console.log('Запуск расчетов с параметрами:', calculationData)
     
-    // Если выбран таб ПГУ, перенаправляем на страницу результатов
+    // Если выбран таб ПГУ, выполняем расчет
     if (activeTab === 'pgu') {
-      const date = periodType === 'period' 
-        ? `${startDate.toISOString().split('T')[0]} - ${endDate.toISOString().split('T')[0]}`
-        : selectedDate.toISOString().split('T')[0]
-      
-      const shifts = selectedItemsList.join(', ')
-      
-      navigate('/pgu-results', {
-        state: {
-          date,
-          periodType,
-          shifts,
-          calculationData
-        }
-      })
+      try {
+        setLoading(true)
+        
+        // Выполняем расчет
+        const result = await pguCalculationService.performFullCalculation(calculationData)
+        
+        console.log('Результат расчета:', result)
+        
+        // Перенаправляем на страницу результатов
+        const date = periodType === 'period' 
+          ? `${startDate.toISOString().split('T')[0]} - ${endDate.toISOString().split('T')[0]}`
+          : selectedDate.toISOString().split('T')[0]
+        
+        const shifts = selectedItemsList.join(', ')
+        
+        navigate('/pgu-results', {
+          state: {
+            date,
+            periodType,
+            shifts,
+            calculationData,
+            calculationResult: result
+          }
+        })
+        
+      } catch (error) {
+        console.error('Ошибка при выполнении расчета:', error)
+        alert('Ошибка при выполнении расчета: ' + error.message)
+      } finally {
+        setLoading(false)
+      }
       return
     }
     
@@ -421,8 +443,16 @@ const Calculations = () => {
                     size="lg"
                     onClick={handleCalculate}
                     className="px-4"
+                    disabled={loading}
                   >
-                    Выполнить расчеты
+                    {loading ? (
+                      <>
+                        <CSpinner size="sm" className="me-2" />
+                        Выполняется расчет...
+                      </>
+                    ) : (
+                      'Выполнить расчеты'
+                    )}
                   </CButton>
                 </CCol>
               </CRow>

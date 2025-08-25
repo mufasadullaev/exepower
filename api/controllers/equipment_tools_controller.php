@@ -86,15 +86,36 @@ function toggleTool() {
             $shiftId = 3;
         }
         
+        // Используем переданное время события или текущее время
+        $eventTime = isset($requestData['event_time']) ? $requestData['event_time'] : date('Y-m-d H:i:s');
+        
+        // Определяем смену на основе переданного времени события
+        if (isset($requestData['event_time'])) {
+            $eventDateTime = new DateTime($requestData['event_time']);
+            $eventHour = (int)$eventDateTime->format('H');
+            if ($eventHour >= 8 && $eventHour < 16) {
+                $shiftId = 2;
+            } elseif ($eventHour >= 16) {
+                $shiftId = 3;
+            }
+        }
+        
         // Создаем новое событие
-        $eventId = insert('equipment_tool_events', [
+        $eventData = [
             'equipment_id' => $equipmentId,
             'tool_type' => $toolType,
             'event_type' => $eventType,
-            'event_time' => date('Y-m-d H:i:s'),
+            'event_time' => $eventTime,
             'shift_id' => $shiftId,
             'user_id' => $user['id']
-        ]);
+        ];
+        
+        // Добавляем комментарий если он передан
+        if (isset($requestData['comment']) && !empty($requestData['comment'])) {
+            $eventData['comment'] = $requestData['comment'];
+        }
+        
+        $eventId = insert('equipment_tool_events', $eventData);
         
         return sendSuccess([
             'message' => 'Статус инструмента успешно изменен',

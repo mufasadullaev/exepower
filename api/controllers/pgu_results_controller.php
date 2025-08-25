@@ -12,88 +12,135 @@ require_once __DIR__ . '/../helpers/db.php';
  * Get all PGU result parameters
  */
 function getPguResultParams() {
-    // Check authentication
     requireAuth();
 
     try {
-        // Get all PGU result parameters from the database
         $sql = "SELECT id, name, unit, symbol FROM pgu_result_params ORDER BY id";
         $params = fetchAll($sql);
-
-        // Debug: log the result
-        error_log("PGU Result Params Query: " . $sql);
-        error_log("PGU Result Params Count: " . count($params));
-        error_log("PGU Result Params Data: " . json_encode($params));
-
         sendSuccess(['params' => $params]);
     } catch (Exception $e) {
-        error_log("PGU Result Params Error: " . $e->getMessage());
         sendError('Ошибка при получении параметров результатов ПГУ: ' . $e->getMessage());
     }
 }
 
 /**
- * Get PGU result values for specific parameters and equipment
- * 
- * @param array $data Request data containing date, periodType, shifts, etc.
+ * Map shift names (shift1/shift2/shift3) to numeric IDs
+ */
+function mapShiftNamesToIds($shifts) {
+    $map = [ 'shift1' => 1, 'shift2' => 2, 'shift3' => 3 ];
+    $ids = [];
+    foreach ($shifts as $s) {
+        if (isset($map[$s])) $ids[] = $map[$s];
+        else if (is_numeric($s)) $ids[] = (int)$s;
+    }
+    return array_values(array_unique($ids));
+}
+
+/**
+ * Get PGU result values
  */
 function getPguResultValues($data) {
-    // Check authentication
     requireAuth();
 
     try {
-        // Validate required parameters
         if (!isset($data['date']) || !isset($data['periodType'])) {
             sendError('Необходимо указать дату и тип периода', 400);
         }
 
         $date = $data['date'];
         $periodType = $data['periodType'];
-        $shifts = isset($data['shifts']) ? $data['shifts'] : [];
-        $equipmentIds = isset($data['equipmentIds']) ? $data['equipmentIds'] : [];
-
-        // Get all PGU result parameters
-        $paramsSql = "SELECT id, name, unit, symbol FROM pgu_result_params ORDER BY id";
-        $params = fetchAll($paramsSql);
-
-        // Get result values for the specified date and period
-        $resultValues = [];
-        
-        if (!empty($equipmentIds)) {
-            $equipmentIdsStr = implode(',', array_map('intval', $equipmentIds));
-            
-            $valuesSql = "SELECT rv.param_id, rv.equipment_id, rv.value, rv.shift_id, rv.period_type
-                         FROM pgu_result_values rv
-                         WHERE rv.date = ? 
-                         AND rv.period_type = ?
-                         AND rv.equipment_id IN ($equipmentIdsStr)";
-            
-            $values = fetchAll($valuesSql, [$date, $periodType]);
-            
-            // Organize values by param_id and equipment_id
-            foreach ($values as $value) {
-                $key = $value['param_id'] . '_' . $value['equipment_id'];
-                $resultValues[$key] = $value;
+        $pguIds = isset($data['pguIds']) ? $data['pguIds'] : [1,2,3];
+        $shiftIds = [];
+        if ($periodType === 'shift') {
+            if (isset($data['shiftIds']) && is_array($data['shiftIds'])) {
+                $shiftIds = array_map('intval', $data['shiftIds']);
+            } elseif (isset($data['shifts']) && is_array($data['shifts'])) {
+                $shiftIds = mapShiftNamesToIds($data['shifts']);
+            }
+            if (empty($shiftIds)) {
+                // если не передали - по умолчанию все 3 смены
+                $shiftIds = [1,2,3];
             }
         }
 
-        // Prepare response data
+        // Получаем список параметров
+        $paramsSql = "SELECT id, name, unit, symbol FROM pgu_result_params ORDER BY id";
+        $params = fetchAll($paramsSql);
+
+        // Загружаем значения
+        $resultValues = [];
+        if (!empty($pguIds)) {
+            $pguIdsStr = implode(',', array_map('intval', $pguIds));
+            $sql = "SELECT rv.param_id, rv.pgu_id, rv.value, rv.shift_id, rv.period_type, rv.cell
+                         FROM pgu_result_values rv
+                    WHERE rv.date = ? AND rv.period_type = ? AND rv.pgu_id IN ($pguIdsStr)";
+            $bind = [$date, $periodType];
+            if ($periodType === 'shift' && !empty($shiftIds)) {
+                $in = implode(',', array_fill(0, count($shiftIds), '?'));
+                $sql .= " AND rv.shift_id IN ($in)";
+                $bind = array_merge($bind, $shiftIds);
+            }
+            $values = fetchAll($sql, $bind);
+
+            foreach ($values as $row) {
+                $paramId = (int)$row['param_id'];
+                $pguId = (int)$row['pgu_id'];
+                $shiftId = $row['shift_id'] !== null ? (int)$row['shift_id'] : null;
+                $cell = $row['cell'];
+                
+                $valueData = [
+                    'value' => $row['value'],
+                    'cell' => $cell
+                ];
+                
+                if ($periodType === 'shift') {
+                    if (!isset($resultValues[$paramId])) $resultValues[$paramId] = [];
+                    if (!isset($resultValues[$paramId][$shiftId])) $resultValues[$paramId][$shiftId] = [];
+                    $resultValues[$paramId][$shiftId][$pguId] = $valueData;
+                } else {
+                    if (!isset($resultValues[$paramId])) $resultValues[$paramId] = [];
+                    $resultValues[$paramId][$pguId] = $valueData;
+                }
+            }
+        }
+
+        // Формируем ответ
         $responseData = [];
         foreach ($params as $param) {
+            $paramId = (int)$param['id'];
             $paramData = [
-                'id' => $param['id'],
+                'id' => $paramId,
                 'name' => $param['name'],
                 'unit' => $param['unit'],
-                'symbol' => $param['symbol'],
-                'values' => []
+                'symbol' => $param['symbol']
             ];
-
-            // Add values for each equipment
-            foreach ($equipmentIds as $equipmentId) {
-                $key = $param['id'] . '_' . $equipmentId;
-                $paramData['values'][$equipmentId] = isset($resultValues[$key]) ? $resultValues[$key]['value'] : null;
+            if ($periodType === 'shift') {
+                $paramData['valuesByShift'] = [];
+                $paramData['cellsByShift'] = [];
+                foreach ($shiftIds as $sid) {
+                    $paramData['valuesByShift'][$sid] = [
+                        1 => $resultValues[$paramId][$sid][1]['value'] ?? null,
+                        2 => $resultValues[$paramId][$sid][2]['value'] ?? null,
+                        3 => $resultValues[$paramId][$sid][3]['value'] ?? null,
+                    ];
+                    $paramData['cellsByShift'][$sid] = [
+                        1 => $resultValues[$paramId][$sid][1]['cell'] ?? null,
+                        2 => $resultValues[$paramId][$sid][2]['cell'] ?? null,
+                        3 => $resultValues[$paramId][$sid][3]['cell'] ?? null,
+                    ];
+                }
+            } else {
+                $paramData['values'] = [
+                    1 => $resultValues[$paramId][1]['value'] ?? null,
+                    2 => $resultValues[$paramId][2]['value'] ?? null,
+                    3 => $resultValues[$paramId][3]['value'] ?? null,
+                ];
+                $paramData['cells'] = [
+                    1 => $resultValues[$paramId][1]['cell'] ?? null,
+                    2 => $resultValues[$paramId][2]['cell'] ?? null,
+                    3 => $resultValues[$paramId][3]['cell'] ?? null,
+                ];
             }
-
             $responseData[] = $paramData;
         }
 
@@ -101,7 +148,8 @@ function getPguResultValues($data) {
             'params' => $responseData,
             'date' => $date,
             'periodType' => $periodType,
-            'equipmentIds' => $equipmentIds
+            'pguIds' => $pguIds,
+            'shiftIds' => $shiftIds
         ]);
     } catch (Exception $e) {
         sendError('Ошибка при получении результатов ПГУ: ' . $e->getMessage());
@@ -110,15 +158,11 @@ function getPguResultValues($data) {
 
 /**
  * Save PGU result values
- * 
- * @param array $data Request data containing values to save
  */
 function savePguResultValues($data) {
-    // Check authentication
     requireAuth();
 
     try {
-        // Validate required parameters
         if (!isset($data['date']) || !isset($data['periodType']) || !isset($data['values'])) {
             sendError('Необходимо указать дату, тип периода и значения', 400);
         }
@@ -126,46 +170,77 @@ function savePguResultValues($data) {
         $date = $data['date'];
         $periodType = $data['periodType'];
         $values = $data['values'];
-        $userId = $_SESSION['user_id'] ?? 1; // Default to user ID 1 if not set
+        $userId = $_SESSION['user_id'] ?? 1;
 
-        // Start transaction
-        beginTransaction();
-
-        try {
-            // Delete existing values for this date and period type
-            $deleteSql = "DELETE FROM pgu_result_values WHERE date = ? AND period_type = ?";
-            execute($deleteSql, [$date, $periodType]);
-
-            // Insert new values
-            foreach ($values as $value) {
-                if (isset($value['param_id']) && isset($value['equipment_id']) && isset($value['value'])) {
-                    $insertSql = "INSERT INTO pgu_result_values 
-                                 (param_id, equipment_id, date, shift_id, value, user_id, period_type) 
-                                 VALUES (?, ?, ?, ?, ?, ?, ?)";
-                    
-                    $shiftId = isset($value['shift_id']) ? $value['shift_id'] : null;
-                    
-                    execute($insertSql, [
-                        $value['param_id'],
-                        $value['equipment_id'],
-                        $date,
-                        $shiftId,
-                        $value['value'],
-                        $userId,
-                        $periodType
-                    ]);
-                }
+        // Удаляем только записи для конкретных смен, а не все за дату
+        if ($periodType === 'shift') {
+            // Получаем уникальные shift_id из значений
+            $shiftIds = array_filter(array_unique(array_column($values, 'shift_id')));
+            error_log("PGU Save: Deleting records for shifts: " . implode(', ', $shiftIds));
+            if (!empty($shiftIds)) {
+                $placeholders = str_repeat('?,', count($shiftIds) - 1) . '?';
+                $deleteSql = "DELETE FROM pgu_result_values WHERE date = ? AND period_type = ? AND shift_id IN ($placeholders)";
+                $deleteParams = array_merge([$date, $periodType], $shiftIds);
+                executeQuery($deleteSql, $deleteParams);
             }
+        } else {
+            // Для day и period удаляем все записи за дату/период
+            error_log("PGU Save: Deleting all records for date $date, period type $periodType");
+            $deleteSql = "DELETE FROM pgu_result_values WHERE date = ? AND period_type = ?";
+            executeQuery($deleteSql, [$date, $periodType]);
+        }
 
-            // Commit transaction
-            commitTransaction();
+            foreach ($values as $value) {
+            if (isset($value['param_id']) && isset($value['pgu_id']) && isset($value['value'])) {
+                // Получаем row_num для данного параметра
+                $rowData = fetchOne("SELECT row_num FROM pgu_result_params WHERE id = ?", [$value['param_id']]);
+                if (!$rowData) {
+                    continue; // Пропускаем если параметр не найден
+                }
+                
+                $rowNum = $rowData['row_num'];
+                
+                // Определяем букву колонки на основе pgu_id
+                $columnLetter = '';
+                switch ($value['pgu_id']) {
+                    case 1:
+                        $columnLetter = 'F';
+                        break;
+                    case 2:
+                        $columnLetter = 'G';
+                        break;
+                    case 3:
+                        $columnLetter = 'H';
+                        break;
+                    default:
+                        $columnLetter = 'F'; // По умолчанию
+                        break;
+                }
+                
+                $cell = $columnLetter . $rowNum;
+                
+                $insertSql = "INSERT INTO pgu_result_values 
+                             (param_id, pgu_id, date, shift_id, value, user_id, period_type, cell) 
+                             VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+                $shiftId = isset($value['shift_id']) ? $value['shift_id'] : null;
+                $rounded = round((float)$value['value'], 2);
+                
+                error_log("PGU Save: Inserting param_id={$value['param_id']}, pgu_id={$value['pgu_id']}, shift_id=$shiftId, cell=$cell, value=$rounded");
+                
+                executeQuery($insertSql, [
+                    $value['param_id'],
+                    $value['pgu_id'],
+                    $date,
+                    $shiftId,
+                    $rounded,
+                    $userId,
+                    $periodType,
+                    $cell
+                ]);
+            }
+        }
 
             sendSuccess(['message' => 'Результаты ПГУ успешно сохранены']);
-        } catch (Exception $e) {
-            // Rollback transaction on error
-            rollbackTransaction();
-            throw $e;
-        }
     } catch (Exception $e) {
         sendError('Ошибка при сохранении результатов ПГУ: ' . $e->getMessage());
     }

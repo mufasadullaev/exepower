@@ -90,3 +90,17 @@
     }
   }
 } 
+
+/* Горизонтальный скролл снизу */
+.pgu-results .table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+/* Группа заголовков смен */
+.pgu-shift-header {
+  text-align: center;
+  font-weight: 600;
+  background: var(--cui-body-bg, #fff);
+} 

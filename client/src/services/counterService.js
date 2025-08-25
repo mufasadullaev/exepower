@@ -54,6 +54,32 @@ export const counterService = {
     return response.data
   },
 
+  getReserveAssignments: async (date, activeOnly = false) => {
+    const params = activeOnly ? { active: 1 } : { date }
+    const response = await api.get('/meter-reserves', { params })
+    return response.data.data
+  },
+
+  startReserveAssignment: async ({ reserve_meter_id, primary_meter_id, start_time, start_reading = null, comment = '' }) => {
+    const response = await api.post('/meter-reserves', {
+      reserve_meter_id,
+      primary_meter_id,
+      start_time,
+      ...(start_reading !== null ? { start_reading } : {}),
+      comment
+    })
+    return response.data
+  },
+
+  endReserveAssignment: async (id, { end_time, end_reading, comment = '' }) => {
+    const response = await api.put(`/meter-reserves/${id}/end`, {
+      end_time,
+      end_reading,
+      comment
+    })
+    return response.data
+  },
+
   /**
    * Массовая синхронизация данных счетчиков с pgu_fullparam_values
    * @returns {Promise} - Promise resolving to sync result

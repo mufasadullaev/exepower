@@ -31,6 +31,8 @@ require_once 'controllers/functions_controller.php';
 require_once 'controllers/counters_controller.php';
 require_once 'controllers/equipment_tools_controller.php';
 require_once 'controllers/pgu_results_controller.php';
+require_once 'controllers/pgu_calculations_controller.php';
+require_once 'controllers/meter_reserves_controller.php';
 
 $request_uri = $_SERVER['REQUEST_URI'];
 $path = parse_url($request_uri, PHP_URL_PATH);
@@ -224,6 +226,33 @@ try {
             } elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $data = json_decode(file_get_contents('php://input'), true);
                 savePguResultValues($data);
+            } else {
+                sendError('Метод не поддерживается', 405);
+            }
+            break;
+            
+        case 'pgu-calculations/perform':
+            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                performFullCalculation();
+            } else {
+                sendError('Метод не поддерживается', 405);
+            }
+            break;
+        
+        case 'meter-reserves':
+            if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+                getMeterReserveAssignments();
+            } elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                startMeterReserveAssignment();
+            } else {
+                sendError('Метод не поддерживается', 405);
+            }
+            break;
+        
+        case (preg_match('/^meter-reserves\/(\d+)\/end$/', $path, $matches) ? true : false):
+            $assignId = $matches[1];
+            if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
+                endMeterReserveAssignment($assignId);
             } else {
                 sendError('Метод не поддерживается', 405);
             }

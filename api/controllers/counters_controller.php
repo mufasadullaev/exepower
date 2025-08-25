@@ -9,7 +9,7 @@ require_once __DIR__ . '/../helpers/response.php';
  * @return int|null pgu_id или null, если оборудование не относится к ПГУ
  */
 function getPguIdFromEquipment($equipmentId) {
-    // Маппинг equipment_id -> pgu_id
+    // Маппинг equipment_id -> pgu_id (обновлено для новых счетчиков)
     $equipmentToPguMap = [
         1 => null,  // Блок ТГ7 - не ПГУ
         2 => null,  // Блок ТГ8 - не ПГУ
@@ -53,9 +53,9 @@ function getMeters() {
             SELECT m.*, mt.name as type_name, e.name as equipment_name
             FROM meters m
             JOIN meter_types mt ON m.meter_type_id = mt.id
-            JOIN equipment e ON m.equipment_id = e.id
+            LEFT JOIN equipment e ON m.equipment_id = e.id
             WHERE m.meter_type_id = ? AND m.is_active = 1
-            ORDER BY m.name
+            ORDER BY m.id
         ');
         $stmt->execute([$typeId]);
         $meters = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -95,6 +95,131 @@ function getReadings() {
             $formattedReadings[$reading['meter_id']] = $reading;
         }
         
+        // Добавляем эффективные сменные значения для основных счётчиков (ВСР-*) с учётом назначений резерва
+        try {
+            // Получаем назначения резервов, пересекающие день
+            $startOfDay = $date . ' 00:00:00';
+            $endOfDay = $date . ' 23:59:59';
+            $assignments = fetchAll(
+                "SELECT * FROM meter_reserve_assignments WHERE (start_time <= ?) AND (end_time IS NULL OR end_time >= ?)",
+                [$endOfDay, $startOfDay]
+            );
+
+            if (!empty($assignments)) {
+                // Подтягиваем параметры счетчиков (коэффициент и шкалу) для всех задействованных резервов
+                $reserveIds = array_values(array_unique(array_map(fn($a) => (int)$a['reserve_meter_id'], $assignments)));
+                $metersInfo = [];
+                if (!empty($reserveIds)) {
+                    $placeholders = implode(',', array_fill(0, count($reserveIds), '?'));
+                    $rows = fetchAll("SELECT id, coefficient_k, scale FROM meters WHERE id IN ($placeholders)", $reserveIds);
+                    foreach ($rows as $m) {
+                        $metersInfo[(int)$m['id']] = [
+                            'k' => isset($m['coefficient_k']) ? (float)$m['coefficient_k'] : 1.0,
+                            'scale' => isset($m['scale']) ? (float)$m['scale'] : 0.0,
+                        ];
+                    }
+                }
+
+                // Индексы смен
+                $shifts = [
+                    ['start' => '00:00:00', 'end' => '08:00:00', 'key' => 'shift1'],
+                    ['start' => '08:00:00', 'end' => '16:00:00', 'key' => 'shift2'],
+                    ['start' => '16:00:00', 'end' => '23:59:59', 'key' => 'shift3'],
+                ];
+
+                foreach ($assignments as $asg) {
+                    if (!$asg['end_time'] || $asg['end_reading'] === null) {
+                        // Открытые назначения не учитываем до закрытия
+                        continue;
+                    }
+                    $primaryId = (int)$asg['primary_meter_id'];
+                    $reserveId = (int)$asg['reserve_meter_id'];
+                    $startTime = new DateTime(max($asg['start_time'], $startOfDay));
+                    $endTime = new DateTime(min($asg['end_time'], $endOfDay));
+                    if ($endTime <= $startTime) continue;
+
+                    $startReading = (float)$asg['start_reading'];
+                    $endReading = (float)$asg['end_reading'];
+                    $k = $metersInfo[$reserveId]['k'] ?? 1.0;
+                    $scale = $metersInfo[$reserveId]['scale'] ?? 0.0;
+
+                    // Учёт переполнения шкалы
+                    if ($scale > 0 && $endReading < $startReading) {
+                        $rawDelta = ($scale - $startReading) + $endReading;
+                    } else {
+                        $rawDelta = $endReading - $startReading;
+                    }
+                    // Переводим в энергию (как и для обычных сменных значений)
+                    $totalEnergy = ($rawDelta * $k) / 1000.0;
+
+                    $intervalSeconds = max(1, $endTime->getTimestamp() - $startTime->getTimestamp());
+                    $ratePerSecond = $totalEnergy / $intervalSeconds;
+
+                    // Добавляем по сменам
+                    foreach ($shifts as $s) {
+                        $sStart = new DateTime($date . ' ' . $s['start']);
+                        $sEnd = new DateTime($date . ' ' . $s['end']);
+                        $overlapStart = max($startTime, $sStart);
+                        $overlapEnd = min($endTime, $sEnd);
+                        if ($overlapEnd > $overlapStart) {
+                            $overlapSeconds = $overlapEnd->getTimestamp() - $overlapStart->getTimestamp();
+                            $contribEnergy = $ratePerSecond * $overlapSeconds;
+                            if (!isset($formattedReadings[$primaryId])) {
+                                // если для основного нет записей на эту дату, создадим базовую
+                                $formattedReadings[$primaryId] = [
+                                    'meter_id' => $primaryId,
+                                    'date' => $date,
+                                    'shift1' => null, 'shift2' => null, 'shift3' => null, 'total' => null
+                                ];
+                            }
+                            $effectiveKey = 'effective_' . $s['key'];
+                            
+                            // Инициализируем effective_shift только резервной добавкой (не копируем основное значение)
+                            if (!isset($formattedReadings[$primaryId][$effectiveKey])) {
+                                $formattedReadings[$primaryId][$effectiveKey] = 0.0;
+                            }
+                            $formattedReadings[$primaryId][$effectiveKey] += (float)$contribEnergy;
+                            
+                            // Добавляем резервную энергию к основной смене
+                            $baseKey = $s['key'];
+                            if (isset($formattedReadings[$primaryId][$baseKey])) {
+                                $formattedReadings[$primaryId][$baseKey] += (float)$contribEnergy;
+                            } else {
+                                // Если основного значения нет, добавляем только резерв
+                                $formattedReadings[$primaryId][$baseKey] = (float)$contribEnergy;
+                            }
+                        }
+                    }
+                }
+
+                // Пересчёт total
+                foreach ($formattedReadings as $mid => &$row) {
+                    $hasEffective = isset($row['effective_shift1']) || isset($row['effective_shift2']) || isset($row['effective_shift3']);
+                    if ($hasEffective) {
+                        // effective_shift показывает только резервные добавки, округляем их
+                        $row['effective_shift1'] = isset($row['effective_shift1']) ? round($row['effective_shift1'], 3) : 0;
+                        $row['effective_shift2'] = isset($row['effective_shift2']) ? round($row['effective_shift2'], 3) : 0;
+                        $row['effective_shift3'] = isset($row['effective_shift3']) ? round($row['effective_shift3'], 3) : 0;
+                        
+                        // effective_total - сумма всех резервных добавок
+                        $row['effective_total'] = round(
+                            $row['effective_shift1'] + $row['effective_shift2'] + $row['effective_shift3'], 
+                            3
+                        );
+                        
+                        // Пересчитываем total для основных смен (уже включают резерв)
+                        $row['total'] = round(
+                            ($row['shift1'] ?? 0) + ($row['shift2'] ?? 0) + ($row['shift3'] ?? 0), 
+                            3
+                        );
+                    }
+                }
+                unset($row);
+            }
+        } catch (Exception $calcEx) {
+            // Не роняем выдачу при ошибке расчёта
+        }
+        
         sendSuccess($formattedReadings);
     } catch (Exception $e) {
         sendError('Ошибка при получении показаний: ' . $e->getMessage());
@@ -110,13 +235,23 @@ function saveReadings() {
         
         $input = json_decode(file_get_contents('php://input'), true);
         
+        // Логирование для диагностики
+        error_log("saveReadings input: " . print_r($input, true));
+        
         if (!isset($input['date']) || !isset($input['readings'])) {
-            sendError('Неверный формат данных');
+            sendError('Неверный формат данных: отсутствует date или readings');
             return;
         }
 
         $date = $input['date'];
         $readings = $input['readings'];
+        
+        // Проверяем что readings это массив
+        if (!is_array($readings)) {
+            sendError('Неверный формат данных: readings должен быть массивом');
+            return;
+        }
+        
         $db = getDbConnection();
         
         $db->beginTransaction();
@@ -130,6 +265,11 @@ function saveReadings() {
                 
                 if (!$meter) {
                     throw new Exception("Счетчик не найден");
+                }
+                
+                // Обеспечиваем что r0 не NULL (обязательное поле в БД)
+                if (!isset($reading['r0']) || $reading['r0'] === null) {
+                    $reading['r0'] = 0;
                 }
 
                 // Проверяем, была ли замена счетчика в этот день
@@ -217,6 +357,7 @@ function saveReadings() {
                 $shift2 = null;
                 $shift3 = null;
 
+                // Сначала рассчитываем основные значения смен
                 if ($replacement) {
                     // Если была замена, рассчитываем с учетом времени замены
                     $replacementTime = $replacement['replacement_time'];
@@ -258,7 +399,7 @@ function saveReadings() {
 
                     // Смена 3 (16-24)
                     if (isset($reading['r16']) && isset($reading['r24'])) {
-                        if ($replacementTime >= $shift16Time && $replacementTime < $shift24Time) { // замена произошла во время третьей смены
+                        if ($replacementTime >= $shift16Time) { // замена произошла во время третьей смены
                             // Расчет по старому счетчику до замены
                             $beforeReplacement = ($replacement['old_reading'] - $reading['r16']) * $replacement['old_coefficient'] / 1000;
                             // Расчет по новому счетчику после замены
@@ -266,10 +407,8 @@ function saveReadings() {
                             // Расчет простоя
                             $downtimePower = ($replacement['downtime_min'] / 60) * $replacement['power_mw'];
                             $shift3 = $beforeReplacement + $downtimePower + $afterReplacement;
-                        } else if ($replacementTime < $shift16Time) { // замена произошла до третьей смены
+                        } else { // замена произошла до третьей смены
                             $shift3 = ($reading['r24'] - $reading['r16']) * $replacement['new_coefficient'] / 1000;
-                        } else { // замена произошла после третьей смены
-                            $shift3 = ($reading['r24'] - $reading['r16']) * $replacement['old_coefficient'] / 1000;
                         }
                     }
                 } else {
@@ -284,6 +423,8 @@ function saveReadings() {
                         $shift3 = ($reading['r24'] - $reading['r16']) * $meter['coefficient_k'] / 1000;
                     }
                 }
+
+                // Резервные добавки пока оставляем как есть - они будут рассчитаны в getReadings
 
                 $total = ($shift1 !== null ? $shift1 : 0) + 
                         ($shift2 !== null ? $shift2 : 0) + 
@@ -820,12 +961,18 @@ function calculateDeliveryValues($pguId, $date) {
             2 => [5, 6]  // ПГУ 2: ГТ 2 (id=5), ПТ 2 (id=6)
         ];
         
+        // Маппинг ПГУ к счетчикам расхода на собственные нужды  
+        $pguOwnNeedsMapping = [
+            1 => 3, // ПГУ 1: используется equipment_id=3 (ГТ1) для поиска ТСН-1
+            2 => 5  // ПГУ 2: используется equipment_id=5 (ГТ2) для поиска ТСН-2
+        ];
+        
         $equipmentIds = $pguMeterMapping[$pguId] ?? [];
         if (empty($equipmentIds)) {
             return;
         }
         
-        // Получаем все счетчики для данного ПГУ
+        // Получаем все счетчики выработки для данного ПГУ
         $generationMeters = fetchAll(
             "SELECT m.id, m.equipment_id, m.coefficient_k, mr.shift1, mr.shift2, mr.shift3
              FROM meters m
@@ -835,21 +982,21 @@ function calculateDeliveryValues($pguId, $date) {
             [$date]
         );
         
+        // Получаем счетчик расхода на собственные нужды для данного ПГУ (ТСН-1 или ТСН-2)
+        $ownNeedsEquipmentId = $pguOwnNeedsMapping[$pguId];
         $ownNeedsMeters = fetchAll(
             "SELECT m.id, m.equipment_id, m.coefficient_k, mr.shift1, mr.shift2, mr.shift3
              FROM meters m
              LEFT JOIN meter_readings mr ON m.id = mr.meter_id AND mr.date = ?
-             WHERE m.equipment_id IN (" . implode(',', $equipmentIds) . ") 
-             AND m.meter_type_id = 2 AND m.is_active = 1",
-            [$date]
+             WHERE m.equipment_id = ? AND m.meter_type_id = 2 AND m.is_active = 1",
+            [$date, $ownNeedsEquipmentId]
         );
         
         $householdNeedsMeters = fetchAll(
             "SELECT m.id, m.equipment_id, m.coefficient_k, mr.shift1, mr.shift2, mr.shift3
              FROM meters m
              LEFT JOIN meter_readings mr ON m.id = mr.meter_id AND mr.date = ?
-             WHERE m.equipment_id IN (" . implode(',', $equipmentIds) . ") 
-             AND m.meter_type_id = 4 AND m.is_active = 1",
+             WHERE m.meter_type_id = 4 AND m.is_active = 1",
             [$date]
         );
         

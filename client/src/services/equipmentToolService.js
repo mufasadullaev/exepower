@@ -13,13 +13,23 @@ export const equipmentToolService = {
   },
 
   // Включить/выключить инструмент
-  toggleTool: async (equipmentId, toolType, isOn) => {
+  toggleTool: async (equipmentId, toolType, isOn, eventTime = null, comment = '') => {
     try {
-      const response = await api.post('/equipment-tools/toggle', {
+      const payload = {
         equipment_id: equipmentId,
         tool_type: toolType,
         event_type: isOn ? 'on' : 'off'
-      })
+      }
+      
+      // Добавляем время события и комментарий если они переданы
+      if (eventTime) {
+        payload.event_time = eventTime
+      }
+      if (comment) {
+        payload.comment = comment
+      }
+      
+      const response = await api.post('/equipment-tools/toggle', payload)
       return response.data
     } catch (error) {
       console.error('Error toggling tool:', error)

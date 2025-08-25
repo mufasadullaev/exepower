@@ -316,7 +316,8 @@ function getCellValue($parameterId, $equipmentId) {
         ]
     ];
 
-    return $mapping[$parameterId][$equipmentId] ?? null;
+    $result = $mapping[$parameterId][$equipmentId] ?? null;
+    return $result;
 }
 
 /**
@@ -656,21 +657,25 @@ function saveParameterValues()
     // Проверка аутентификации
     $user = requireAuth();
 
-    // Получение данных из запроса
-    $requestData = json_decode(file_get_contents('php://input'), true);
+    // Получение данных из тела запроса
+    $input = json_decode(file_get_contents('php://input'), true);
+
+    if (!$input) {
+        return sendError('Неверный формат данных', 400);
+    }
 
     // Проверка обязательных полей
     if (
-        !isset($requestData['equipmentId']) || !isset($requestData['date']) ||
-        !isset($requestData['shiftId']) || !isset($requestData['values'])
+        !isset($input['equipmentId']) || !isset($input['date']) ||
+        !isset($input['shiftId']) || !isset($input['values'])
     ) {
         return sendError('Не все обязательные поля заполнены', 400);
     }
 
-    $equipmentId = $requestData['equipmentId'];
-    $date = $requestData['date'];
-    $shiftId = $requestData['shiftId'];
-    $values = $requestData['values'];
+    $equipmentId = $input['equipmentId'];
+    $date = $input['date'];
+    $shiftId = $input['shiftId'];
+    $values = $input['values'];
 
     // Проверка формата даты
     if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
@@ -694,6 +699,10 @@ function saveParameterValues()
 
             // Получаем значение cell для данного параметра и оборудования
             $cellValue = getCellValue($parameterId, $equipmentId);
+            
+            if ($cellValue === null) {
+                continue; // Пропускаем параметр если нет маппинга
+            }
 
             // Проверка существования записи
             $existingValue = fetchOne(
@@ -727,7 +736,12 @@ function saveParameterValues()
         }
 
         // Копирование значений в pgu_fullparam_values (только параметры, не счетчики)
+        try {
         copyToPguFullParams($equipmentId, $date, $shiftId, $user['id']);
+        } catch (Exception $e) {
+            $db->rollBack();
+            return sendError('Ошибка при копировании значений в pgu_fullparam_values: ' . $e->getMessage(), 500);
+        }
 
         // Подтверждение транзакции
         $db->commit();

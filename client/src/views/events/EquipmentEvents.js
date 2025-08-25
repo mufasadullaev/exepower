@@ -585,6 +585,13 @@ const EquipmentEvents = () => {
       toolType,
       newStatus
     })
+    
+    // Инициализируем eventData с текущей датой и временем
+    setEventData({
+      event_time: new Date(),
+      comment: ''
+    })
+    
     setToolConfirmModal(true)
   }
 
@@ -597,10 +604,23 @@ const EquipmentEvents = () => {
     
     try {
       setToolsLoading(true)
+      
+      // Создаем копию даты события
+      const eventTime = new Date(eventData.event_time);
+      
+      // Преобразуем в строку ISO с сохранением локальной временной зоны
+      const eventTimeStr = eventTime.getFullYear() + '-' +
+                          String(eventTime.getMonth() + 1).padStart(2, '0') + '-' +
+                          String(eventTime.getDate()).padStart(2, '0') + ' ' +
+                          String(eventTime.getHours()).padStart(2, '0') + ':' +
+                          String(eventTime.getMinutes()).padStart(2, '0') + ':00';
+      
       const response = await equipmentToolService.toggleTool(
         selectedEquipment.id,
         toolType,
-        newStatus === 'on'
+        newStatus === 'on',
+        eventTimeStr,
+        eventData.comment
       )
       
       if (response.status === 'success') {
@@ -758,7 +778,7 @@ const EquipmentEvents = () => {
         </CRow>
         
         {/* Инструменты */}
-        {selectedEquipment && (
+        {selectedEquipment && activeEquipmentType === EQUIPMENT_TYPES.PGU && (
           <CRow className="mb-3">
             <CCol>
               <div className="d-flex align-items-center gap-4">
@@ -976,20 +996,45 @@ const EquipmentEvents = () => {
           </CModalFooter>
         </CModal>
 
-        {/* Модальное окно подтверждения переключения инструмента */}
+        {/* Модальное окно для переключения инструмента с выбором даты и времени */}
         <CModal visible={toolConfirmModal} onClose={() => {
           setToolConfirmModal(false)
           setPendingToolToggle(null)
         }}>
           <CModalHeader closeButton>
-            <CModalTitle>Подтверждение действия</CModalTitle>
+            <CModalTitle>Переключение инструмента</CModalTitle>
           </CModalHeader>
           <CModalBody>
             {pendingToolToggle && (
-              <p>
-                Вы уверены, что хотите {pendingToolToggle.newStatus === 'on' ? 'включить' : 'выключить'} 
-                {' '}{pendingToolToggle.toolType === 'evaporator' ? 'испаритель' : 'АОС'}?
-              </p>
+              <CForm>
+                <div className="mb-3">
+                  <CFormLabel>
+                    {pendingToolToggle.newStatus === 'on' ? 'Включение' : 'Выключение'} 
+                    {' '}{pendingToolToggle.toolType === 'evaporator' ? 'испарителя' : 'АОС'}
+                  </CFormLabel>
+                </div>
+                <div className="mb-3">
+                  <CFormLabel>Дата и время события</CFormLabel>
+                  <DatePicker
+                    selected={eventData.event_time}
+                    onChange={date => setEventData({...eventData, event_time: date})}
+                    showTimeSelect
+                    timeFormat="HH:mm"
+                    timeIntervals={15}
+                    dateFormat="dd.MM.yyyy HH:mm"
+                    className="form-control"
+                  />
+                </div>
+                <div className="mb-3">
+                  <CFormLabel>Комментарий</CFormLabel>
+                  <CFormInput
+                    type="text"
+                    value={eventData.comment || ''}
+                    onChange={e => setEventData({...eventData, comment: e.target.value})}
+                    placeholder="Опционально"
+                  />
+                </div>
+              </CForm>
             )}
           </CModalBody>
           <CModalFooter>
@@ -1000,13 +1045,13 @@ const EquipmentEvents = () => {
                 setPendingToolToggle(null)
               }}
             >
-              Нет
+              Отмена
             </CButton>
             <CButton 
               color={pendingToolToggle?.newStatus === 'on' ? 'success' : 'danger'} 
               onClick={handleToolToggleConfirm}
             >
-              Да
+              Сохранить
             </CButton>
           </CModalFooter>
         </CModal>

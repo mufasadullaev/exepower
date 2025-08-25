@@ -25,6 +25,40 @@ const defaultShifts = [
   { id: '3', name: 'Смена 3' }
 ];
 
+// Функция определения видимости поля для конкретного оборудования и параметра
+const isFieldVisible = (parameterId, equipmentId, equipmentName) => {
+  const paramId = parseInt(parameterId);
+  const eqId = parseInt(equipmentId);
+  
+  // Определяем тип оборудования
+  const isGT = equipmentName?.includes('ГТ'); // Газовая турбина
+  const isPT = equipmentName?.includes('ПТ'); // Паровая турбина
+  
+  // Параметры только для ПТ1/ПТ2
+  const ptOnlyParams = [11, 12, 18, 19]; // Отпуск тепла, cosφПТ, температура градирни
+  
+  // Параметры только для ГТ1/ГТ2  
+  const gtOnlyParams = [13, 14, 15, 16, 17, 20, 21, 22, 23, 24, 25, 26, 27, 28]; // Давление, влажность, температуры, газ, топливо
+  
+  // Общие параметры (показываем для всех)
+  const commonParams = []; // Все параметры теперь привязаны к конкретному типу оборудования
+  
+  if (ptOnlyParams.includes(paramId)) {
+    return isPT; // Показываем только для ПТ
+  }
+  
+  if (gtOnlyParams.includes(paramId)) {
+    return isGT; // Показываем только для ГТ
+  }
+  
+  if (commonParams.includes(paramId)) {
+    return true; // Показываем для всех
+  }
+  
+  // По умолчанию показываем
+  return true;
+};
+
 const PguParams = () => {
   const [loading, setLoading] = useState(true)
   const [loadingValues, setLoadingValues] = useState(false)
@@ -174,6 +208,11 @@ const PguParams = () => {
         for (const param of params) {
           const paramId = param.id;
           const unitId = unit.id;
+          
+          // Проверяем видимость поля - не сохраняем скрытые поля
+          if (!isFieldVisible(paramId, unitId, unit.name)) {
+            continue;
+          }
           
           // Получаем значение для текущего параметра и блока
           const value = values[paramId]?.[unitId];
@@ -335,6 +374,7 @@ const PguParams = () => {
                 <CTableDataCell>{param.unit}</CTableDataCell>
                 {units.map(unit => (
                   <CTableDataCell key={unit.id}>
+                    {isFieldVisible(param.id, unit.id, unit.name) ? (
                     <CFormInput
                       type="number"
                       value={values[param.id]?.[unit.id] || '0'}
@@ -342,6 +382,10 @@ const PguParams = () => {
                       style={{ minWidth: '80px' }}
                       disabled={loadingValues}
                     />
+                    ) : (
+                      // Пустая ячейка для недоступных полей
+                      <div style={{ height: '38px' }}></div>
+                    )}
                   </CTableDataCell>
                 ))}
               </CTableRow>

@@ -21,13 +21,13 @@ export const getPguResultParams = async () => {
  * @param {Object} params - Параметры запроса
  * @param {string} params.date - Дата
  * @param {string} params.periodType - Тип периода (shift, day, period)
- * @param {Array} params.equipmentIds - ID оборудования
+ * @param {Array<number>} params.pguIds - ID ПГУ (например [1,2,3])
  * @param {Array} params.shifts - Выбранные смены
  */
 export const getPguResultValues = async (params) => {
   try {
     const response = await api.get('/pgu-result-values', { params })
-    return response.data
+    return response.data.data
   } catch (error) {
     console.error('Ошибка при получении результатов ПГУ:', error)
     throw error
