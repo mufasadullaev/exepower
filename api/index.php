@@ -258,6 +258,34 @@ try {
             }
             break;
         
+        // --- Blocks (ТГ) endpoints ---
+        case 'blocks-result-params':
+            require_once 'controllers/blocks_results_controller.php';
+            getBlocksResultParams();
+            break;
+        
+        case 'blocks-result-values':
+            require_once 'controllers/blocks_results_controller.php';
+            if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+                $data = $_GET;
+                getBlocksResultValues($data);
+            } elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                $data = json_decode(file_get_contents('php://input'), true);
+                saveBlocksResultValues($data);
+            } else {
+                sendError('Метод не поддерживается', 405);
+            }
+            break;
+        
+        case 'blocks-calculations/perform':
+            require_once 'controllers/blocks_calculations_controller.php';
+            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                performBlocksFullCalculation();
+            } else {
+                sendError('Метод не поддерживается', 405);
+            }
+            break;
+        
         default:
             sendError('Маршрут не найден', 404);
             break;

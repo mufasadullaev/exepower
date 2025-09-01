@@ -34,6 +34,19 @@ const ROW_TO_PARAM_MAPPING = [
     69 => 59, // row 69 -> param_id 59
     70 => 60, // row 70 -> param_id 60
     71 => 61, // row 71 -> param_id 61
+    72 => 62, // row 72 -> param_id 62
+    73 => 63, // row 73 -> param_id 63
+    74 => 64, // row 74 -> param_id 64
+    75 => 65, // row 75 -> param_id 65
+    76 => 66, // row 76 -> param_id 66
+    77 => 67, // row 77 -> param_id 67
+    78 => 68, // row 78 -> param_id 68
+    79 => 69, // row 79 -> param_id 69
+    80 => 70, // row 80 -> param_id 70
+    81 => 71, // row 81 -> param_id 71
+    82 => 72, // row 82 -> param_id 72
+    83 => 73, // row 83 -> param_id 73
+    84 => 74, // row 84 -> param_id 74
 ];
 
 /**
@@ -163,6 +176,19 @@ function calculateForPeriod($date, $shiftId, $periodType, $periodStart = null, $
         69 => calculateRow69($inputData),
         70 => calculateRow70($inputData),
         71 => calculateRow71($inputData),
+        72 => calculateRow72($inputData),
+        73 => calculateRow73($inputData),
+        74 => calculateRow74($inputData),
+        75 => calculateRow75($inputData),
+        76 => calculateRow76($inputData),
+        77 => calculateRow77($inputData),
+        78 => calculateRow78($inputData),
+        79 => calculateRow79($inputData),
+        80 => calculateRow80($inputData),
+        81 => calculateRow81($inputData),
+        82 => calculateRow82($inputData),
+        83 => calculateRow83($inputData),
+        84 => calculateRow84($inputData),
     ];
     
     // Convert to save format
@@ -171,12 +197,16 @@ function calculateForPeriod($date, $shiftId, $periodType, $periodStart = null, $
         [$fValue, $gValue, $hValue] = $values;
         $paramId = ROW_TO_PARAM_MAPPING[$rowNum];
         
+        // Сохраняем все значения с точностью до 4 знаков
+        // Округление для отображения происходит на frontend
+        $decimalPlaces = 4;
+        
         // ПГУ 1 (F)
         if ($fValue !== null) {
             $results[] = [
                 'param_id' => $paramId,
                 'pgu_id' => 1,
-                'value' => round($fValue, 6),
+                'value' => round($fValue, $decimalPlaces),
                 'shift_id' => $periodType === 'shift' ? $shiftId : null
             ];
         }
@@ -186,7 +216,7 @@ function calculateForPeriod($date, $shiftId, $periodType, $periodStart = null, $
             $results[] = [
                 'param_id' => $paramId,
                 'pgu_id' => 2,
-                'value' => round($gValue, 6),
+                'value' => round($gValue, $decimalPlaces),
                 'shift_id' => $periodType === 'shift' ? $shiftId : null
             ];
         }
@@ -196,7 +226,7 @@ function calculateForPeriod($date, $shiftId, $periodType, $periodStart = null, $
             $results[] = [
                 'param_id' => $paramId,
                 'pgu_id' => 3,
-                'value' => round($hValue, 6),
+                'value' => round($hValue, $decimalPlaces),
                 'shift_id' => $periodType === 'shift' ? $shiftId : null
             ];
         }
@@ -379,8 +409,8 @@ function calculateRow55($inputData) {
     $g29 = resolveCellValue($inputData, 'G29');
     [$f50, $g50] = calculateRow50($inputData);
 
-    $f55 = calcDeltaNCosPhiPiecewise($f29, $f50);
-    $g55 = calcDeltaNCosPhiPiecewise($g29, $g50);
+    $f55 = calcDeltaNCosPhiPT($f29, $f50); // Используем отдельную функцию для ПТ
+    $g55 = calcDeltaNCosPhiPT($g29, $g50);
     
     return [$f55, $g55];
 }
@@ -607,10 +637,8 @@ function calculateRow65($inputData) {
  * Row 66: Кривая деградации ГТУ, MW
  */
 function calculateRow66($inputData) {
-    $f39 = resolveCellValue($inputData, 'F39'); // Эквивалентные часы с начала эксплуатации
-    
-    $g39 = resolveCellValue($inputData, 'G39');
-
+    $f39 = round(resolveCellValue($inputData, 'F39'), 2); // Эквивалентные часы с начала эксплуатации
+    $g39 = round(resolveCellValue($inputData, 'G39'), 2);
     $f66 = calculateRow66Value($f39);
     $g66 = calculateRow66Value($g39);
     
@@ -687,7 +715,7 @@ function calculateRow70($inputData) {
     // Получаем базовые значения
     $f16 = resolveCellValue($inputData, 'F16'); // Часы работы ПГУ
     $g16 = resolveCellValue($inputData, 'G16');
-    $h16 = resolveCellValue($inputData, 'H16');
+    $h16 = ($f16 + $g16) / 2;
 
     // F70 = ((F49*F60*F61*F62*F63*F64*F65*F68*F69)+F54+F58+F59+F67)+(F50+F55+F57+F56)
     $f70 = null;
@@ -720,34 +748,337 @@ function calculateRow70($inputData) {
  * Row 71: Изменение мощности ПГУ на внешние факторы, MW
  */
 function calculateRow71($inputData) {
-    // Получаем необходимые значения
-    [$f48, $g48] = calculateRow48($inputData); // Электрическая нагрузка ПГУ, MW, нетто
-    [$f70, $g70, $h70] = calculateRow70($inputData); // Расчетная мощность, приведённая к фактическим внешним условиям ПГУ
-    
-    // Получаем базовые значения
-    $f16 = resolveCellValue($inputData, 'F16'); // Часы работы ПГУ
-    $g16 = resolveCellValue($inputData, 'G16');
-    $h16 = resolveCellValue($inputData, 'H16');
-
     // F71 = F70 - F48
-    $f71 = null;
-    if ($f70 !== null && $f48 !== null) {
-        $f71 = $f70 - $f48;
-    }
-
-    // G71 = G70 - G48
-    $g71 = null;
-    if ($g70 !== null && $g48 !== null) {
-        $g71 = $g70 - $g48;
-    }
-
-    // H71 = (F16*F71+G71*G16)/H16
+    // G71 = G70 - G48  
+    // H71 = (F16*F71 + G71*G16)/H16
+    
+    [$f70, $g70, $h70] = calculateRow70($inputData);
+    [$f48, $g48] = calculateRow48($inputData);
+    $f16 = resolveCellValue($inputData, 'F16');
+    $g16 = resolveCellValue($inputData, 'G16');
+    $h16 = ($f16 + $g16) / 2;
+    
+    $f71 = ($f70 !== null && $f48 !== null) ? $f70 - $f48 : null;
+    $g71 = ($g70 !== null && $g48 !== null) ? $g70 - $g48 : null;
+    
+    // H71 = (F16*F71 + G71*G16)/H16
     $h71 = null;
     if ($f16 !== null && $f71 !== null && $g71 !== null && $g16 !== null && $h16 !== null && $h16 != 0) {
         $h71 = ($f16 * $f71 + $g71 * $g16) / $h16;
     }
     
     return [$f71, $g71, $h71];
+}
+
+/**
+ * Row 72: Расход топлива на изменение мощности за счёт изменения внешних факторов, т.усл.топл.
+ */
+function calculateRow72($inputData) {
+    // F72 = ЕСЛИ(-0,001<F71<0,001;0;F71*F51/1000*F16)
+    // G72 = ЕСЛИ(-0,001<G71<0,001;0;G71*G51/1000*G16)
+    // H72 = F72+G72
+    
+    [$f71, $g71] = calculateRow71($inputData);
+    [$f51, $g51] = calculateRow51($inputData);
+    $f16 = resolveCellValue($inputData, 'F16');
+    $g16 = resolveCellValue($inputData, 'G16');
+    
+    // F72: IF(-0.001 < F71 < 0.001; 0; F71*F51/1000*F16)
+    $f72 = null;
+    if ($f71 !== null) {
+        if ($f71 > -0.001 && $f71 < 0.001) {
+            $f72 = 0;
+        } elseif ($f51 !== null && $f16 !== null) {
+            $f72 = $f71 * $f51 / 1000 * $f16;
+        }
+    }
+    
+    // G72: IF(-0.001 < G71 < 0.001; 0; G71*G51/1000*G16)
+    $g72 = null;
+    if ($g71 !== null) {
+        if ($g71 > -0.001 && $g71 < 0.001) {
+            $g72 = 0;
+        } elseif ($g51 !== null && $g16 !== null) {
+            $g72 = $g71 * $g51 / 1000 * $g16;
+        }
+    }
+    
+    // H72 = F72 + G72
+    $h72 = null;
+    if ($f72 !== null && $g72 !== null) {
+        $h72 = $f72 + $g72;
+    }
+    
+    return [$f72, $g72, $h72];
+}
+
+/**
+ * Row 73: Исходно-номинальный расход топлива на ПГУ по энергетическим характеристикам, т.усл.топл.
+ */
+function calculateRow73($inputData) {
+    // F73 = F51*F13/1000
+    // G73 = G51*G13/1000
+    // H73 = F73+G73
+    
+    [$f51, $g51] = calculateRow51($inputData);
+    $f13 = resolveCellValue($inputData, 'F13');
+    $g13 = resolveCellValue($inputData, 'G13');
+    
+    $f73 = ($f51 !== null && $f13 !== null) ? $f51 * $f13 / 1000 : null;
+    $g73 = ($g51 !== null && $g13 !== null) ? $g51 * $g13 / 1000 : null;
+    
+    // H73 = F73 + G73
+    $h73 = null;
+    if ($f73 !== null && $g73 !== null) {
+        $h73 = $f73 + $g73;
+    }
+    
+    return [$f73, $g73, $h73];
+}
+
+/**
+ * Row 74: Расход топлива на тепловую нагрузку, т.усл.топл.
+ */
+function calculateRow74($inputData) {
+    // F74 = 'Исх данные ПГУ'!E6*0,161
+    // G74 = 'Исх данные ПГУ'!H6*0,161
+    // H74 = F74+G74
+    
+    // E6 и H6 - это отпуск тепла на теплоцентраль (parameter_id = 11)
+    $context = $inputData['_context'] ?? [];
+    $f74 = calculateRow74Value(1, $context); // ПГУ1
+    $g74 = calculateRow74Value(2, $context); // ПГУ2
+    
+    // H74 = F74 + G74
+    $h74 = null;
+    if ($f74 !== null && $g74 !== null) {
+        $h74 = $f74 + $g74;
+    }
+    
+    return [$f74, $g74, $h74];
+}
+
+/**
+ * Row 75: Расход топлива на ПГУ с учётом влияния внешних факторов и тепловой нагрузки, т.усл.топл.
+ */
+function calculateRow75($inputData) {
+    // F75 = F73+F72+F74
+    // G75 = G73+G72+(G14*(0,161+G79*0,02*G51/1000/7))
+    // H75 = F75+G75
+    
+    [$f73, $g73] = calculateRow73($inputData);
+    [$f72, $g72] = calculateRow72($inputData);
+    [$f74, $g74] = calculateRow74($inputData);
+    $g14 = resolveCellValue($inputData, 'G14');
+    [$g79, $g79] = calculateRow79($inputData);
+    [$g51, $g51] = calculateRow51($inputData);
+    
+    // F75 = F73+F72+F74
+    $f75 = null;
+    if ($f73 !== null && $f72 !== null && $f74 !== null) {
+        $f75 = $f73 + $f72 + $f74;
+    }
+    
+    // G75 = G73+G72+(G14*(0,161+G79*0,02*G51/1000/7))
+    $g75 = null;
+    if ($g73 !== null && $g72 !== null && $g14 !== null && $g79 !== null && $g51 !== null) {
+        $additionalTerm = $g14 * (0.161 + $g79 * 0.02 * $g51 / 1000 / 7);
+        $g75 = $g73 + $g72 + $additionalTerm;
+    }
+    
+    // H75 = F75 + G75
+    $h75 = null;
+    if ($f75 !== null && $g75 !== null) {
+        $h75 = $f75 + $g75;
+    }
+    
+    return [$f75, $g75, $h75];
+}
+
+/**
+ * Row 76: Мощность тепла топлива ПГУ, MW
+ */
+function calculateRow76($inputData) {
+    // F76 = F75*7000/860/F16
+    // G76 = G75*7000/860/G16  
+    // H76 = F76+G76
+    
+    [$f75, $g75] = calculateRow75($inputData);
+    $f16 = resolveCellValue($inputData, 'F16');
+    $g16 = resolveCellValue($inputData, 'G16');
+    
+    $f76 = ($f75 !== null && $f16 !== null && $f16 != 0) ? $f75 * 7000 / 860 / $f16 : null;
+    $g76 = ($g75 !== null && $g16 !== null && $g16 != 0) ? $g75 * 7000 / 860 / $g16 : null;
+    
+    // H76 = F76 + G76
+    $h76 = null;
+    if ($f76 !== null && $g76 !== null) {
+        $h76 = $f76 + $g76;
+    }
+    
+    return [$f76, $g76, $h76];
+}
+
+/**
+ * Row 77: КПД нетто ПГУ (установки), %
+ */
+function calculateRow77($inputData) {
+    // F77 = F70/F76*100
+    // G77 = G70/G76*100
+    // H77 = H70/H76*100
+    
+    [$f70, $g70, $h70] = calculateRow70($inputData);
+    [$f76, $g76, $h76] = calculateRow76($inputData);
+    
+    $f77 = ($f70 !== null && $f76 !== null && $f76 != 0) ? $f70 / $f76 * 100 : null;
+    $g77 = ($g70 !== null && $g76 !== null && $g76 != 0) ? $g70 / $g76 * 100 : null;
+    $h77 = ($h70 !== null && $h76 !== null && $h76 != 0) ? $h70 / $h76 * 100 : null;
+    
+    return [$f77, $g77, $h77];
+}
+
+/**
+ * Row 78: Электрические СН ПГУ, %
+ */
+function calculateRow78($inputData) {
+    // F78 = -5,296004/10^11*F70^5+5,46007318/10^8*F70^4-2,1963935287/10^5*F70^3+4,362720319298/10^3*F70^2-4,45893614984655/10*F70+2,292438590867*10
+    // G78 = -5,296004/10^11*G70^5+5,46007318/10^8*G70^4-2,1963935287/10^5*G70^3+4,362720319298/10^3*G70^2-4,45893614984655/10*G70+2,292438590867*10
+    // H78 = -5,296004/10^11*(H70/2)^5+5,46007318/10^8*(H70/2)^4-2,1963935287/10^5*(H70/2)^3+4,362720319298/10^3*(H70/2)^2-4,45893614984655/10*(H70/2)+2,292438590867*10
+    
+    [$f70, $g70, $h70] = calculateRow70($inputData);
+    
+    $f78 = ($f70 !== null) ? calculateRow78Polynomial($f70) : null;
+    $g78 = ($g70 !== null) ? calculateRow78Polynomial($g70) : null;
+    $h78 = ($h70 !== null) ? calculateRow78Polynomial($h70 / 2) : null;
+    
+    return [$f78, $g78, $h78];
+}
+
+/**
+ * Row 79: Электрические СН ПГУ, MW
+ */
+function calculateRow79($inputData) {
+    // F79 = F78*F70/100
+    // G79 = G78*G70/100
+    // H79 = F79+G79
+    
+    [$f78, $g78] = calculateRow78($inputData);
+    [$f70, $g70] = calculateRow70($inputData);
+    
+    $f79 = ($f78 !== null && $f70 !== null) ? $f78 * $f70 / 100 : null;
+    $g79 = ($g78 !== null && $g70 !== null) ? $g78 * $g70 / 100 : null;
+    
+    // H79 = F79 + G79
+    $h79 = null;
+    if ($f79 !== null && $g79 !== null) {
+        $h79 = $f79 + $g79;
+    }
+    
+    return [$f79, $g79, $h79];
+}
+
+/**
+ * Row 80: Номинальный удельный расход топлива на отпуск электроэнергии, приведённый к внешним факторам, g/kWh
+ */
+function calculateRow80($inputData) {
+    // F80 = 0,86*100000/(F77*7)
+    // G80 = 0,86*100000/(G77*7)
+    // H80 = 0,86*100000/(H77*7)
+    
+    [$f77, $g77, $h77] = calculateRow77($inputData);
+    
+    $f80 = ($f77 !== null && $f77 != 0) ? 0.86 * 100000 / ($f77 * 7) : null;
+    $g80 = ($g77 !== null && $g77 != 0) ? 0.86 * 100000 / ($g77 * 7) : null;
+    $h80 = ($h77 !== null && $h77 != 0) ? 0.86 * 100000 / ($h77 * 7) : null;
+    
+    return [$f80, $g80, $h80];
+}
+
+/**
+ * Row 81: Затраты топлива на пуски ПГУ по диспетчерскому графику, g/kWh
+ */
+function calculateRow81($inputData) {
+    // F81 = ((180*F31/7-390*0,24*1000)*'Исх данные ПГУ'!D10+(158*F31/7-365*0,24*1000)*'Исх данные ПГУ'!D11+(60*F31/7-175*0,24*1000)*'Исх данные ПГУ'!D12)/F13
+    // G81 = ((180*G31/7-390*0,24*1000)*'Исх данные ПГУ'!G10+(158*G31/7-365*0,24*1000)*'Исх данные ПГУ'!G11+(60*G31/7-175*0,24*1000)*'Исх данные ПГУ'!G12)/G13
+    // H81 = G81+F81
+    
+    $f31 = resolveCellValue($inputData, 'F31');
+    $g31 = resolveCellValue($inputData, 'G31');
+    $f13 = resolveCellValue($inputData, 'F13');
+    $g13 = resolveCellValue($inputData, 'G13');
+    
+    $context = $inputData['_context'] ?? [];
+    
+    // Получаем данные D10, D11, D12 для ПГУ1 и G10, G11, G12 для ПГУ2
+    $f81 = calculateRow81Value($f31, $f13, 1, $context); // ПГУ1
+    $g81 = calculateRow81Value($g31, $g13, 2, $context); // ПГУ2
+    
+    // H81 = G81 + F81
+    $h81 = null;
+    if ($f81 !== null && $g81 !== null) {
+        $h81 = $f81 + $g81;
+    }
+    
+    return [$f81, $g81, $h81];
+}
+
+/**
+ * Row 82: Номинальный удельный расход топлива на отпуск электроэнергии с учётом пусков, g/kWh
+ */
+function calculateRow82($inputData) {
+    // F82 = F81+F80
+    // G82 = G81+G80
+    // H82 = H81+H80
+    
+    [$f81, $g81, $h81] = calculateRow81($inputData);
+    [$f80, $g80, $h80] = calculateRow80($inputData);
+    
+    $f82 = ($f81 !== null && $f80 !== null) ? $f81 + $f80 : null;
+    $g82 = ($g81 !== null && $g80 !== null) ? $g81 + $g80 : null;
+    $h82 = ($h81 !== null && $h80 !== null) ? $h81 + $h80 : null;
+    
+    return [$f82, $g82, $h82];
+}
+
+/**
+ * Row 83: Фактический удельный расход топлива на отпуск электроэнергии с учётом пусков, g/kWh
+ */
+function calculateRow83($inputData) {
+    // F83 = (F42-F74)/F13*1000
+    // G83 = (G42-G74)/G13*1000
+    // H83 = (H42-H74)/H13*1000
+    
+    $f42 = resolveCellValue($inputData, 'F42');
+    $g42 = resolveCellValue($inputData, 'G42');
+    $h42 = $f42 + $g42;
+    [$f74, $g74, $h74] = calculateRow74($inputData);
+    $f13 = resolveCellValue($inputData, 'F13');
+    $g13 = resolveCellValue($inputData, 'G13');
+    $h13 = $f13 + $g13;
+    
+    $f83 = ($f42 !== null && $f74 !== null && $f13 !== null && $f13 != 0) ? ($f42 - $f74) / $f13 * 1000 : null;
+    $g83 = ($g42 !== null && $g74 !== null && $g13 !== null && $g13 != 0) ? ($g42 - $g74) / $g13 * 1000 : null;
+    $h83 = ($h42 !== null && $h74 !== null && $h13 !== null && $h13 != 0) ? ($h42 - $h74) / $h13 * 1000 : null;
+    
+    return [$f83, $g83, $h83];
+}
+
+/**
+ * Row 84: Экономия (+)/пережог (-) топлива, g/kWh
+ */
+function calculateRow84($inputData) {
+    // F84 = F82-F83
+    // G84 = G82-G83
+    // H84 = H82-H83
+    
+    [$f82, $g82, $h82] = calculateRow82($inputData);
+    [$f83, $g83, $h83] = calculateRow83($inputData);
+    
+    $f84 = ($f82 !== null && $f83 !== null) ? $f82 - $f83 : null;
+    $g84 = ($g82 !== null && $g83 !== null) ? $g82 - $g83 : null;
+    $h84 = ($h82 !== null && $h83 !== null) ? $h82 - $h83 : null;
+    
+    return [$f84, $g84, $h84];
 }
 
 // =============================================================================
@@ -768,28 +1099,100 @@ function calculateComplexFunction51($value) {
 }
 
 /**
- * Piecewise function for cosφ calculations
+ * Calculate Delta N cos phi piecewise function for row 54 (GT)
  */
-function calcDeltaNCosPhiPiecewise($cosPhi, $x) {
-    if ($cosPhi === null || $x === null) return null;
+function calcDeltaNCosPhiPiecewise($cosValue, $nValue) {
+    if ($cosValue === null || $nValue === null) {
+        return null;
+    }
     
-    if ($cosPhi == 0.9) return 0;
+    if ($cosValue == 0.9) {
+        return 0;
+    }
     
-    $a2 = -1.274598e-8; $b2 = 2.972362e-5; $c2 = 3.359379e-3; $d2 = 2.359075; $e2 = 1.604836e3;
-    $y2 = $a2 * pow($x, 4) + $b2 * pow($x, 3) + $c2 * pow($x, 2) + $d2 * $x + $e2;
+    // Базовый полином (одинаковый для всех случаев)
+    $basePolynomial = -1.274598e-8 * pow($nValue, 4) + 
+                     2.972362e-5 * pow($nValue, 3) + 
+                     3.359379e-3 * pow($nValue, 2) + 
+                     2.359075 * $nValue + 
+                     1.604836e3;
     
-    if ($cosPhi < 0.9) {
-        $a1 = -3.493055e-7; $b1 = 2.19192e-4; $c1 = -2.991165e-2; $d1 = 4.974629; $e1 = 1.555182e3;
-        $y1 = $a1 * pow($x, 4) + $b1 * pow($x, 3) + $c1 * pow($x, 2) + $d1 * $x + $e1;
-        return ($y1 - $y2) / 0.05 * (0.9 - $cosPhi) / 1000;
-    } elseif ($cosPhi <= 0.95) {
-        $a3 = -5.450546e-8; $b3 = 3.486201e-5; $c3 = 5.787735e-3; $d3 = 1.166651; $e3 = 1.657923e3;
-        $y3 = $a3 * pow($x, 4) + $b3 * pow($x, 3) + $c3 * pow($x, 2) + $d3 * $x + $e3;
-        return ($y3 - $y2) / 0.05 * ($cosPhi - 0.9) / 1000;
-    } else {
-        $a4 = 3.550269e-7; $b4 = -2.116611e-4; $c4 = 5.486279e-2; $d4 = -3.205089; $e4 = 1.755291e3;
-        $y4 = $a4 * pow($x, 4) + $b4 * pow($x, 3) + $c4 * pow($x, 2) + $d4 * $x + $e4;
-        return ($y4 - $y2) / 0.1 * ($cosPhi - 0.9) / 1000;
+    if ($cosValue < 0.9) {
+        // Первый полином для cosValue < 0.9
+        $polynomial1 = -3.493055e-7 * pow($nValue, 4) + 
+                      2.19192e-4 * pow($nValue, 3) - 
+                      2.991165e-2 * pow($nValue, 2) + 
+                      4.974629 * $nValue + 
+                      1.555182e3;
+        
+        return ($polynomial1 - $basePolynomial) / 0.05 * (0.9 - $cosValue) / 1000;
+    } elseif ($cosValue <= 0.95) {
+        // Второй полином для 0.9 < cosValue <= 0.95
+        $polynomial2 = -5.450546e-8 * pow($nValue, 4) + 
+                      3.486201e-5 * pow($nValue, 3) + 
+                      5.787735e-3 * pow($nValue, 2) + 
+                      1.166651 * $nValue + 
+                      1.657923e3;
+        
+        return ($polynomial2 - $basePolynomial) / 0.05 * ($cosValue - 0.9) / 1000;
+    } else { // cosValue > 0.95
+        // Третий полином для cosValue > 0.95
+        $polynomial3 = 3.550269e-7 * pow($nValue, 4) - 
+                      2.116611e-4 * pow($nValue, 3) + 
+                      5.486279e-2 * pow($nValue, 2) - 
+                      3.205089 * $nValue + 
+                      1.755291e3;
+        
+        return ($polynomial3 - $basePolynomial) / 0.1 * ($cosValue - 0.9) / 1000;
+    }
+}
+
+/**
+ * Calculate Delta N cos phi for PT (row 55) - different coefficients than GT
+ */
+function calcDeltaNCosPhiPT($cosValue, $nValue) {
+    if ($cosValue === null || $nValue === null) {
+        return null;
+    }
+    
+    if ($cosValue == 0.9) {
+        return 0;
+    }
+    
+    // Базовый полином (одинаковый для всех случаев)
+    $basePolynomial = -2.713238e-5 * pow($nValue, 4) + 
+                     6.839387e-3 * pow($nValue, 3) - 
+                     5.839403e-1 * pow($nValue, 2) + 
+                     2.49714e1 * $nValue + 
+                     5.03691e2;
+    
+    if ($cosValue < 0.9) {
+        // Первый полином для cosValue < 0.9
+        $polynomial1 = -6.007189e-5 * pow($nValue, 4) + 
+                      1.485491e-2 * pow($nValue, 3) - 
+                      1.276215 * pow($nValue, 2) + 
+                      5.054052e1 * $nValue + 
+                      1.840042e2;
+        
+        return ($polynomial1 - $basePolynomial) / 0.05 * (0.9 - $cosValue) / 1000;
+    } elseif ($cosValue <= 0.95) {
+        // Второй полином для 0.9 < cosValue <= 0.95
+        $polynomial2 = 5.807124e-6 * pow($nValue, 4) - 
+                      1.176136e-3 * pow($nValue, 3) + 
+                      1.083344e1 * pow($nValue, 2) - 
+                      5.977259e1 * $nValue + 
+                      8.233778e2;
+        
+        return ($polynomial2 - $basePolynomial) / 0.05 * ($cosValue - 0.9) / 1000;
+    } else { // cosValue > 0.95
+        // Третий полином для cosValue > 0.95
+        $polynomial3 = 3.874663e-5 * pow($nValue, 4) - 
+                      9.191659e-3 * pow($nValue, 3) + 
+                      8.00609e-1 * pow($nValue, 2) - 
+                      2.616685e1 * $nValue + 
+                      1.143065e3;
+        
+        return ($polynomial3 - $basePolynomial) / 0.1 * ($cosValue - 0.9) / 1000;
     }
 }
 
@@ -797,27 +1200,37 @@ function calcDeltaNCosPhiPiecewise($cosPhi, $x) {
  * Helper function for row 60 calculation
  */
 function calculateRow60Value($evaporatorState, $temp, $humidity, $evaporatorHours, $totalHours) {
-    if ($evaporatorState !== 1) return 1; // Если испаритель выключен
-    
-    if ($totalHours === null || $totalHours == 0) return null;
-    
-    // Полиномиальная функция в зависимости от температуры и влажности
+    $evaporatorState = (int)$evaporatorState;
+    $temp = (float)$temp;
+    $humidity = (float)$humidity;
+    $evaporatorHours = (float)$evaporatorHours;
+    $totalHours = (float)$totalHours;
+
+    if ($evaporatorState !== 1) return 1;
+    if ($totalHours == 0) return null;
+
     $result = 0;
-    
+
     if ($humidity <= 10) {
-        $result = -6.747442e-10 * pow($temp, 5) + 9.937119e-8 * pow($temp, 4) - 5.48286e-6 * pow($temp, 3) + 1.469636e-4 * pow($temp, 2) + 3.156566e-4 * $temp + 9.699084e1;
+        $result = -6.747442e-10 * $temp**5 + 9.937119e-8 * $temp**4 - 5.48286e-6 * $temp**3
+                + 1.469636e-4 * $temp**2 + 3.156566e-4 * $temp + 9.699084e-1;
     } elseif ($humidity <= 20) {
-        $result = 1.441597e-10 * pow($temp, 5) - 2.131997e-8 * pow($temp, 4) + 1.357151e-6 * pow($temp, 3) - 3.143155e-5 * pow($temp, 2) + 2.653151e-3 * $temp + 9.599987e1;
+        $result = 1.441597e-10 * $temp**5 - 2.131997e-8 * $temp**4 + 1.357151e-6 * $temp**3
+                - 3.143155e-5 * $temp**2 + 2.653151e-3 * $temp + 9.599987e-1;
     } elseif ($humidity <= 40) {
-        $result = 1.190276e-9 * pow($temp, 5) - 1.673392e-7 * pow($temp, 4) + 9.106626e-6 * pow($temp, 3) - 2.166697e-4 * pow($temp, 2) + 5.012879e-3 * $temp + 9.515353e1;
+        $result = 1.190276e-9 * $temp**5 - 1.673392e-7 * $temp**4 + 9.106626e-6 * $temp**3
+                - 2.166697e-4 * $temp**2 + 5.012879e-3 * $temp + 9.515353e-1;
     } elseif ($humidity <= 58) {
-        $result = -8.255738e-10 * pow($temp, 5) + 2.03998e-7 * pow($temp, 4) - 1.579106e-5 * pow($temp, 3) + 5.469624e-4 * pow($temp, 2) - 5.077647e-3 * $temp + 1.001017e2;
+        $result = -8.255738e-10 * $temp**5 + 2.03998e-7 * $temp**4 - 1.579106e-5 * $temp**3
+                + 5.469624e-4 * $temp**2 - 5.077647e-3 * $temp + 1.001017;
     } elseif ($humidity <= 80) {
-        $result = 7.879166e-9 * pow($temp, 5) - 9.228572e-7 * pow($temp, 4) + 4.052151e-5 * pow($temp, 3) - 7.922374e-4 * pow($temp, 2) + 1.019137e-2 * $temp + 9.417196e1;
+        $result = 7.879166e-9 * $temp**5 - 9.228572e-7 * $temp**4 + 4.052151e-5 * $temp**3
+                - 7.922374e-4 * $temp**2 + 1.019137e-2 * $temp + 9.417196e-1;
     } elseif ($humidity <= 100) {
-        $result = 3.404797e-9 * pow($temp, 5) - 3.104972e-7 * pow($temp, 4) + 1.051523e-5 * pow($temp, 3) - 1.297768e-4 * pow($temp, 2) + 3.738357e-3 * $temp + 9.719307e1;
+        $result = 3.404797e-9 * $temp**5 - 3.104972e-7 * $temp**4 + 1.051523e-5 * $temp**3
+                - 1.297768e-4 * $temp**2 + 3.738357e-3 * $temp + 9.719307e-1;
     }
-    
+
     return (($result - 1) * $evaporatorHours / $totalHours) + 1;
 }
 
@@ -839,38 +1252,44 @@ function calculateRow61Value($evaporatorState, $compressorTemp, $totalHours, $ev
  * Helper function for row 62 calculation
  */
 function calculateRow62Value($evaporatorState, $ambientTemp, $compressorTemp, $pressure, $totalHours, $evaporatorHours) {
+    $evaporatorState = (int)$evaporatorState;
+    $ambientTemp = (float)$ambientTemp;
+    $compressorTemp = (float)$compressorTemp;
+    $pressure = (float)$pressure;
+    $totalHours = (float)$totalHours;
+    $evaporatorHours = (float)$evaporatorHours;
+
+    // выбор температуры и доли времени — как в Excel
     if ($evaporatorState === 1) {
-        // Испаритель включен - используем температуру на входе компрессора
-        $temp = $compressorTemp;
-        $hours = $evaporatorHours;
+        $temp = $compressorTemp;            // F21
+        $hoursPart = ($totalHours > 0) ? ($evaporatorHours / $totalHours) : 0;   // F18/F16
     } else {
-        // Испаритель выключен - используем температуру окружающей среды
-        $temp = $ambientTemp;
-        $hours = $totalHours - $evaporatorHours;
+        $temp = $ambientTemp;               // F20
+        $hoursPart = ($totalHours > 0) ? (($totalHours - $evaporatorHours) / $totalHours) : 0; // (F16-F18)/F16
     }
-    
-    if ($totalHours === null || $totalHours == 0) return null;
-    
-    // Полиномиальная функция в зависимости от температуры
-    $result = 0;
-    
+
+    if ($totalHours == 0) return null;
+
+    // полином по давлению в зависимости от temp
     if ($temp <= -3) {
-        $result = 7.290788e-12 * pow($pressure, 4) - 3.050169e-8 * pow($pressure, 3) + 4.875852e-5 * pow($pressure, 2) - 3.615805e-2 * $pressure + 1.161435e1;
+        $result = 7.290788e-12*pow($pressure,4) - 3.050169e-8*pow($pressure,3) + 4.875852e-5*pow($pressure,2) - 3.615805e-2*$pressure + 1.161435e1;
     } elseif ($temp <= 9) {
-        $result = 7.607963e-12 * pow($pressure, 4) - 3.189538e-8 * pow($pressure, 3) + 5.103426e-5 * pow($pressure, 2) - 3.779398e-2 * $pressure + 1.205104e1;
+        $result = 7.607963e-12*pow($pressure,4) - 3.189538e-8*pow($pressure,3) + 5.103426e-5*pow($pressure,2) - 3.779398e-2*$pressure + 1.205104e1;
     } elseif ($temp <= 10) {
-        $result = 5.749487e-12 * pow($pressure, 4) - 2.438191e-8 * pow($pressure, 3) + 3.964932e-5 * pow($pressure, 2) - 3.013092e-2 * $pressure + 1.011792e1;
+        $result = 5.749487e-12*pow($pressure,4) - 2.438191e-8*pow($pressure,3) + 3.964932e-5*pow($pressure,2) - 3.013092e-2*$pressure + 1.011792e1;
     } elseif ($temp <= 33) {
-        $result = -4.349388e-12 * pow($pressure, 4) + 1.645545e-8 * pow($pressure, 3) - 2.2244e-5 * pow($pressure, 2) + 1.154508e-2 * $pressure - 4.032603e1;
+        // ВАЖНО: последний член -4,032603/10 => -0.4032603 (а не e1!)
+        $result = -4.349388e-12*pow($pressure,4) + 1.645545e-8*pow($pressure,3) - 2.2244e-5*pow($pressure,2) + 1.154508e-2*$pressure - 4.032603e-1;
     } elseif ($temp <= 45) {
-        $result = 4.61965e-14 * pow($pressure, 4) - 7.819627e-10 * pow($pressure, 3) + 3.086744e-6 * pow($pressure, 2) - 4.994672e-3 * $pressure + 3.647608e2;
-    }
-    
-    if ($evaporatorState === 1) {
-        return (($result - 1) * $evaporatorHours / $totalHours) + 1;
+        // ВАЖНО: последний член просто +3,647608 (а не e2!)
+        $result = 4.61965e-14*pow($pressure,4) - 7.819627e-10*pow($pressure,3) + 3.086744e-6*pow($pressure,2) - 4.994672e-3*$pressure + 3.647608;
     } else {
-        return (($result - 1) * ($totalHours - $evaporatorHours) / $totalHours) + 1;
+        // на случай temp>45, как в Excel ветки нет — можно оставить последнюю
+        $result = 3.647608;
     }
+
+    // приведение к доле часов: ((result - 1)*part) + 1
+    return (($result - 1) * $hoursPart) + 1;
 }
 
 /**
@@ -925,7 +1344,7 @@ function calculateRow64Value($lowHeatOfCombustion, $parameter) {
         return null;
     }
     
-    return round($value, 2);
+    return round($value, 4);
 }
 
 /**
@@ -985,7 +1404,7 @@ function calculateRow66Value($hours) {
         return null;
     }
     
-    return round($value / 100 + 1, 2);
+    return round($value / 100 + 1, 4);
 }
 
 /**
@@ -997,7 +1416,7 @@ function calculateRow67Value($degradation, $load) {
     // Формула: -(F66 - 1) * F49
     $value = -($degradation - 1) * $load;
     
-    return round($value, 2);
+    return round($value, 4);
 }
 
 /**
@@ -1011,7 +1430,7 @@ function calculateRow68Value($fouling) {
     } else {
         // Формула: 9.74/10^6 * F35 + 0.99026
         $value = 9.74e-6 * $fouling + 0.99026;
-        return round($value, 2);
+        return round($value, 4);
     }
 }
 
@@ -1045,7 +1464,7 @@ function calculateRow56Value($hours, $pguId, $context = []) {
     // где E7 = отпуск тепла на блоки (Гкал), D5 = часы работы
     $value = -($heatOutput / $hours * 1.162) / 37.2 * 5.68;
     
-    return round($value, 2);
+    return round($value, 4);
 }
 
 /**
@@ -1092,6 +1511,186 @@ function getHeatOutputForPgu($pguId, $context = []) {
     
     // Если нет данных за указанную дату/смену, возвращаем null
     return null;
+}
+
+/**
+ * Helper function for row 74 calculation - get heat output for thermal center
+ */
+function calculateRow74Value($pguId, $context = []) {
+    // F74 = 'Исх данные ПГУ'!E6*0,161 -> отпуск тепла на теплоцентраль ПГУ1 * 0.161
+    // G74 = 'Исх данные ПГУ'!H6*0,161 -> отпуск тепла на теплоцентраль ПГУ2 * 0.161
+    
+    // Маппинг ПГУ -> equipment_id для ПТ (паровых турбин)
+    $pguToEquipment = [
+        1 => [4], // ПГУ1 -> ПТ1 (equipment_id = 4)
+        2 => [6], // ПГУ2 -> ПТ2 (equipment_id = 6)
+    ];
+    
+    if (!isset($pguToEquipment[$pguId])) {
+        return null;
+    }
+    
+    $equipmentIds = $pguToEquipment[$pguId];
+    
+    // Используем контекст для получения даты и смены
+    $date = $context['date'] ?? date('Y-m-d');
+    $shiftId = $context['shift_id'] ?? null;
+    
+    // Получаем отпуск тепла на теплоцентраль (parameter_id = 11) для ПТ данного ПГУ
+    $sql = "SELECT SUM(pv.value) as total_heat
+            FROM parameter_values pv
+            WHERE pv.parameter_id = 11 
+            AND pv.equipment_id IN (" . implode(',', $equipmentIds) . ")
+            AND pv.date = ?";
+    $params = [$date];
+    
+    if ($shiftId) {
+        $sql .= " AND pv.shift_id = ?";
+        $params[] = $shiftId;
+    }
+    
+    $result = fetchOne($sql, $params);
+    
+    if ($result && isset($result['total_heat'])) {
+        $heatOutput = (float)$result['total_heat'];
+        return $heatOutput * 0.161;
+    }
+    
+    // Если нет данных за указанную дату/смену, возвращаем null
+    return null;
+}
+
+/**
+ * Helper function for row 78 polynomial calculation
+ */
+function calculateRow78Polynomial($x) {
+    // Полином: -5,296004/10^11*x^5 + 5,46007318/10^8*x^4 - 2,1963935287/10^5*x^3 + 4,362720319298/10^3*x^2 - 4,45893614984655/10*x + 2,292438590867*10
+    
+    $coeff = [
+        -5.296004e-11,      // коэффициент для x^5
+        5.46007318e-8,      // коэффициент для x^4
+        -2.1963935287e-5,   // коэффициент для x^3
+        4.362720319298e-3,  // коэффициент для x^2
+        -4.45893614984655e-1, // коэффициент для x^1
+        2.292438590867e1    // свободный член
+    ];
+    
+    $result = $coeff[0] * pow($x, 5) +
+              $coeff[1] * pow($x, 4) +
+              $coeff[2] * pow($x, 3) +
+              $coeff[3] * pow($x, 2) +
+              $coeff[4] * $x +
+              $coeff[5];
+    
+    return $result;
+}
+
+/**
+ * Helper function for row 81 calculation - get start counts from parameter_values
+ */
+function calculateRow81Value($f31, $f13, $pguId, $context = []) {
+    // F81 = ((180*F31/7-390*0,24*1000)*D10+(158*F31/7-365*0,24*1000)*D11+(60*F31/7-175*0,24*1000)*D12)/F13
+    // G81 = ((180*G31/7-390*0,24*1000)*G10+(158*G31/7-365*0,24*1000)*G11+(60*G31/7-175*0,24*1000)*G12)/G13
+    
+    if ($f31 === null || $f13 === null || $f13 == 0) {
+        return null;
+    }
+    
+    // Получаем количество пусков разных типов из parameter_values
+    // D10/G10, D11/G11, D12/G12 - это количество пусков разных типов для ПГУ
+    $startCounts = getStartCountsForPgu($pguId, $context);
+    
+    if (!$startCounts) {
+        return null;
+    }
+    
+    // Расчет компонентов формулы
+    $component1 = (180 * $f31 / 7 - 390 * 0.24 * 1000) * $startCounts['type1']; // D10/G10
+    $component2 = (158 * $f31 / 7 - 365 * 0.24 * 1000) * $startCounts['type2']; // D11/G11
+    $component3 = (60 * $f31 / 7 - 175 * 0.24 * 1000) * $startCounts['type3'];  // D12/G12
+    
+    $result = ($component1 + $component2 + $component3) / $f13;
+    
+    return $result;
+}
+
+/**
+ * Get start counts for specific PGU from equipment_events
+ */
+function getStartCountsForPgu($pguId, $context = []) {
+    // Маппинг ПГУ -> equipment_id для получения пусков оборудования ПГУ
+    $pguToEquipment = [
+        1 => [3, 5], // ПГУ1 -> ГТ1 (id=1), ПТ1 (id=3)
+        2 => [4, 6], // ПГУ2 -> ГТ2 (id=2), ПТ2 (id=5)
+    ];
+    
+    if (!isset($pguToEquipment[$pguId])) {
+        return null;
+    }
+    
+    $equipmentIds = $pguToEquipment[$pguId];
+    
+    // Получаем контекст времени
+    $date = $context['date'] ?? date('Y-m-d');
+    $shiftId = $context['shift_id'] ?? null;
+    $periodType = $context['periodType'] ?? 'day';
+    
+    // Определяем временной диапазон
+    if ($periodType === 'period') {
+        $periodStart = $context['period_start'] ?? $date;
+        $periodEnd = $context['period_end'] ?? $date;
+        $whereClause = "DATE(ee.event_time) >= ? AND DATE(ee.event_time) <= ?";
+        $params = array_merge($equipmentIds, [$periodStart, $periodEnd]);
+    } elseif ($periodType === 'shift') {
+        $whereClause = "DATE(ee.event_time) = ? AND ee.shift_id = ?";
+        $params = array_merge($equipmentIds, [$date, $shiftId]);
+    } else { // day
+        $whereClause = "DATE(ee.event_time) = ?";
+        $params = array_merge($equipmentIds, [$date]);
+    }
+    
+    // Подсчитываем количество пусков по типам (start_reasons)
+    // Используем LEFT JOIN как в equipment_events_controller.php
+    $sql = "SELECT 
+                sr.id as start_reason_id,
+                sr.name as start_reason_name,
+                COUNT(*) as count
+            FROM equipment_events ee
+            LEFT JOIN start_reasons sr ON ee.event_type = 'pusk' AND ee.reason_id = sr.id
+            WHERE ee.equipment_id IN (" . implode(',', array_fill(0, count($equipmentIds), '?')) . ")
+            AND ee.event_type = 'pusk'
+            AND sr.id IS NOT NULL
+            AND {$whereClause}
+            GROUP BY sr.id, sr.name";
+    
+    $results = fetchAll($sql, $params);
+    
+    // Инициализируем счетчики
+    $startCounts = [
+        'type1' => 0, // Холодный пуск (start_reason_id = 1)
+        'type2' => 0, // Неостывший пуск (start_reason_id = 2)  
+        'type3' => 0, // Горячий пуск (start_reason_id = 3)
+    ];
+    
+    // Заполняем фактические значения
+    foreach ($results as $result) {
+        $startReasonId = (int)$result['start_reason_id'];
+        $count = (int)$result['count'];
+        
+        switch ($startReasonId) {
+            case 1: // Холодный
+                $startCounts['type1'] = $count;
+                break;
+            case 2: // Неостывший
+                $startCounts['type2'] = $count;
+                break;
+            case 3: // Горячий
+                $startCounts['type3'] = $count;
+                break;
+        }
+    }
+    
+    return $startCounts;
 }
 
 // =============================================================================
@@ -1156,6 +1755,9 @@ function getEquipmentEnergyOutput(int $equipmentId, array $ctx) {
     $shiftId = $ctx['shift_id'] ?? null;
     $periodType = $ctx['periodType'] ?? 'day';
     
+    // Получаем выработку энергии
+    $energyGeneration = null;
+    
     if ($periodType === 'period') {
         $periodStart = $ctx['period_start'] ?? $date;
         $periodEnd = $ctx['period_end'] ?? $date;
@@ -1164,11 +1766,58 @@ function getEquipmentEnergyOutput(int $equipmentId, array $ctx) {
                 WHERE m.equipment_id = ? AND m.meter_type_id = 1 AND m.is_active = 1 
                 AND mr.date >= ? AND mr.date <= ?";
         $result = fetchOne($sql, [$equipmentId, $periodStart, $periodEnd]);
-        return $result ? (float)$result['total'] : null;
+        $energyGeneration = $result ? (float)$result['total'] : null;
     } else {
         $sql = "SELECT mr.shift1, mr.shift2, mr.shift3 FROM meter_readings mr 
                 JOIN meters m ON mr.meter_id = m.id 
                 WHERE m.equipment_id = ? AND m.meter_type_id = 1 AND m.is_active = 1 AND mr.date = ?";
+        $result = fetchOne($sql, [$equipmentId, $date]);
+        
+        if (!$result) return null;
+        
+        if ($shiftId) {
+            $shiftKey = 'shift' . $shiftId;
+            $energyGeneration = $result[$shiftKey] ? (float)$result[$shiftKey] : null;
+        } else {
+            $energyGeneration = (float)($result['shift1'] + $result['shift2'] + $result['shift3']);
+        }
+    }
+    
+    if ($energyGeneration === null) return null;
+    
+    // Для equipment 3 и 5 (ПТ1 и ПТ2) нужно вычитать расход энергии (собственные нужды)
+    if ($equipmentId == 3 || $equipmentId == 5) {
+        $energyConsumption = getEquipmentEnergyConsumption($equipmentId, $ctx);
+        if ($energyConsumption !== null) {
+            return $energyGeneration - $energyConsumption;
+        }
+    }
+    
+    return $energyGeneration;
+}
+
+/**
+ * Get equipment energy consumption (собственные нужды) for specific equipment
+ */
+function getEquipmentEnergyConsumption(int $equipmentId, array $ctx) {
+    $date = $ctx['date'] ?? null;
+    $shiftId = $ctx['shift_id'] ?? null;
+    $periodType = $ctx['periodType'] ?? 'day';
+    
+    // Получаем расход энергии (собственные нужды) - meter_type_id = 2
+    if ($periodType === 'period') {
+        $periodStart = $ctx['period_start'] ?? $date;
+        $periodEnd = $ctx['period_end'] ?? $date;
+        $sql = "SELECT SUM(mr.shift1 + mr.shift2 + mr.shift3) as total FROM meter_readings mr 
+                JOIN meters m ON mr.meter_id = m.id 
+                WHERE m.equipment_id = ? AND m.meter_type_id = 2 AND m.is_active = 1 
+                AND mr.date >= ? AND mr.date <= ?";
+        $result = fetchOne($sql, [$equipmentId, $periodStart, $periodEnd]);
+        return $result ? (float)$result['total'] : null;
+    } else {
+        $sql = "SELECT mr.shift1, mr.shift2, mr.shift3 FROM meter_readings mr 
+                JOIN meters m ON mr.meter_id = m.id 
+                WHERE m.equipment_id = ? AND m.meter_type_id = 2 AND m.is_active = 1 AND mr.date = ?";
         $result = fetchOne($sql, [$equipmentId, $date]);
         
         if (!$result) return null;
@@ -1271,9 +1920,9 @@ function computePguOperatingHoursSpecial(int $pguId, array $ctx) {
     if ($pguId === 3) {
         $h1 = computePguOperatingHours(1, $start, $end);
         $h2 = computePguOperatingHours(2, $start, $end);
-        return round($h1 + $h2, 2);
+        return round($h1 + $h2, 4);
     }
-    return round(computePguOperatingHours($pguId, $start, $end), 2);
+    return round(computePguOperatingHours($pguId, $start, $end), 4);
 }
 
 function computePguOperatingHours(int $pguId, string $start, string $end): float {
@@ -1370,9 +2019,9 @@ function computePguHoursWithAOS(int $pguId, array $ctx) {
     if ($pguId === 3) {
         $h1 = computePguHoursWithTool(1, 'aos', $start, $end);
         $h2 = computePguHoursWithTool(2, 'aos', $start, $end);
-        return round($h1 + $h2, 2);
+        return round($h1 + $h2, 4);
     }
-    return round(computePguHoursWithTool($pguId, 'aos', $start, $end), 2);
+    return round(computePguHoursWithTool($pguId, 'aos', $start, $end), 4);
 }
 
 function computePguHoursWithEvaporator(int $pguId, array $ctx) {
@@ -1391,14 +2040,14 @@ function computePguHoursWithEvaporator(int $pguId, array $ctx) {
     if ($pguId === 3) {
         $h1 = computePguHoursWithTool(1, 'evaporator', $start, $end);
         $h2 = computePguHoursWithTool(2, 'evaporator', $start, $end);
-        return round($h1 + $h2, 2);
+        return round($h1 + $h2, 4);
     }
-    return round(computePguHoursWithTool($pguId, 'evaporator', $start, $end), 2);
+    return round(computePguHoursWithTool($pguId, 'evaporator', $start, $end), 4);
 }
 
 function computePguTotalHoursOver35k(int $pguId, array $ctx) {
     $totalHours = computePguTotalOperatingHours($pguId, $ctx);
-    return $totalHours > 35000 ? round($totalHours, 2) : 0;
+    return $totalHours > 35000 ? round($totalHours, 4) : 0;
 }
 
 function computeEvaporatorState(int $pguId, array $ctx) {
@@ -1426,7 +2075,7 @@ function computeThermalLoad(int $pguId, array $ctx) {
     if ($pguId === 3) {
         $f34 = computeThermalLoad(1, $ctx);
         $g34 = computeThermalLoad(2, $ctx);
-        return round(($f34 ?? 0) + ($g34 ?? 0), 2);
+        return round(($f34 ?? 0) + ($g34 ?? 0), 4);
     }
 
     $col = $pguId === 1 ? 'F' : 'G';
@@ -1434,7 +2083,7 @@ function computeThermalLoad(int $pguId, array $ctx) {
     $f16 = computePguOperatingHoursSpecial($pguId, $ctx);
     
     if ($f14 === null || $f16 === null || $f16 == 0) return null;
-    return round($f14 / $f16, 2);
+    return round($f14 / $f16, 4);
 }
 
 function computePguTotalOperatingHours(int $pguId, array $ctx) {
@@ -1444,9 +2093,9 @@ function computePguTotalOperatingHours(int $pguId, array $ctx) {
     if ($pguId === 3) {
         $h1 = computePguOperatingHours(1, '1900-01-01 00:00:00', $endTime);
         $h2 = computePguOperatingHours(2, '1900-01-01 00:00:00', $endTime);
-        return round($h1 + $h2, 2);
+        return round($h1 + $h2, 4);
     }
-    return round(computePguOperatingHours($pguId, '1900-01-01 00:00:00', $endTime), 2);
+    return round(computePguOperatingHours($pguId, '1900-01-01 00:00:00', $endTime), 4);
 }
 
 function computePguStartCount(int $pguId, array $ctx) {

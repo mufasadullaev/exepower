@@ -15,7 +15,7 @@ function getPguResultParams() {
     requireAuth();
 
     try {
-        $sql = "SELECT id, name, unit, symbol FROM pgu_result_params ORDER BY id";
+        $sql = "SELECT id, name, unit, symbol, row_num FROM pgu_result_params ORDER BY id";
         $params = fetchAll($sql);
         sendSuccess(['params' => $params]);
     } catch (Exception $e) {
@@ -64,7 +64,7 @@ function getPguResultValues($data) {
         }
 
         // Получаем список параметров
-        $paramsSql = "SELECT id, name, unit, symbol FROM pgu_result_params ORDER BY id";
+        $paramsSql = "SELECT id, name, unit, symbol, row_num FROM pgu_result_params ORDER BY id";
         $params = fetchAll($paramsSql);
 
         // Загружаем значения
@@ -219,26 +219,26 @@ function savePguResultValues($data) {
                 
                 $cell = $columnLetter . $rowNum;
                 
-                $insertSql = "INSERT INTO pgu_result_values 
+                    $insertSql = "INSERT INTO pgu_result_values 
                              (param_id, pgu_id, date, shift_id, value, user_id, period_type, cell) 
                              VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
-                $shiftId = isset($value['shift_id']) ? $value['shift_id'] : null;
-                $rounded = round((float)$value['value'], 2);
+                    $shiftId = isset($value['shift_id']) ? $value['shift_id'] : null;
+                $rounded = round((float)$value['value'], 4);
                 
                 error_log("PGU Save: Inserting param_id={$value['param_id']}, pgu_id={$value['pgu_id']}, shift_id=$shiftId, cell=$cell, value=$rounded");
-                
+                    
                 executeQuery($insertSql, [
-                    $value['param_id'],
+                        $value['param_id'],
                     $value['pgu_id'],
-                    $date,
-                    $shiftId,
+                        $date,
+                        $shiftId,
                     $rounded,
-                    $userId,
+                        $userId,
                     $periodType,
                     $cell
-                ]);
+                    ]);
+                }
             }
-        }
 
             sendSuccess(['message' => 'Результаты ПГУ успешно сохранены']);
     } catch (Exception $e) {

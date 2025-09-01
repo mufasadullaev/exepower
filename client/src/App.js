@@ -27,6 +27,7 @@ const FunctionVariables = React.lazy(() => import('./views/functions/FunctionVar
 const Counters = React.lazy(() => import('./views/counters/Counters'))
 const Calculations = React.lazy(() => import('./views/calculations/Calculations'))
 const PguResults = React.lazy(() => import('./views/calculations/PguResults'))
+const BlocksResults = React.lazy(() => import('./views/calculations/BlocksResults'))
 
 // Components
 const ProtectedRoute = React.lazy(() => import('./components/ProtectedRoute'))
@@ -102,6 +103,9 @@ const App = () => {
             </Route>
             <Route path="/pgu-results" element={<DefaultLayout />}>
               <Route index element={<PguResults />} />
+            </Route>
+            <Route path="/blocks-results" element={<DefaultLayout />}>
+              <Route index element={<BlocksResults />} />
             </Route>
           </Route>
         </Routes>

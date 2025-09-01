@@ -25,6 +25,7 @@ import ru from 'date-fns/locale/ru'
 import 'react-datepicker/dist/react-datepicker.css'
 import { calculateActiveVakhtas } from '../../services/calculationsService'
 import { pguCalculationService } from '../../services/pguCalculationService'
+import blocksCalculationService from '../../services/blocksCalculationService'
 import './Calculations.scss'
 
 // Регистрируем русскую локаль
@@ -169,6 +170,27 @@ const Calculations = () => {
 
     console.log('Запуск расчетов с параметрами:', calculationData)
     
+    // Если выбран таб Блоки
+    if (activeTab === 'blocks') {
+      try {
+        setLoading(true)
+        const result = await blocksCalculationService.performFullCalculation(calculationData)
+        const date = periodType === 'period' 
+          ? `${startDate.toISOString().split('T')[0]} - ${endDate.toISOString().split('T')[0]}`
+          : selectedDate.toISOString().split('T')[0]
+        const shifts = selectedItemsList.join(', ')
+        navigate('/blocks-results', {
+          state: { date, periodType, shifts, calculationData, calculationResult: result }
+        })
+      } catch (error) {
+        console.error('Ошибка при выполнении расчета блоков:', error)
+        alert('Ошибка при выполнении расчета блоков: ' + error.message)
+      } finally {
+        setLoading(false)
+      }
+      return
+    }
+    
     // Если выбран таб ПГУ, выполняем расчет
     if (activeTab === 'pgu') {
       try {
@@ -293,59 +315,59 @@ const Calculations = () => {
                    </CFormLabel>
                    
                                       {periodType === 'period' ? (
-                     <CRow>
-                       <CCol md={6}>
-                         <CInputGroup className="mb-2">
-                           <CInputGroupText>С</CInputGroupText>
-                           <DatePicker
-                             selected={startDate}
-                             onChange={setStartDate}
-                             locale="ru"
-                             dateFormat="dd.MM.yyyy"
-                             className="form-control"
-                             maxDate={endDate || new Date()}
-                             showYearDropdown
-                             showMonthDropdown
-                             dropdownMode="select"
-                             placeholderText="Дата начала"
-                           />
-                         </CInputGroup>
-                       </CCol>
-                       <CCol md={6}>
-                         <CInputGroup>
-                           <CInputGroupText>По</CInputGroupText>
-                           <DatePicker
-                             selected={endDate}
-                             onChange={setEndDate}
-                             locale="ru"
-                             dateFormat="dd.MM.yyyy"
-                             className="form-control"
-                             minDate={startDate}
-                             maxDate={new Date()}
-                             showYearDropdown
-                             showMonthDropdown
-                             dropdownMode="select"
-                             placeholderText="Дата окончания"
-                           />
-                         </CInputGroup>
-                       </CCol>
-                     </CRow>
-                   ) : (
-                     <div className="date-picker-container">
-                       <DatePicker
-                         selected={selectedDate}
-                         onChange={setSelectedDate}
-                         locale="ru"
-                         dateFormat="dd.MM.yyyy"
-                         className="form-control"
-                         maxDate={new Date()}
-                         showYearDropdown
-                         showMonthDropdown
-                         dropdownMode="select"
-                         placeholderText="Выберите дату"
-                       />
-                     </div>
-                   )}
+                    <CRow>
+                      <CCol md={6}>
+                        <CInputGroup className="mb-2">
+                          <CInputGroupText>С</CInputGroupText>
+                          <DatePicker
+                            selected={startDate}
+                            onChange={setStartDate}
+                            locale="ru"
+                            dateFormat="dd.MM.yyyy"
+                            className="form-control"
+                            maxDate={endDate || new Date()}
+                            showYearDropdown
+                            showMonthDropdown
+                            dropdownMode="select"
+                            placeholderText="Дата начала"
+                          />
+                        </CInputGroup>
+                      </CCol>
+                      <CCol md={6}>
+                        <CInputGroup>
+                          <CInputGroupText>По</CInputGroupText>
+                          <DatePicker
+                            selected={endDate}
+                            onChange={setEndDate}
+                            locale="ru"
+                            dateFormat="dd.MM.yyyy"
+                            className="form-control"
+                            minDate={startDate}
+                            maxDate={new Date()}
+                            showYearDropdown
+                            showMonthDropdown
+                            dropdownMode="select"
+                            placeholderText="Дата окончания"
+                          />
+                        </CInputGroup>
+                      </CCol>
+                    </CRow>
+                  ) : (
+                    <div className="date-picker-container">
+                      <DatePicker
+                        selected={selectedDate}
+                        onChange={setSelectedDate}
+                        locale="ru"
+                        dateFormat="dd.MM.yyyy"
+                        className="form-control"
+                        maxDate={new Date()}
+                        showYearDropdown
+                        showMonthDropdown
+                        dropdownMode="select"
+                        placeholderText="Выберите дату"
+                      />
+                    </div>
+                  )}
                 </CCol>
               </CRow>
 
@@ -398,38 +420,38 @@ const Calculations = () => {
                            </div>
                          ))
                                                 ) : (
-                           // Отображение вахт для периода
-                           <>
-                             <CFormCheck
-                               id="vahta1"
-                               label="Вахта №1"
-                               checked={selectedVakhtas.vahta1}
-                               onChange={() => handleVakhtaChange('vahta1')}
-                               className="mb-2"
-                             />
-                             <CFormCheck
-                               id="vahta2"
-                               label="Вахта №2"
-                               checked={selectedVakhtas.vahta2}
-                               onChange={() => handleVakhtaChange('vahta2')}
-                               className="mb-2"
-                             />
-                             <CFormCheck
-                               id="vahta3"
-                               label="Вахта №3"
-                               checked={selectedVakhtas.vahta3}
-                               onChange={() => handleVakhtaChange('vahta3')}
-                               className="mb-2"
-                             />
-                             <CFormCheck
-                               id="vahta4"
-                               label="Вахта №4"
-                               checked={selectedVakhtas.vahta4}
-                               onChange={() => handleVakhtaChange('vahta4')}
-                               className="mb-2"
-                             />
-                           </>
-                         )}
+                         // Отображение вахт для периода
+                         <>
+                           <CFormCheck
+                             id="vahta1"
+                             label="Вахта №1"
+                             checked={selectedVakhtas.vahta1}
+                             onChange={() => handleVakhtaChange('vahta1')}
+                             className="mb-2"
+                           />
+                           <CFormCheck
+                             id="vahta2"
+                             label="Вахта №2"
+                             checked={selectedVakhtas.vahta2}
+                             onChange={() => handleVakhtaChange('vahta2')}
+                             className="mb-2"
+                           />
+                           <CFormCheck
+                             id="vahta3"
+                             label="Вахта №3"
+                             checked={selectedVakhtas.vahta3}
+                             onChange={() => handleVakhtaChange('vahta3')}
+                             className="mb-2"
+                           />
+                           <CFormCheck
+                             id="vahta4"
+                             label="Вахта №4"
+                             checked={selectedVakhtas.vahta4}
+                             onChange={() => handleVakhtaChange('vahta4')}
+                             className="mb-2"
+                           />
+                         </>
+                       )}
                      </div>
                    </CCol>
                  </CRow>

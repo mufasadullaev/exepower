@@ -24,12 +24,21 @@ import './PguResults.scss'
 const shiftNameById = { 1: 'Смена 1', 2: 'Смена 2', 3: 'Смена 3' }
 const mapShiftNameToId = (n) => ({ shift1: 1, shift2: 2, shift3: 3 }[n])
 
-// Форматирование значений: максимум 2 знака после запятой
-const formatValue = (v) => {
+// Форматирование значений: для rows 54-69 = 4 знака, для остальных = 2 знака
+const formatValue = (v, rowNum = null, paramId = null) => {
   if (v === null || v === undefined) return '-'
   const num = Number(v)
   if (Number.isNaN(num)) return '-'
-  return num.toFixed(2)
+  
+  // Определяем количество знаков после запятой
+  // Для rows 54-69: 4 знака, для остальных: 2 знака
+  // Используем и rowNum и paramId для надежности
+  const rowNumber = parseInt(rowNum, 10)
+  const isHighPrecision = (rowNumber >= 54 && rowNumber <= 69) || 
+                         (paramId >= 44 && paramId <= 59) // param_id для rows 54-69
+  const decimalPlaces = isHighPrecision ? 4 : 2
+  
+  return num.toFixed(decimalPlaces)
 }
 
 const PguResults = () => {
@@ -104,14 +113,14 @@ const PguResults = () => {
         if (periodType === 'shift') {
           selectedShiftIds.forEach(id => {
             const byShift = param.valuesByShift?.[id] || {}
-            row.push(formatValue(byShift[1]))
-            row.push(formatValue(byShift[2]))
-            row.push(formatValue(byShift[3]))
+                                    row.push(formatValue(byShift[1], param.row_num, param.id))
+                        row.push(formatValue(byShift[2], param.row_num, param.id))
+                        row.push(formatValue(byShift[3], param.row_num, param.id))
           })
         } else {
-          row.push(formatValue(param.values?.[1]))
-          row.push(formatValue(param.values?.[2]))
-          row.push(formatValue(param.values?.[3]))
+                      row.push(formatValue(param.values?.[1], param.row_num, param.id))
+            row.push(formatValue(param.values?.[2], param.row_num, param.id))
+            row.push(formatValue(param.values?.[3], param.row_num, param.id))
         }
         excelData.push(row)
       })
@@ -227,7 +236,7 @@ const PguResults = () => {
             ) : (
               <div className="table-scroll">
                 <CTable hover responsive={false}>
-                  <CTableHead>
+                <CTableHead>
                     {periodType === 'shift' && (
                       <CTableRow>
                         <CTableHeaderCell scope="col" colSpan={3}></CTableHeaderCell>
@@ -238,10 +247,10 @@ const PguResults = () => {
                         ))}
                       </CTableRow>
                     )}
-                    <CTableRow>
-                      <CTableHeaderCell scope="col">Название</CTableHeaderCell>
-                      <CTableHeaderCell scope="col">Ед. Измерения</CTableHeaderCell>
-                      <CTableHeaderCell scope="col">Обозначение</CTableHeaderCell>
+                  <CTableRow>
+                    <CTableHeaderCell scope="col">Название</CTableHeaderCell>
+                    <CTableHeaderCell scope="col">Ед. Измерения</CTableHeaderCell>
+                    <CTableHeaderCell scope="col">Обозначение</CTableHeaderCell>
                       {periodType === 'shift' ? (
                         selectedShiftIds.flatMap(id => (
                           [
@@ -257,9 +266,9 @@ const PguResults = () => {
                           <CTableHeaderCell key="h3" scope="col">ТЭС</CTableHeaderCell>
                         ]
                       )}
-                    </CTableRow>
-                  </CTableHead>
-                  <CTableBody>
+                  </CTableRow>
+                </CTableHead>
+                                  <CTableBody>
                     {params && params.length > 0 ? (
                       params.map((param) => (
                         <CTableRow key={param.id}>
@@ -270,16 +279,16 @@ const PguResults = () => {
                             selectedShiftIds.flatMap(id => {
                               const byShift = param.valuesByShift?.[id] || {}
                               return [
-                                <CTableDataCell key={`v1-${param.id}-${id}`}>{formatValue(byShift[1])}</CTableDataCell>,
-                                <CTableDataCell key={`v2-${param.id}-${id}`}>{formatValue(byShift[2])}</CTableDataCell>,
-                                <CTableDataCell key={`v3-${param.id}-${id}`}>{formatValue(byShift[3])}</CTableDataCell>
+                                <CTableDataCell key={`v1-${param.id}-${id}`}>{formatValue(byShift[1], param.row_num, param.id)}</CTableDataCell>,
+                                <CTableDataCell key={`v2-${param.id}-${id}`}>{formatValue(byShift[2], param.row_num, param.id)}</CTableDataCell>,
+                                <CTableDataCell key={`v3-${param.id}-${id}`}>{formatValue(byShift[3], param.row_num, param.id)}</CTableDataCell>
                               ]
                             })
                           ) : (
                             [
-                              <CTableDataCell key={`v1-${param.id}`}>{formatValue(param.values?.[1])}</CTableDataCell>,
-                              <CTableDataCell key={`v2-${param.id}`}>{formatValue(param.values?.[2])}</CTableDataCell>,
-                              <CTableDataCell key={`v3-${param.id}`}>{formatValue(param.values?.[3])}</CTableDataCell>
+                              <CTableDataCell key={`v1-${param.id}`}>{formatValue(param.values?.[1], param.row_num, param.id)}</CTableDataCell>,
+                              <CTableDataCell key={`v2-${param.id}`}>{formatValue(param.values?.[2], param.row_num, param.id)}</CTableDataCell>,
+                              <CTableDataCell key={`v3-${param.id}`}>{formatValue(param.values?.[3], param.row_num, param.id)}</CTableDataCell>
                             ]
                           )}
                         </CTableRow>
@@ -292,7 +301,7 @@ const PguResults = () => {
                       </CTableRow>
                     )}
                   </CTableBody>
-                </CTable>
+              </CTable>
               </div>
             )}
           </CCardBody>

@@ -10,6 +10,7 @@ const ShiftSchedule = React.lazy(() => import('./views/shifts/ShiftSchedule'))
 const FunctionVariables = React.lazy(() => import('./views/functions/FunctionVariables'))
 const Calculations = React.lazy(() => import('./views/calculations/Calculations'))
 const PguResults = React.lazy(() => import('./views/calculations/PguResults'))
+const BlocksResults = React.lazy(() => import('./views/calculations/BlocksResults'))
 
 const routes = [
   {
@@ -32,6 +33,7 @@ const routes = [
   { path: 'function-variables', name: 'Переменные ПГУ', element: FunctionVariables },
   { path: 'calculations', name: 'Расчеты', element: Calculations },
   { path: 'pgu-results', name: 'Результаты ПГУ', element: PguResults },
+  { path: 'blocks-results', name: 'Результаты Блоков', element: BlocksResults },
 ]
 
 export default routes
