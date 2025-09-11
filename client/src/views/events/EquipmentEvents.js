@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { API_BASE_URL } from '../../config/api'
 import {
   CCard,
   CCardBody,
@@ -94,7 +95,7 @@ const EquipmentEvents = () => {
       setLoading(true)
       try {
         const equipmentType = activeEquipmentType === EQUIPMENT_TYPES.BLOCK ? 'block' : 'pgu'
-        const response = await fetch(`http://exepower/api/equipment?type=${equipmentType}`, {
+        const response = await fetch(`${API_BASE_URL}/equipment?type=${equipmentType}`, {
           headers: { 'Authorization': `Bearer ${authService.getToken()}` }
         })
         const data = await response.json()
@@ -135,7 +136,7 @@ const EquipmentEvents = () => {
     const fetchReasons = async () => {
       try {
         const [stopResponse, startResponse] = await Promise.all([
-          fetch('http://exepower/api/stop-reasons', {
+          fetch(`${API_BASE_URL}/stop-reasons`, {
             headers: { 'Authorization': `Bearer ${authService.getToken()}` }
           }),
           startReasonsService.getStartReasons()
@@ -170,7 +171,7 @@ const EquipmentEvents = () => {
     if (equipment.components && equipment.components.length > 0) {
       // Получаем события для каждого компонента ПГУ
       const eventsPromises = equipment.components.map(async (component) => {
-        const response = await fetch(`http://exepower/api/equipment-events?equipment_id=${component.id}&month=${formattedDate}&limit=50`, {
+        const response = await fetch(`${API_BASE_URL}/equipment-events?equipment_id=${component.id}&month=${formattedDate}&limit=50`, {
           headers: { 'Authorization': `Bearer ${authService.getToken()}` }
         });
         const data = await response.json();
@@ -215,7 +216,7 @@ const EquipmentEvents = () => {
       );
     } else {
       // Для обычного оборудования получаем события как раньше
-      const response = await fetch(`http://exepower/api/equipment-events?equipment_id=${equipment.id}&month=${formattedDate}&limit=50`, {
+      const response = await fetch(`${API_BASE_URL}/equipment-events?equipment_id=${equipment.id}&month=${formattedDate}&limit=50`, {
         headers: { 'Authorization': `Bearer ${authService.getToken()}` }
       });
       const data = await response.json();
@@ -324,7 +325,7 @@ const EquipmentEvents = () => {
             const month = String(new Date(editingEventInfo.event_time).getMonth() + 1).padStart(2, '0');
             const formattedDate = `${year}-${month}`;
             
-            const response = await fetch(`http://exepower/api/equipment-events?equipment_id=${component.id}&month=${formattedDate}&limit=50`, {
+            const response = await fetch(`${API_BASE_URL}/equipment-events?equipment_id=${component.id}&month=${formattedDate}&limit=50`, {
               headers: { 'Authorization': `Bearer ${authService.getToken()}` }
             });
             
@@ -346,7 +347,7 @@ const EquipmentEvents = () => {
               // Клонируем payload и обновляем equipment_id для компонента
               const componentPayload = {...payload, equipment_id: component.id};
               
-              const updateResponse = await fetch(`http://exepower/api/equipment-events/${eventToUpdate.id}`, {
+              const updateResponse = await fetch(`${API_BASE_URL}/equipment-events/${eventToUpdate.id}`, {
                 method: 'PUT',
                 headers: { 
                   'Content-Type': 'application/json',
@@ -374,7 +375,7 @@ const EquipmentEvents = () => {
             // Клонируем payload и обновляем equipment_id для компонента
             const componentPayload = {...payload, equipment_id: component.id};
             
-            const saveResponse = await fetch('http://exepower/api/equipment-events', {
+            const saveResponse = await fetch(`${API_BASE_URL}/equipment-events`, {
               method: 'POST',
               headers: { 
                 'Content-Type': 'application/json',
@@ -397,8 +398,8 @@ const EquipmentEvents = () => {
       } else {
         // Код для обычного оборудования
         const url = isEditing 
-          ? `http://exepower/api/equipment-events/${editingEventId}` 
-          : 'http://exepower/api/equipment-events';
+                  ? `${API_BASE_URL}/equipment-events/${editingEventId}`
+        : `${API_BASE_URL}/equipment-events`;
         
         const method = isEditing ? 'PUT' : 'POST';
         
@@ -483,7 +484,7 @@ const EquipmentEvents = () => {
           const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
           const formattedDate = `${year}-${month}`;
           
-          const response = await fetch(`http://exepower/api/equipment-events?equipment_id=${component.id}&month=${formattedDate}&limit=50`, {
+          const response = await fetch(`${API_BASE_URL}/equipment-events?equipment_id=${component.id}&month=${formattedDate}&limit=50`, {
             headers: { 'Authorization': `Bearer ${authService.getToken()}` }
           });
           
@@ -503,7 +504,7 @@ const EquipmentEvents = () => {
           
           if (eventToDelete) {
             // Удаляем найденное событие
-            const deleteResponse = await fetch(`http://exepower/api/equipment-events/${eventToDelete.id}`, {
+            const deleteResponse = await fetch(`${API_BASE_URL}/equipment-events/${eventToDelete.id}`, {
               method: 'DELETE',
               headers: { 'Authorization': `Bearer ${authService.getToken()}` }
             });
@@ -518,7 +519,7 @@ const EquipmentEvents = () => {
         await Promise.all(deletePromises.filter(p => p !== null));
       } else {
         // Для обычного оборудования удаляем событие как раньше
-        const response = await fetch(`http://exepower/api/equipment-events/${deletingEventId}`, {
+        const response = await fetch(`${API_BASE_URL}/equipment-events/${deletingEventId}`, {
           method: 'DELETE',
           headers: { 
             'Authorization': `Bearer ${authService.getToken()}`

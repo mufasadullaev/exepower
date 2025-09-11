@@ -3,10 +3,11 @@
  */
 import axios from 'axios'
 import authService from './authService'
+import { API_BASE_URL } from '../config/api'
 
-// Создаем экземпляр axios с предустановленной базовой URL
+// Создаем экземпляр axios с предустановленной базовой URL - поддержка Docker
 const api = axios.create({
-  baseURL: 'http://exepower/api'
+  baseURL: API_BASE_URL
 })
 
 // Добавляем перехватчик для всех запросов к API

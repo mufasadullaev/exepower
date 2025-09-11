@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { API_BASE_URL } from '../../config/api'
 import { 
   CCard, 
   CCardBody, 
@@ -65,7 +66,7 @@ const BlockParams = () => {
       for (const block of blocks) {
         try {
           // API требует equipment_id
-          const valuesRes = await fetch(`http://exepower/api/parameter-values?date=${date}&shift_id=${shift}&equipment_id=${block.id}`, {
+          const valuesRes = await fetch(`${API_BASE_URL}/parameter-values?date=${date}&shift_id=${shift}&equipment_id=${block.id}`, {
             headers: { 'Authorization': `Bearer ${authService.getToken()}` }
           })
           const valuesData = await valuesRes.json()
@@ -104,7 +105,7 @@ const BlockParams = () => {
       setError(null)
       try {
         // Получаем список блоков (ТГ7, ТГ8)
-        const eqRes = await fetch('http://exepower/api/equipment?type=block', {
+        const eqRes = await fetch(`${API_BASE_URL}/equipment?type=block`, {
           headers: { 'Authorization': `Bearer ${authService.getToken()}` }
         })
         const eqData = await eqRes.json()
@@ -118,7 +119,7 @@ const BlockParams = () => {
         
         try {
           // Получаем параметры для блоков
-          const paramRes = await fetch('http://exepower/api/parameters?equipment_type_id=1', {
+          const paramRes = await fetch(`${API_BASE_URL}/parameters?equipment_type_id=1`, {
             headers: { 'Authorization': `Bearer ${authService.getToken()}` }
           })
           const paramData = await paramRes.json()
@@ -292,7 +293,7 @@ const BlockParams = () => {
           console.log('Request data:', JSON.stringify(requestData));
           
           // Отправляем запрос на сохранение
-          const response = await fetch('http://exepower/api/parameter-values', {
+          const response = await fetch(`${API_BASE_URL}/parameter-values`, {
             method: 'POST',
             headers: { 
               'Content-Type': 'application/json',

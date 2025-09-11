@@ -1,7 +1,9 @@
 // Authentication service for interacting with the API
 
-// Используем абсолютный URL для API
-const API_URL = 'http://exepower/api';
+import { API_BASE_URL } from '../config/api';
+
+// Используем централизованную конфигурацию API
+const API_URL = API_BASE_URL;
 
 // Helper function to safely access localStorage
 const safeLocalStorage = {

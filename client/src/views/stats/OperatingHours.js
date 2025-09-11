@@ -23,6 +23,7 @@ import { cilCalendar, cilChevronLeft, cilChevronRight } from '@coreui/icons'
 import DatePicker from 'react-datepicker'
 import 'react-datepicker/dist/react-datepicker.css'
 import authService from '../../services/authService'
+import { API_BASE_URL } from '../../config/api'
 
 const OperatingHours = () => {
   // Состояние компонента
@@ -40,7 +41,7 @@ const OperatingHours = () => {
       setLoading(true)
       try {
         // Формируем URL в зависимости от выбранного типа оборудования
-        let url = 'http://exepower/api/equipment';
+        let url = `${API_BASE_URL}/equipment`;
         if (equipmentType !== 'all') {
           url += `?type=${equipmentType}`;
         }
@@ -88,7 +89,7 @@ const OperatingHours = () => {
         // Получаем статистику наработки для каждого оборудования
         const statsPromises = equipmentList.map(async (equipment) => {
           const response = await fetch(
-            `http://exepower/api/equipment-stats?equipment_id=${equipment.id}&start_date=${formattedStartDate}&end_date=${formattedEndDate}`,
+            `${API_BASE_URL}/equipment-stats?equipment_id=${equipment.id}&start_date=${formattedStartDate}&end_date=${formattedEndDate}`,
             {
               headers: { 'Authorization': `Bearer ${authService.getToken()}` }
             }

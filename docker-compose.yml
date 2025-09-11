@@ -1,0 +1,78 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: exepower_mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: exepower
+      MYSQL_CHARSET: utf8mb4
+      MYSQL_COLLATION: utf8mb4_unicode_ci
+    ports:
+      - "3307:3306"  # Избегаем конфликта с другими MySQL
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./api/database/dbSchema.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - exepower_network
+    command: --default-authentication-plugin=mysql_native_password
+
+  php:
+    build:
+      context: .
+      dockerfile: Dockerfile.php
+    container_name: exepower_php
+    ports:
+      - "8001:80"  # Избегаем конфликта с другими веб-серверами
+    volumes:
+      - ./api:/var/www/html
+      - ./.env:/var/www/.env
+    depends_on:
+      - mysql
+    networks:
+      - exepower_network
+    environment:
+      - DB_HOST=mysql
+      - DB_NAME=exepower
+      - DB_USER=root
+      - DB_PASS=rootpassword
+
+  node:
+    image: node:18-alpine
+    container_name: exepower_node
+    ports:
+      - "3001:3000"  # Избегаем конфликта с другими React приложениями
+    volumes:
+      - ./client:/app
+      - /app/node_modules  # Исключаем node_modules из синхронизации
+    working_dir: /app
+    command: sh -c "npm install && npm run start"
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+      - VITE_API_URL=http://localhost:8001
+    networks:
+      - exepower_network
+    depends_on:
+      - php
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:latest
+    container_name: exepower_phpmyadmin
+    ports:
+      - "8080:80"  # phpMyAdmin будет доступен на порту 8080
+    environment:
+      - PMA_HOST=mysql
+      - PMA_PORT=3306
+      - PMA_USER=root
+      - PMA_PASSWORD=rootpassword
+      - MYSQL_ROOT_PASSWORD=rootpassword
+    networks:
+      - exepower_network
+    depends_on:
+      - mysql
+
+volumes:
+  mysql_data:
+
+networks:
+  exepower_network:
+    driver: bridge 

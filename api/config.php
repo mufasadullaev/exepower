@@ -30,8 +30,12 @@ function loadEnv($path) {
     }
 }
 
-// Загрузка .env файла
-loadEnv(__DIR__ . '/../.env');
+// Загрузка .env файла (поддержка Docker)
+$envPath = __DIR__ . '/../.env';
+if (!file_exists($envPath)) {
+    $envPath = '/var/www/.env'; // Путь в Docker контейнере
+}
+loadEnv($envPath);
 
 // Секретный ключ для JWT
 define('JWT_SECRET', getenv('JWT_SECRET'));

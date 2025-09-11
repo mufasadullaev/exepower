@@ -40,32 +40,16 @@ export default defineConfig(() => {
       extensions: ['.mjs', '.js', '.ts', '.jsx', '.tsx', '.json', '.scss'],
     },
     server: {
+      host: '0.0.0.0', // Позволяет подключение из Docker контейнера
       port: 3000,
       proxy: {
         // https://vitejs.dev/config/server-options.html
         '/api': {
-          target: 'http://exepower',
+          target: process.env.VITE_API_URL || 'http://localhost:8001',
           changeOrigin: true,
           secure: false,
           rewrite: (path) => path
-        },
-        // Add specific endpoints to ensure proper handling
-        '/api/equipment-events': {
-          target: 'http://exepower',
-          changeOrigin: true,
-        },
-        '/api/equipment-stats': {
-          target: 'http://exepower',
-          changeOrigin: true,
-        },
-        '/api/functions': {
-          target: 'http://exepower',
-          changeOrigin: true,
-        },
-        '/api/shifts': {
-          target: 'http://exepower',
-          changeOrigin: true,
-        },
+        }
       },
     },
   }

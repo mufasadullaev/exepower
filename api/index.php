@@ -37,6 +37,7 @@ require_once 'controllers/meter_reserves_controller.php';
 $request_uri = $_SERVER['REQUEST_URI'];
 $path = parse_url($request_uri, PHP_URL_PATH);
 
+// Удаляем префикс /api если есть, для совместимости
 $base_path = '/api';
 $path = str_replace($base_path, '', $path);
 $path = trim($path, '/');
@@ -44,6 +45,15 @@ $path = trim($path, '/');
 // роутинг запросов
 try {
     switch ($path) {
+        case '':
+            // Корневой путь - информация об API
+            sendSuccess([
+                'name' => 'ExePower API',
+                'version' => '1.0',
+                'status' => 'running',
+                'database' => 'connected'
+            ]);
+            break;
         case 'auth/login':
             login();
             break;

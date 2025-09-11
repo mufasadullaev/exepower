@@ -1,0 +1,32 @@
+# Node modules
+client/node_modules
+node_modules
+
+# Build files
+client/build
+client/dist
+
+# Environment files (будем монтировать отдельно)
+.env.local
+.env.development
+.env.production
+
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+
+# Logs
+*.log
+logs
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Docker
+Dockerfile*
+docker-compose* 
