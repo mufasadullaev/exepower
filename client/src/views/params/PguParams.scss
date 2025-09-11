@@ -1,0 +1,16 @@
+/* Форсируем использование точки как десятичного разделителя */
+input[type="number"] {
+  -webkit-appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Обеспечиваем правильную локализацию для decimal points */
+input[type="number"][lang="en-US"] {
+  direction: ltr;
+} 

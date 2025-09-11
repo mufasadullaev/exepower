@@ -17,6 +17,7 @@ import {
   CCol
 } from '@coreui/react'
 import authService from '../../services/authService'
+import './BlockParams.scss'
 
 // Предопределенные параметры, если API не возвращает их
 const defaultParams = [
@@ -51,12 +52,12 @@ const BlockParams = () => {
     setLoadingValues(true)
     
     try {
-      // Инициализируем пустые значения (нули) для всех параметров и блоков
+      // Инициализируем пустые значения для всех параметров и блоков
       const initialValues = {}
       params.forEach(param => {
         initialValues[param.id] = {}
         blocks.forEach(block => {
-          initialValues[param.id][block.id] = '0'
+          initialValues[param.id][block.id] = '' // Пустая строка вместо '0'
         })
       })
       
@@ -163,14 +164,70 @@ const BlockParams = () => {
     }
   }, [selectedDate, selectedShift])
   
+  const handleFocus = (paramId, blockId, e) => {
+    // Если значение равно "0", очищаем поле при фокусе
+    if (e.target.value === '0') {
+      e.target.value = '';
+      handleValueChange(paramId, blockId, '');
+    }
+  }
+
+  const handleBlur = (paramId, blockId, e) => {
+    // При потере фокуса оставляем как есть - пустое поле остается пустым
+    // Не принудительно ставим "0"
+  }
+
+  const normalizeDecimalValue = (value) => {
+    // Заменяем запятую на точку для правильного парсинга
+    return value.toString().replace(',', '.');
+  }
+
   const handleValueChange = (paramId, blockId, value) => {
-    setValues(prev => ({
-      ...prev,
-      [paramId]: {
-        ...prev[paramId],
-        [blockId]: value
+    // Нормализуем значение
+    const normalizedValue = normalizeDecimalValue(value);
+    setValues(prev => {
+              const newValues = {
+          ...prev,
+          [paramId]: {
+            ...prev[paramId],
+            [blockId]: normalizedValue
+          }
+        }
+      
+      // Автоматический расчет для ОЧ-130 на основе ТГ7 и ТГ8
+      if (blockId === 1 || blockId === 2) { // Если изменили ТГ7 или ТГ8
+        const tg7Value = parseFloat(newValues[paramId]?.[1]   || 0);
+        const tg8Value = parseFloat(newValues[paramId]?.[2] || 0);
+        
+        // Определяем формулу для расчета ОЧ-130 в зависимости от parameter_id
+        let och130Value = null; // Используем null чтобы отличить "не вычисляется" от "равно 0"
+        
+        // Маппинг parameter_id к соответствующим cell (E14, E15, E20, E22, E30, E31)
+        if (paramId === 29) { // E14 - P острого пара (СРЗНАЧ)
+          och130Value = (tg7Value + tg8Value) / 2;
+        } else if (paramId === 30) { // E15 - t острого пара (СРЗНАЧ)  
+          och130Value = (tg7Value + tg8Value) / 2;
+        } else if (paramId === 35) { // E20 - Выработка пара котлами (СУММ)
+          och130Value = tg7Value + tg8Value;
+        } else if (paramId === 37) { // E22 - Расход питательной воды (СУММ)
+          och130Value = tg7Value + tg8Value;
+        } else if (paramId === 45) { // E30 - В топлива за месяц (газ) (СУММ)
+          och130Value = tg7Value + tg8Value;
+        } else if (paramId === 46) { // E31 - В топлива за месяц (мазут) (СУММ)
+          och130Value = tg7Value + tg8Value;
+        }
+        
+        // Устанавливаем вычисленное значение для ОЧ-130 ТОЛЬКО если это вычисляемый параметр
+        if (och130Value !== null) {
+          if (!newValues[paramId]) {
+            newValues[paramId] = {};
+          }
+          newValues[paramId][7] = och130Value.toFixed(2);
+        }
       }
-    }))
+      
+      return newValues;
+    })
   }
   
   const handleSave = async () => {
@@ -181,7 +238,7 @@ const BlockParams = () => {
       let hasValuesToSave = false;
       let savedCount = 0;
       
-      // Перебираем все блоки
+      // Перебираем все блоки (ТГ7, ТГ8, ОЧ-130)
       for (const block of blocks) {
         // Собираем все значения для текущего блока
         const blockValues = [];
@@ -191,11 +248,16 @@ const BlockParams = () => {
           const paramId = param.id;
           const blockId = block.id;
           
+          // Пропускаем скрытые поля ОЧ-130 (E21, E23, E24, E25, E26, E27)
+          if (blockId === 7 && [36, 38, 39, 40, 41, 42].includes(paramId)) {
+            continue;
+          }
+          
           // Получаем значение для текущего параметра и блока
           const value = values[paramId]?.[blockId];
           
-          // Пропускаем нулевые или пустые значения
-          if (!value || value === '0' || value.trim() === '') {
+          // Пропускаем пустые значения (но сохраняем 0 если он введен пользователем)
+          if (value === null || value === undefined || value === '0' || value.toString().trim() === '') {
             continue;
           }
           
@@ -216,9 +278,12 @@ const BlockParams = () => {
         console.log(`Saving values for block ${block.id}:`, blockValues);
         
         try {
+          // Используем equipment_id напрямую из block.id
+          const equipmentId = parseInt(block.id);
+          
           // Формируем данные для API в точном соответствии с требованиями API
           const requestData = {
-            equipmentId: parseInt(block.id),
+            equipmentId: equipmentId,
             date: selectedDate,
             shiftId: parseInt(selectedShift),
             values: blockValues
@@ -344,24 +409,64 @@ const BlockParams = () => {
             </CTableRow>
           </CTableHead>
           <CTableBody>
-            {(params.length > 0 ? params : defaultParams).map((param, idx) => (
-              <CTableRow key={param.id || idx}>
-                <CTableDataCell>{idx + 1}</CTableDataCell>
-                <CTableDataCell>{param.name}</CTableDataCell>
-                <CTableDataCell>{param.unit}</CTableDataCell>
-                {blocks.map(block => (
-                  <CTableDataCell key={block.id}>
-                    <CFormInput
-                      type="number"
-                      value={values[param.id]?.[block.id] || '0'}
-                      onChange={(e) => handleValueChange(param.id, block.id, e.target.value)}
-                      style={{ minWidth: '80px' }}
-                      disabled={loadingValues}
-                    />
-                  </CTableDataCell>
-                ))}
-              </CTableRow>
-            ))}
+            {(params.length > 0 ? params : defaultParams).map((param, idx) => {
+              // Определяем, является ли это вычисляемым параметром для ОЧ-130
+              const isCalculatedParam = [29, 30, 35, 37, 45, 46].includes(param.id);
+              
+              // Определяем, скрывается ли поле ОЧ-130 для этого параметра (E21, E23, E24, E25, E26, E27)
+              const isOch130Hidden = [36, 38, 39, 40, 41, 42].includes(param.id);
+              
+              return (
+                <CTableRow key={param.id || idx}>
+                  <CTableDataCell>{idx + 1}</CTableDataCell>
+                  <CTableDataCell>{param.name}</CTableDataCell>
+                  <CTableDataCell>{param.unit}</CTableDataCell>
+                  {blocks.map(block => {
+                    // Для блока ОЧ-130 (equipment_id = 7) применяем специальную логику
+                    if (block.id === 7) {
+                      return (
+                        <CTableDataCell key={block.id}>
+                          {isOch130Hidden ? (
+                            <span style={{ color: '#999', fontStyle: 'italic' }}></span>
+                          ) : (
+                            <CFormInput
+                              type="number"
+                              value={values[param.id]?.[block.id] || ''}
+                              onChange={(e) => handleValueChange(param.id, block.id, e.target.value)}
+                              onFocus={!isCalculatedParam ? (e) => handleFocus(param.id, block.id, e) : undefined}
+                              onBlur={!isCalculatedParam ? (e) => handleBlur(param.id, block.id, e) : undefined}
+                              style={{ 
+                                minWidth: '80px'
+                              }}
+                              disabled={loadingValues || isCalculatedParam}
+                              readOnly={isCalculatedParam}
+                              title={isCalculatedParam ? 'Автоматически вычисляется из ТГ7 и ТГ8' : ''}
+                            />
+                          )}
+                        </CTableDataCell>
+                      );
+                                          } else {
+                        // Обычные блоки ТГ7, ТГ8
+                        return (
+                          <CTableDataCell key={block.id}>
+                            <CFormInput
+                              type="number"
+                              step="any"
+                              value={values[param.id]?.[block.id] || ''}
+                              onChange={(e) => handleValueChange(param.id, block.id, e.target.value)}
+                              onFocus={(e) => handleFocus(param.id, block.id, e)}
+                              onBlur={(e) => handleBlur(param.id, block.id, e)}
+                              style={{ minWidth: '80px' }}
+                              disabled={loadingValues}
+                              lang="en-US"
+                            />
+                          </CTableDataCell>
+                        );
+                      }
+                  })}
+                </CTableRow>
+              );
+            })}
           </CTableBody>
         </CTable>
       </CCardBody>

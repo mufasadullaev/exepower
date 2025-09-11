@@ -17,6 +17,7 @@ import {
   CCol
 } from '@coreui/react'
 import authService from '../../services/authService'
+import './PguParams.scss'
 
 // Предопределенные смены
 const defaultShifts = [
@@ -78,12 +79,12 @@ const PguParams = () => {
     setLoadingValues(true)
     
     try {
-      // Инициализируем пустые значения (нули) для всех параметров и блоков
+      // Инициализируем пустые значения для всех параметров и блоков
       const initialValues = {}
       params.forEach(param => {
         initialValues[param.id] = {}
         units.forEach(unit => {
-          initialValues[param.id][unit.id] = '0'
+          initialValues[param.id][unit.id] = '' // Пустая строка вместо '0'
         })
       })
       
@@ -181,12 +182,32 @@ const PguParams = () => {
     }
   }, [selectedDate, selectedShift])
   
+  const handleFocus = (paramId, unitId, e) => {
+    // Если значение равно "0", очищаем поле при фокусе
+    if (e.target.value === '0') {
+      e.target.value = '';
+      handleValueChange(paramId, unitId, '');
+    }
+  }
+
+  const handleBlur = (paramId, unitId, e) => {
+    // При потере фокуса оставляем как есть - пустое поле остается пустым
+    // Не принудительно ставим "0"
+  }
+
+  const normalizeDecimalValue = (value) => {
+    // Заменяем запятую на точку для правильного парсинга
+    return value.toString().replace(',', '.');
+  }
+
   const handleValueChange = (paramId, unitId, value) => {
+    // Нормализуем значение
+    const normalizedValue = normalizeDecimalValue(value);
     setValues(prev => ({
       ...prev,
       [paramId]: {
         ...prev[paramId],
-        [unitId]: value
+        [unitId]: normalizedValue
       }
     }))
   }
@@ -217,8 +238,8 @@ const PguParams = () => {
           // Получаем значение для текущего параметра и блока
           const value = values[paramId]?.[unitId];
           
-          // Пропускаем нулевые или пустые значения
-          if (!value || value === '0' || value.trim() === '') {
+          // Пропускаем пустые значения (но сохраняем 0 если он введен пользователем)
+          if (value === null || value === undefined || value === '0' || value.toString().trim() === '') {
             continue;
           }
           
@@ -377,10 +398,14 @@ const PguParams = () => {
                     {isFieldVisible(param.id, unit.id, unit.name) ? (
                     <CFormInput
                       type="number"
-                      value={values[param.id]?.[unit.id] || '0'}
+                      step="any"
+                      value={values[param.id]?.[unit.id] || ''}
                       onChange={(e) => handleValueChange(param.id, unit.id, e.target.value)}
+                      onFocus={(e) => handleFocus(param.id, unit.id, e)}
+                      onBlur={(e) => handleBlur(param.id, unit.id, e)}
                       style={{ minWidth: '80px' }}
                       disabled={loadingValues}
+                      lang="en-US"
                     />
                     ) : (
                       // Пустая ячейка для недоступных полей

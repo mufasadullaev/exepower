@@ -116,7 +116,7 @@ const PguResults = () => {
                                     row.push(formatValue(byShift[1], param.row_num, param.id))
                         row.push(formatValue(byShift[2], param.row_num, param.id))
                         row.push(formatValue(byShift[3], param.row_num, param.id))
-          })
+      })
         } else {
                       row.push(formatValue(param.values?.[1], param.row_num, param.id))
             row.push(formatValue(param.values?.[2], param.row_num, param.id))

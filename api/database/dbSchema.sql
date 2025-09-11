@@ -44,7 +44,8 @@ INSERT INTO `equipment` (`id`, `name`, `type_id`, `description`) VALUES
 (3, 'ГТ 1', 2, 'Газовая установка 1'),
 (4, 'ПТ 1', 2, 'Паровая установка 1'),
 (5, 'ГТ 2', 2, 'Газовая установка 2'),
-(6, 'ПТ 2', 2, 'Паровая установка 2');
+(6, 'ПТ 2', 2, 'Паровая установка 2'),
+(130, 'ОЧ-130', 1, 'Общестанционная часть 130 ата');
 
 -- --------------------------------------------------------
 
@@ -1690,7 +1691,7 @@ ALTER TABLE `users`
 -- AUTO_INCREMENT for table `equipment`
 --
 ALTER TABLE `equipment`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=131;
 
 --
 -- AUTO_INCREMENT for table `equipment_events`
