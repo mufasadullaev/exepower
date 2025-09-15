@@ -54,27 +54,29 @@ const groupParameters = (params) => {
   }
 
   params.forEach(param => {
-    // Улучшенная логика группировки на основе ID и названия
-    if (param.id >= 23 && param.id <= 42) {
-      // ID 23-42: Турбоагрегаты
-      groups.turbo.params.push(param)
-    } else if (param.id >= 43 && param.id <= 64) {
-      // ID 43-64: Котлы
-      groups.boilers.params.push(param)
-    } else if (param.id >= 65 && param.id <= 94) {
-      // ID 65-94: Прочие параметры
-      groups.other.params.push(param)
-    } else {
-      // ID 1-22: Существующие параметры - группируем по названию
-      if (param.name.includes('турбо') || param.name.includes('ТГ') || param.symbol?.includes('т') || 
-          param.name.includes('пара') || param.name.includes('конденсатор') || param.name.includes('цилиндр')) {
+    // Группировка на основе поля category из базы данных
+    switch (param.category) {
+      case '3a':
         groups.turbo.params.push(param)
-      } else if (param.name.includes('котёл') || param.name.includes('котла') || param.symbol?.includes('к') ||
-                 param.name.includes('топливо') || param.name.includes('газ') || param.name.includes('воздух')) {
+        break
+      case '3b':
         groups.boilers.params.push(param)
-      } else {
+        break
+      case '4':
         groups.other.params.push(param)
-      }
+        break
+      default:
+        // Если category не задана, используем резервную логику по названию
+        if (param.name.includes('турбо') || param.name.includes('ТГ') || param.symbol?.includes('т') || 
+            param.name.includes('пара') || param.name.includes('конденсатор') || param.name.includes('цилиндр')) {
+          groups.turbo.params.push(param)
+        } else if (param.name.includes('котёл') || param.name.includes('котла') || param.symbol?.includes('к') ||
+                   param.name.includes('топливо') || param.name.includes('газ') || param.name.includes('воздух')) {
+          groups.boilers.params.push(param)
+        } else {
+          groups.other.params.push(param)
+        }
+        break
     }
   })
 
@@ -92,7 +94,7 @@ const BlocksResults = () => {
 
   const searchParams = new URLSearchParams(location.search)
   const date = searchParams.get('date') || location.state?.date
-  const periodType = searchParams.get('periodType') || location.state?.periodType
+  const periodType = searchParams.get('periodType') || location.state?.periodType || 'day'
   const shiftsStr = searchParams.get('shifts') || location.state?.shifts
   const calcData = location.state?.calculationData
 
@@ -115,8 +117,19 @@ const BlocksResults = () => {
   const fetchData = async () => {
     try {
       setLoading(true)
-      const query = { date, periodType, blockIds: [1,2] }
-      if (periodType === 'shift') query.shiftIds = selectedShiftIds
+      // Используем переданную дату или текущую дату как fallback
+      const queryDate = date || new Date().toLocaleDateString('en-CA') // YYYY-MM-DD format
+      const queryPeriodType = periodType || 'day'
+      const query = { date: queryDate, periodType: queryPeriodType, blockIds: [7,8,9] }
+      if (queryPeriodType === 'shift') query.shiftIds = selectedShiftIds
+      
+      console.log('BlocksResults fetchData:', { 
+        originalDate: date, 
+        queryDate, 
+        queryPeriodType, 
+        query 
+      })
+      
       const result = await getBlocksResultValues(query)
       if (result && result.params) setParams(result.params)
       else {
@@ -148,17 +161,17 @@ const BlocksResults = () => {
         if (periodType === 'shift') {
           selectedShiftIds.forEach(id => {
             const byShift = param.valuesByShift?.[id] || {}
-            const tg7Value = byShift[1] || 0
-            const tg8Value = byShift[2] || 0
-            const och130Value = tg7Value + tg8Value
+            const tg7Value = byShift[7] || 0
+            const tg8Value = byShift[8] || 0
+            const och130Value = byShift[9] || 0
             row.push(formatValue(tg7Value))
             row.push(formatValue(tg8Value))
             row.push(formatValue(och130Value))
           })
         } else {
-          const tg7Value = param.values?.[1] || 0
-          const tg8Value = param.values?.[2] || 0
-          const och130Value = tg7Value + tg8Value
+          const tg7Value = param.values?.[7] || 0
+          const tg8Value = param.values?.[8] || 0
+          const och130Value = param.values?.[9] || 0
           row.push(formatValue(tg7Value))
           row.push(formatValue(tg8Value))
           row.push(formatValue(och130Value))
@@ -203,9 +216,9 @@ const BlocksResults = () => {
         {periodType === 'shift' ? (
           selectedShiftIds.flatMap(id => {
             const byShift = param.valuesByShift?.[id] || {}
-            const tg7Value = byShift[1] || 0
-            const tg8Value = byShift[2] || 0
-            const och130Value = tg7Value + tg8Value
+            const tg7Value = byShift[7] || 0
+            const tg8Value = byShift[8] || 0
+            const och130Value = byShift[9] || 0
             return [
               <CTableDataCell key={`v1-${param.id}-${id}`}>{formatValue(tg7Value)}</CTableDataCell>,
               <CTableDataCell key={`v2-${param.id}-${id}`}>{formatValue(tg8Value)}</CTableDataCell>,
@@ -214,9 +227,9 @@ const BlocksResults = () => {
           })
         ) : (
           [
-            <CTableDataCell key={`v1-${param.id}`}>{formatValue(param.values?.[1])}</CTableDataCell>,
-            <CTableDataCell key={`v2-${param.id}`}>{formatValue(param.values?.[2])}</CTableDataCell>,
-            <CTableDataCell key={`v3-${param.id}`}>{formatValue((param.values?.[1] || 0) + (param.values?.[2] || 0))}</CTableDataCell>
+            <CTableDataCell key={`v1-${param.id}`}>{formatValue(param.values?.[7])}</CTableDataCell>,
+            <CTableDataCell key={`v2-${param.id}`}>{formatValue(param.values?.[8])}</CTableDataCell>,
+            <CTableDataCell key={`v3-${param.id}`}>{formatValue(param.values?.[9])}</CTableDataCell>
           ]
         )}
       </CTableRow>

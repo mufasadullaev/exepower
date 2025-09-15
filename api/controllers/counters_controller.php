@@ -220,6 +220,41 @@ function getReadings() {
             // Не роняем выдачу при ошибке расчёта
         }
         
+        // Добавляем данные об использовании общих счетчиков для блоков ТГ7 и ТГ8
+        try {
+            $commonMeterUsage = getCommonMeterUsageForCalculations($date);
+            
+            // Добавляем данные об использовании общих счетчиков к показаниям блоков
+            foreach ($commonMeterUsage as $usage) {
+                $equipmentId = $usage['equipment_id'];
+                
+                // Находим счетчики выработки для этого блока
+                $stmt = $db->prepare('
+                    SELECT id FROM meters 
+                    WHERE equipment_id = ? AND meter_type_id = 1 AND is_active = 1
+                ');
+                $stmt->execute([$equipmentId]);
+                $blockMeters = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                
+                foreach ($blockMeters as $meter) {
+                    $meterId = $meter['id'];
+                    
+                    // Если у блока есть показания, добавляем данные об использовании общих счетчиков
+                    if (isset($formattedReadings[$meterId])) {
+                        $formattedReadings[$meterId]['common_meter_usage'] = [
+                            'shift1' => round($usage['shifts'][1], 3),
+                            'shift2' => round($usage['shifts'][2], 3),
+                            'shift3' => round($usage['shifts'][3], 3),
+                            'total' => round($usage['shifts'][1] + $usage['shifts'][2] + $usage['shifts'][3], 3)
+                        ];
+                    }
+                }
+            }
+        } catch (Exception $commonEx) {
+            // Не роняем выдачу при ошибке обработки общих счетчиков
+            error_log('Ошибка при обработке общих счетчиков: ' . $commonEx->getMessage());
+        }
+        
         sendSuccess($formattedReadings);
     } catch (Exception $e) {
         sendError('Ошибка при получении показаний: ' . $e->getMessage());
@@ -1169,4 +1204,470 @@ function bulkSyncMeterReadingsToPguFullParams() {
     } catch (Exception $e) {
         sendError('Ошибка при массовой синхронизации: ' . $e->getMessage());
     }
-} 
+}
+
+/**
+ * Получение общих счетчиков (Т-5 ВРП-1, Т-5 ВРП-2, Т-6 ВСР-1, Т-6 ВСР-2, Л-БН-1, Л-БН-2)
+ */
+function getCommonMeters() {
+    try {
+        $db = getDbConnection();
+        
+        // ID общих счетчиков
+        $commonMeterIds = [48, 49, 50, 51, 52, 53];
+        $placeholders = str_repeat('?,', count($commonMeterIds) - 1) . '?';
+        
+        $stmt = $db->prepare("
+            SELECT m.*, mt.name as type_name 
+            FROM meters m 
+            JOIN meter_types mt ON m.meter_type_id = mt.id 
+            WHERE m.id IN ($placeholders) AND m.is_active = 1
+            ORDER BY m.name
+        ");
+        $stmt->execute($commonMeterIds);
+        $meters = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        sendSuccess($meters);
+    } catch (Exception $e) {
+        sendError('Ошибка при получении общих счетчиков: ' . $e->getMessage());
+    }
+}
+
+/**
+ * Получение блоков ТГ7 и ТГ8
+ */
+function getTgBlocks() {
+    try {
+        $db = getDbConnection();
+        
+        $stmt = $db->prepare("
+            SELECT id, name 
+            FROM equipment 
+            WHERE id IN (1, 2)
+            ORDER BY name
+        ");
+        $stmt->execute();
+        $blocks = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        sendSuccess($blocks);
+    } catch (Exception $e) {
+        sendError('Ошибка при получении блоков ТГ: ' . $e->getMessage());
+    }
+}
+
+/**
+ * Сохранение данных об использовании общих счетчиков блоками
+ */
+function saveCommonMeterUsage() {
+    try {
+        $user = requireAuth();
+        $input = json_decode(file_get_contents('php://input'), true);
+        
+        if (!$input) {
+            sendError('Неверный формат данных');
+            return;
+        }
+        
+        $date = $input['date'];
+        $meterId = $input['meter_id'];
+        $usageData = $input['usage_data']; // массив с данными по блокам
+        
+        if (!is_array($usageData)) {
+            sendError('Данные об использовании должны быть массивом');
+            return;
+        }
+        
+        $db = getDbConnection();
+        $db->beginTransaction();
+        
+        try {
+            // Получаем информацию о счетчике
+            $stmt = $db->prepare('SELECT coefficient_k, scale FROM meters WHERE id = ?');
+            $stmt->execute([$meterId]);
+            $meter = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$meter) {
+                throw new Exception("Счетчик не найден");
+            }
+            
+            $k = (float)$meter['coefficient_k'];
+            $scale = (float)$meter['scale'];
+            
+            // Удаляем существующие записи за эту дату для этого счетчика
+            $stmt = $db->prepare('DELETE FROM common_meter_block_usage WHERE meter_id = ? AND date = ?');
+            $stmt->execute([$meterId, $date]);
+            
+            // Сохраняем новые данные
+            foreach ($usageData as $usage) {
+                $equipmentId = $usage['equipment_id'];
+                $startTime = $usage['start_time'];
+                $endTime = $usage['end_time'];
+                $startReading = (float)$usage['start_reading'];
+                $endReading = (float)$usage['end_reading'];
+                
+                // Проверяем валидность времени
+                if ($startTime >= $endTime) {
+                    throw new Exception("Время начала должно быть меньше времени окончания");
+                }
+                
+                // Рассчитываем потребленную энергию
+                if ($scale > 0 && $endReading < $startReading) {
+                    // Учет переполнения шкалы
+                    $rawDelta = ($scale - $startReading) + $endReading;
+                } else {
+                    $rawDelta = $endReading - $startReading;
+                }
+                
+                $energyConsumed = ($rawDelta * $k) / 1000.0; // переводим в МВт⋅ч
+                
+                $stmt = $db->prepare('
+                    INSERT INTO common_meter_block_usage 
+                    (meter_id, equipment_id, date, start_time, end_time, start_reading, end_reading, energy_consumed, user_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ');
+                $stmt->execute([
+                    $meterId,
+                    $equipmentId,
+                    $date,
+                    $startTime,
+                    $endTime,
+                    $startReading,
+                    $endReading,
+                    $energyConsumed,
+                    $user['id']
+                ]);
+            }
+            
+            $db->commit();
+            sendSuccess(['message' => 'Данные об использовании общих счетчиков сохранены']);
+            
+        } catch (Exception $e) {
+            $db->rollBack();
+            throw $e;
+        }
+        
+    } catch (Exception $e) {
+        sendError('Ошибка при сохранении данных об использовании: ' . $e->getMessage());
+    }
+}
+
+/**
+ * Получение данных об использовании общих счетчиков за дату
+ */
+function getCommonMeterUsage() {
+    try {
+        if (!isset($_GET['date'])) {
+            sendError('Не указана дата');
+            return;
+        }
+        
+        $date = $_GET['date'];
+        $db = getDbConnection();
+        
+        $stmt = $db->prepare('
+            SELECT 
+                cmu.*,
+                m.name as meter_name,
+                e.name as equipment_name
+            FROM common_meter_block_usage cmu
+            JOIN meters m ON cmu.meter_id = m.id
+            JOIN equipment e ON cmu.equipment_id = e.id
+            WHERE cmu.date = ?
+            ORDER BY cmu.meter_id, cmu.start_time
+        ');
+        $stmt->execute([$date]);
+        $usage = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Группируем по счетчикам
+        $groupedUsage = [];
+        foreach ($usage as $record) {
+            $meterId = $record['meter_id'];
+            if (!isset($groupedUsage[$meterId])) {
+                $groupedUsage[$meterId] = [
+                    'meter_id' => $meterId,
+                    'meter_name' => $record['meter_name'],
+                    'blocks' => []
+                ];
+            }
+            $groupedUsage[$meterId]['blocks'][] = [
+                'equipment_id' => $record['equipment_id'],
+                'equipment_name' => $record['equipment_name'],
+                'start_time' => $record['start_time'],
+                'end_time' => $record['end_time'],
+                'start_reading' => $record['start_reading'],
+                'end_reading' => $record['end_reading'],
+                'energy_consumed' => $record['energy_consumed']
+            ];
+        }
+        
+        sendSuccess(array_values($groupedUsage));
+        
+    } catch (Exception $e) {
+        sendError('Ошибка при получении данных об использовании: ' . $e->getMessage());
+    }
+}
+
+/**
+ * Получение данных об использовании общих счетчиков для расчетов
+ * Возвращает данные сгруппированные по блокам и сменам
+ * Использует показания R0, R8, R16, R24 для точного разделения по сменам
+ */
+function getCommonMeterUsageForCalculations($date) {
+    try {
+        $db = getDbConnection();
+        
+        // Получаем данные об использовании общих счетчиков за дату
+        $stmt = $db->prepare('
+            SELECT 
+                cmu.*,
+                m.name as meter_name,
+                m.coefficient_k,
+                e.name as equipment_name
+            FROM common_meter_block_usage cmu
+            JOIN meters m ON cmu.meter_id = m.id
+            JOIN equipment e ON cmu.equipment_id = e.id
+            WHERE cmu.date = ?
+            ORDER BY cmu.equipment_id, cmu.start_time
+        ');
+        $stmt->execute([$date]);
+        $usage = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Получаем показания счетчиков за эту дату для точного разделения по сменам
+        $meterReadings = [];
+        if (!empty($usage)) {
+            $meterIds = array_unique(array_column($usage, 'meter_id'));
+            $placeholders = str_repeat('?,', count($meterIds) - 1) . '?';
+            
+            $stmt = $db->prepare("
+                SELECT meter_id, r0, r8, r16, r24, shift1, shift2, shift3
+                FROM meter_readings 
+                WHERE meter_id IN ($placeholders) AND date = ?
+            ");
+            $stmt->execute(array_merge($meterIds, [$date]));
+            $readings = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            foreach ($readings as $reading) {
+                $meterReadings[$reading['meter_id']] = $reading;
+            }
+        }
+        
+        // Группируем по блокам и сменам
+        $result = [];
+        
+        // Определяем смены (соответствуют R0, R8, R16, R24)
+        $shifts = [
+            ['start' => '00:00:00', 'end' => '08:00:00', 'id' => 1, 'start_reading' => 'r0', 'end_reading' => 'r8'],
+            ['start' => '08:00:00', 'end' => '16:00:00', 'id' => 2, 'start_reading' => 'r8', 'end_reading' => 'r16'],
+            ['start' => '16:00:00', 'end' => '23:59:59', 'id' => 3, 'start_reading' => 'r16', 'end_reading' => 'r24']
+        ];
+        
+        foreach ($usage as $record) {
+            $equipmentId = $record['equipment_id'];
+            $meterId = $record['meter_id'];
+            $startTime = $record['start_time'];
+            $endTime = $record['end_time'];
+            $startReading = (float)$record['start_reading'];
+            $endReading = (float)$record['end_reading'];
+            $totalEnergyConsumed = (float)$record['energy_consumed'];
+            
+            // Определяем в какие смены попадает этот период и распределяем энергию
+            foreach ($shifts as $shift) {
+                $shiftStart = $shift['start'];
+                $shiftEnd = $shift['end'];
+                $shiftId = $shift['id'];
+                
+                // Проверяем пересечение времени
+                if ($startTime < $shiftEnd && $endTime > $shiftStart) {
+                    // Вычисляем пересечение времени
+                    $overlapStart = max($startTime, $shiftStart);
+                    $overlapEnd = min($endTime, $shiftEnd);
+                    
+                    if ($overlapEnd <= $overlapStart) continue;
+                    
+                    // Вычисляем долю времени в этой смене
+                    $totalMinutes = (strtotime($endTime) - strtotime($startTime)) / 60;
+                    $overlapMinutes = (strtotime($overlapEnd) - strtotime($overlapStart)) / 60;
+                    $timeShare = $totalMinutes > 0 ? ($overlapMinutes / $totalMinutes) : 0;
+                    
+                    // Рассчитываем энергию для этой смены
+                    $energyForShift = $totalEnergyConsumed * $timeShare;
+                    
+                    if (!isset($result[$equipmentId])) {
+                        $result[$equipmentId] = [
+                            'equipment_id' => $equipmentId,
+                            'equipment_name' => $record['equipment_name'],
+                            'shifts' => [1 => 0, 2 => 0, 3 => 0]
+                        ];
+                    }
+                    
+                    $result[$equipmentId]['shifts'][$shiftId] += $energyForShift;
+                }
+            }
+        }
+        
+        return array_values($result);
+        
+    } catch (Exception $e) {
+        error_log('Ошибка при получении данных об использовании общих счетчиков: ' . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Получение данных об использовании общих счетчиков с использованием показаний R0, R8, R16, R24
+ * Более точный расчет на основе фактических показаний счетчиков
+ */
+function getCommonMeterUsageWithReadings($date) {
+    try {
+        $db = getDbConnection();
+        
+        // Получаем данные об использовании общих счетчиков за дату
+        $stmt = $db->prepare('
+            SELECT 
+                cmu.*,
+                m.name as meter_name,
+                m.coefficient_k,
+                e.name as equipment_name
+            FROM common_meter_block_usage cmu
+            JOIN meters m ON cmu.meter_id = m.id
+            JOIN equipment e ON cmu.equipment_id = e.id
+            WHERE cmu.date = ?
+            ORDER BY cmu.equipment_id, cmu.start_time
+        ');
+        $stmt->execute([$date]);
+        $usage = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        if (empty($usage)) {
+            return [];
+        }
+        
+        // Получаем показания счетчиков за эту дату
+        $meterIds = array_unique(array_column($usage, 'meter_id'));
+        $placeholders = str_repeat('?,', count($meterIds) - 1) . '?';
+        
+        $stmt = $db->prepare("
+            SELECT meter_id, r0, r8, r16, r24, shift1, shift2, shift3
+            FROM meter_readings 
+            WHERE meter_id IN ($placeholders) AND date = ?
+        ");
+        $stmt->execute(array_merge($meterIds, [$date]));
+        $readings = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        $meterReadings = [];
+        foreach ($readings as $reading) {
+            $meterReadings[$reading['meter_id']] = $reading;
+        }
+        
+        // Группируем по блокам и сменам
+        $result = [];
+        
+        // Определяем смены (соответствуют R0, R8, R16, R24)
+        $shifts = [
+            ['start' => '00:00:00', 'end' => '08:00:00', 'id' => 1, 'start_reading' => 'r0', 'end_reading' => 'r8'],
+            ['start' => '08:00:00', 'end' => '16:00:00', 'id' => 2, 'start_reading' => 'r8', 'end_reading' => 'r16'],
+            ['start' => '16:00:00', 'end' => '23:59:59', 'id' => 3, 'start_reading' => 'r16', 'end_reading' => 'r24']
+        ];
+        
+        foreach ($usage as $record) {
+            $equipmentId = $record['equipment_id'];
+            $meterId = $record['meter_id'];
+            $startTime = $record['start_time'];
+            $endTime = $record['end_time'];
+            $startReading = (float)$record['start_reading'];
+            $endReading = (float)$record['end_reading'];
+            $totalEnergyConsumed = (float)$record['energy_consumed'];
+            
+            // Получаем показания счетчика для этой даты
+            $meterReading = $meterReadings[$meterId] ?? null;
+            
+            if (!$meterReading) {
+                // Если нет показаний счетчика, используем простое разделение по времени
+                distributeEnergyByTimeSimple($result, $equipmentId, $record, $startTime, $endTime, $totalEnergyConsumed);
+                continue;
+            }
+            
+            // Используем показания R0, R8, R16, R24 для точного расчета
+            $shiftReadings = [
+                1 => ['start' => (float)$meterReading['r0'], 'end' => (float)$meterReading['r8']],
+                2 => ['start' => (float)$meterReading['r8'], 'end' => (float)$meterReading['r16']],
+                3 => ['start' => (float)$meterReading['r16'], 'end' => (float)$meterReading['r24']]
+            ];
+            
+            // Определяем в какие смены попадает этот период
+            foreach ($shifts as $shift) {
+                $shiftStart = $shift['start'];
+                $shiftEnd = $shift['end'];
+                $shiftId = $shift['id'];
+                
+                // Проверяем пересечение времени
+                if ($startTime < $shiftEnd && $endTime > $shiftStart) {
+                    // Вычисляем пересечение времени
+                    $overlapStart = max($startTime, $shiftStart);
+                    $overlapEnd = min($endTime, $shiftEnd);
+                    
+                    if ($overlapEnd <= $overlapStart) continue;
+                    
+                    // Вычисляем долю времени в этой смене
+                    $totalMinutes = (strtotime($endTime) - strtotime($startTime)) / 60;
+                    $overlapMinutes = (strtotime($overlapEnd) - strtotime($overlapStart)) / 60;
+                    $timeShare = $totalMinutes > 0 ? ($overlapMinutes / $totalMinutes) : 0;
+                    
+                    // Рассчитываем энергию для этой смены
+                    $energyForShift = $totalEnergyConsumed * $timeShare;
+                    
+                    if (!isset($result[$equipmentId])) {
+                        $result[$equipmentId] = [
+                            'equipment_id' => $equipmentId,
+                            'equipment_name' => $record['equipment_name'],
+                            'shifts' => [1 => 0, 2 => 0, 3 => 0]
+                        ];
+                    }
+                    
+                    $result[$equipmentId]['shifts'][$shiftId] += $energyForShift;
+                }
+            }
+        }
+        
+        return array_values($result);
+        
+    } catch (Exception $e) {
+        error_log('Ошибка при получении данных об использовании общих счетчиков с показаниями: ' . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Простое распределение энергии по времени (fallback)
+ */
+function distributeEnergyByTimeSimple(&$result, $equipmentId, $record, $startTime, $endTime, $totalEnergyConsumed) {
+    $shifts = [
+        ['start' => '00:00:00', 'end' => '08:00:00', 'id' => 1],
+        ['start' => '08:00:00', 'end' => '16:00:00', 'id' => 2],
+        ['start' => '16:00:00', 'end' => '23:59:59', 'id' => 3]
+    ];
+    
+    foreach ($shifts as $shift) {
+        $shiftStart = $shift['start'];
+        $shiftEnd = $shift['end'];
+        $shiftId = $shift['id'];
+        
+        if ($startTime < $shiftEnd && $endTime > $shiftStart) {
+            $overlapStart = max($startTime, $shiftStart);
+            $overlapEnd = min($endTime, $shiftEnd);
+            
+            $totalMinutes = (strtotime($endTime) - strtotime($startTime)) / 60;
+            $overlapMinutes = (strtotime($overlapEnd) - strtotime($overlapStart)) / 60;
+            $energyShare = $totalMinutes > 0 ? ($overlapMinutes / $totalMinutes) * $totalEnergyConsumed : 0;
+            
+            if (!isset($result[$equipmentId])) {
+                $result[$equipmentId] = [
+                    'equipment_id' => $equipmentId,
+                    'equipment_name' => $record['equipment_name'],
+                    'shifts' => [1 => 0, 2 => 0, 3 => 0]
+                ];
+            }
+            
+            $result[$equipmentId]['shifts'][$shiftId] += $energyShare;
+        }
+    }
+}

@@ -7,6 +7,7 @@ services:
       MYSQL_DATABASE: exepower
       MYSQL_CHARSET: utf8mb4
       MYSQL_COLLATION: utf8mb4_unicode_ci
+      TZ: Asia/Tashkent
     ports:
       - "3307:3306"  # Избегаем конфликта с другими MySQL
     volumes:
@@ -14,7 +15,7 @@ services:
       - ./api/database/dbSchema.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - exepower_network
-    command: --default-authentication-plugin=mysql_native_password
+    command: --default-authentication-plugin=mysql_native_password --default-time-zone='+05:00'
 
   php:
     build:
@@ -35,6 +36,7 @@ services:
       - DB_NAME=exepower
       - DB_USER=root
       - DB_PASS=rootpassword
+      - TZ=Asia/Tashkent
 
   node:
     image: node:18-alpine

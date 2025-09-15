@@ -29,6 +29,7 @@ import 'react-datepicker/dist/react-datepicker.css'
 import { counterService } from '../../services/counterService'
 import { format } from 'date-fns'
 import authService from '../../services/authService'
+import CommonMeterUsageModal from '../../components/CommonMeterUsageModal'
 
 const Counters = () => {
   const [selectedDate, setSelectedDate] = useState(new Date())
@@ -81,6 +82,27 @@ const Counters = () => {
     end_reading: '',
     comment: ''
   })
+
+  // Общие счетчики
+  const [showCommonMeterModal, setShowCommonMeterModal] = useState(false)
+  const [selectedCommonMeter, setSelectedCommonMeter] = useState(null)
+
+  // ID общих счетчиков
+  const commonMeterIds = [48, 49, 50, 51, 52, 53]
+
+  const isCommonMeter = (meterId) => {
+    return commonMeterIds.includes(meterId)
+  }
+
+  const handleCommonMeterClick = (meter) => {
+    setSelectedCommonMeter(meter)
+    setShowCommonMeterModal(true)
+  }
+
+  const handleCommonMeterSave = () => {
+    // Перезагружаем данные после сохранения
+    loadReadings(selectedDate)
+  }
 
   useEffect(() => {
     loadMeterTypes()
@@ -541,12 +563,22 @@ const Counters = () => {
                             +{reserve1.toFixed(3)}
                           </div>
                         )}
+                        {reading.common_meter_usage && (
+                          <div style={{fontSize: '0.8em', color: '#28a745', fontWeight: 'bold'}}>
+                            Общие: {reading.common_meter_usage.shift1.toFixed(3)}
+                          </div>
+                        )}
                       </CTableDataCell>
                       <CTableDataCell>
                         <div>{shift2.toFixed(3)}</div>
                         {selectedType == 2 && reserve2 > 0 && (
                           <div style={{fontSize: '0.8em', color: '#0066cc', fontWeight: 'bold'}}>
                             +{reserve2.toFixed(3)}
+                          </div>
+                        )}
+                        {reading.common_meter_usage && (
+                          <div style={{fontSize: '0.8em', color: '#28a745', fontWeight: 'bold'}}>
+                            Общие: {reading.common_meter_usage.shift2.toFixed(3)}
                           </div>
                         )}
                       </CTableDataCell>
@@ -557,12 +589,22 @@ const Counters = () => {
                             +{reserve3.toFixed(3)}
                           </div>
                         )}
+                        {reading.common_meter_usage && (
+                          <div style={{fontSize: '0.8em', color: '#28a745', fontWeight: 'bold'}}>
+                            Общие: {reading.common_meter_usage.shift3.toFixed(3)}
+                          </div>
+                        )}
                       </CTableDataCell>
                       <CTableDataCell>
                         <div>{total.toFixed(3)}</div>
                         {selectedType == 2 && reserveTotal > 0 && (
                           <div style={{fontSize: '0.8em', color: '#0066cc', fontWeight: 'bold'}}>
                             +{reserveTotal.toFixed(3)}
+                          </div>
+                        )}
+                        {reading.common_meter_usage && (
+                          <div style={{fontSize: '0.8em', color: '#28a745', fontWeight: 'bold'}}>
+                            Общие: {reading.common_meter_usage.total.toFixed(3)}
                           </div>
                         )}
                       </CTableDataCell>
@@ -575,6 +617,15 @@ const Counters = () => {
                         >
                           Смена
                         </CButton>
+                        {isCommonMeter(meter.id) && (
+                          <CButton
+                            color="info"
+                            size="sm"
+                            onClick={() => handleCommonMeterClick(meter)}
+                          >
+                            Блоки
+                          </CButton>
+                        )}
                       </CTableDataCell>
                     </CTableRow>
                   )
@@ -986,6 +1037,15 @@ const Counters = () => {
           }}>Сохранить</CButton>
         </CModalFooter>
       </CModal>
+
+      {/* Модальное окно для общих счетчиков */}
+      <CommonMeterUsageModal
+        show={showCommonMeterModal}
+        onClose={() => setShowCommonMeterModal(false)}
+        meter={selectedCommonMeter}
+        date={format(selectedDate, 'yyyy-MM-dd')}
+        onSave={handleCommonMeterSave}
+      />
     </CRow>
   )
 }

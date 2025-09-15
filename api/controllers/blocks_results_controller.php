@@ -15,7 +15,7 @@ function getBlocksResultParams() {
     requireAuth();
 
     try {
-        $sql = "SELECT id, name, unit, symbol FROM tg_result_params ORDER BY id";
+        $sql = "SELECT id, name, unit, symbol, category FROM tg_result_params ORDER BY id";
         $params = fetchAll($sql);
         sendSuccess(['params' => $params]);
     } catch (Exception $e) {
@@ -49,8 +49,8 @@ function getBlocksResultValues($data) {
 
         $date = $data['date'];
         $periodType = $data['periodType'];
-        // По умолчанию два блока: 1 (ТГ7) и 2 (ТГ8)
-        $blockIds = isset($data['blockIds']) && is_array($data['blockIds']) ? array_map('intval', $data['blockIds']) : [1,2];
+        // По умолчанию три блока: 7 (ТГ7), 8 (ТГ8), 9 (ОЧ-130)
+        $blockIds = isset($data['blockIds']) && is_array($data['blockIds']) ? array_map('intval', $data['blockIds']) : [7,8,9];
         $shiftIds = [];
         if ($periodType === 'shift') {
             if (isset($data['shiftIds']) && is_array($data['shiftIds'])) {
@@ -64,16 +64,16 @@ function getBlocksResultValues($data) {
         }
 
         // Получаем список параметров
-        $paramsSql = "SELECT id, name, unit, symbol FROM tg_result_params ORDER BY id";
+        $paramsSql = "SELECT id, name, unit, symbol, category FROM tg_result_params ORDER BY id";
         $params = fetchAll($paramsSql);
 
         // Загружаем значения
         $resultValues = [];
         if (!empty($blockIds)) {
             $idsStr = implode(',', array_map('intval', $blockIds));
-            $sql = "SELECT rv.param_id, rv.equipment_id, rv.value, rv.shift_id, rv.period_type
+            $sql = "SELECT rv.param_id, rv.tg_id, rv.value, rv.shift_id, rv.period_type
                         FROM tg_result_values rv
-                   WHERE rv.date = ? AND rv.period_type = ? AND rv.equipment_id IN ($idsStr)";
+                   WHERE rv.date = ? AND rv.period_type = ? AND rv.tg_id IN ($idsStr)";
             $bind = [$date, $periodType];
             if ($periodType === 'shift' && !empty($shiftIds)) {
                 $in = implode(',', array_fill(0, count($shiftIds), '?'));
@@ -84,7 +84,7 @@ function getBlocksResultValues($data) {
 
             foreach ($values as $row) {
                 $paramId = (int)$row['param_id'];
-                $blockId = (int)$row['equipment_id'];
+                $blockId = (int)$row['tg_id'];
                 $shiftId = $row['shift_id'] !== null ? (int)$row['shift_id'] : null;
                 $value = $row['value'];
                 if ($periodType === 'shift') {
@@ -106,21 +106,22 @@ function getBlocksResultValues($data) {
                 'id' => $paramId,
                 'name' => $param['name'],
                 'unit' => $param['unit'],
-                'symbol' => $param['symbol']
+                'symbol' => $param['symbol'],
+                'category' => $param['category']
             ];
             if ($periodType === 'shift') {
                 $paramData['valuesByShift'] = [];
                 foreach ($shiftIds as $sid) {
-                    $paramData['valuesByShift'][$sid] = [
-                        1 => $resultValues[$paramId][$sid][1] ?? null,
-                        2 => $resultValues[$paramId][$sid][2] ?? null
-                    ];
+                    $paramData['valuesByShift'][$sid] = [];
+                    foreach ($blockIds as $blockId) {
+                        $paramData['valuesByShift'][$sid][$blockId] = $resultValues[$paramId][$sid][$blockId] ?? null;
+                    }
                 }
             } else {
-                $paramData['values'] = [
-                    1 => $resultValues[$paramId][1] ?? null,
-                    2 => $resultValues[$paramId][2] ?? null
-                ];
+                $paramData['values'] = [];
+                foreach ($blockIds as $blockId) {
+                    $paramData['values'][$blockId] = $resultValues[$paramId][$blockId] ?? null;
+                }
             }
             $responseData[] = $paramData;
         }
@@ -155,10 +156,12 @@ function saveBlocksResultValues($data) {
 
         if ($periodType === 'shift') {
             $shiftIds = array_filter(array_unique(array_column($values, 'shift_id')));
+            error_log("Shift IDs for deletion: " . json_encode($shiftIds));
             if (!empty($shiftIds)) {
                 $placeholders = str_repeat('?,', count($shiftIds) - 1) . '?';
                 $deleteSql = "DELETE FROM tg_result_values WHERE date = ? AND period_type = ? AND shift_id IN ($placeholders)";
                 $deleteParams = array_merge([$date, $periodType], $shiftIds);
+                error_log("Delete SQL: $deleteSql, Params: " . json_encode($deleteParams));
                 executeQuery($deleteSql, $deleteParams);
             }
         } else {
@@ -167,25 +170,27 @@ function saveBlocksResultValues($data) {
         }
 
         foreach ($values as $value) {
-            if (isset($value['param_id']) && isset($value['equipment_id']) && isset($value['value'])) {
+            if (isset($value['param_id']) && isset($value['tg_id']) && isset($value['value'])) {
                 $insertSql = "INSERT INTO tg_result_values 
-                             (param_id, equipment_id, date, shift_id, value, user_id, period_type, period_start, period_end) 
-                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                             (param_id, tg_id, date, shift_id, value, user_id, period_type, period_start, period_end, cell) 
+                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
                 $shiftId = isset($value['shift_id']) ? $value['shift_id'] : null;
                 $rounded = round((float)$value['value'], 2);
                 $periodStart = $data['period_start'] ?? null;
                 $periodEnd = $data['period_end'] ?? null;
+                $cell = $value['cell'] ?? null;
 
                 executeQuery($insertSql, [
                     $value['param_id'],
-                    $value['equipment_id'],
+                    $value['tg_id'],
                     $date,
                     $shiftId,
                     $rounded,
                     $userId,
                     $periodType,
                     $periodStart,
-                    $periodEnd
+                    $periodEnd,
+                    $cell
                 ]);
             }
         }

@@ -153,9 +153,9 @@ function createEquipmentEvent() {
             return sendError($validationResult['message'], 400);
         }
         
-        // Определение текущей смены
-        $shiftId = getCurrentShift();
-        error_log("DEBUG: Current shift ID: $shiftId");
+        // Определение смены по времени события
+        $shiftId = getShiftByTime($eventTime);
+        error_log("DEBUG: Shift ID for event time $eventTime: $shiftId");
         
         // Создание события
         error_log("DEBUG: Attempting to insert event into database");
@@ -469,21 +469,29 @@ function deleteEquipmentEvent($eventId) {
 }
 
 /**
+ * Get shift by time
+ * Determines the shift based on event time
+ */
+function getShiftByTime($eventTime) {
+    // Извлекаем час из времени события
+    $eventHour = (int)date('H', strtotime($eventTime));
+    
+    // Определение смены по времени события согласно таблице shifts
+    if ($eventHour >= 0 && $eventHour < 8) {
+        return 1; // Смена 1: 00:00 - 07:59
+    } elseif ($eventHour >= 8 && $eventHour < 16) {
+        return 2; // Смена 2: 08:00 - 15:59
+    } else {
+        return 3; // Смена 3: 16:00 - 23:59
+    }
+}
+
+/**
  * Get current shift
- * Determines the current shift based on time
+ * Determines the current shift based on current time
  */
 function getCurrentShift() {
-    // Получение текущего времени
-    $currentHour = (int)date('H');
-    
-    // Определение смены по времени (примерная логика)
-    if ($currentHour >= 0 && $currentHour < 8) {
-        return 1; // Первая смена (ночная)
-    } elseif ($currentHour >= 8 && $currentHour < 16) {
-        return 2; // Вторая смена (дневная)
-    } else {
-        return 3; // Третья смена (вечерняя)
-    }
+    return getShiftByTime(date('Y-m-d H:i:s'));
 }
 
 /**

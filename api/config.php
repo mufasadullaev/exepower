@@ -43,6 +43,9 @@ define('JWT_SECRET', getenv('JWT_SECRET'));
 // Срок действия токена (в секундах)
 define('TOKEN_EXPIRY', getenv('JWT_EXPIRATION')); 
 
+// Настройка часового пояса
+date_default_timezone_set('Asia/Tashkent'); // UTC+5
+
 // Настройки базы данных
 define('DB_HOST', getenv('DB_HOST'));
 define('DB_NAME', getenv('DB_NAME'));

@@ -155,12 +155,12 @@ const Calculations = () => {
 
     const calculationData = {
       periodType,
-      dates: periodType === 'period' 
-        ? { 
-            startDate: startDate.toISOString().split('T')[0], 
-            endDate: endDate.toISOString().split('T')[0] 
+        dates: periodType === 'period' 
+          ? {
+            startDate: startDate.toLocaleDateString('en-CA'), 
+            endDate: endDate.toLocaleDateString('en-CA') 
           }
-        : { selectedDate: selectedDate.toISOString().split('T')[0] },
+        : { selectedDate: selectedDate.toLocaleDateString('en-CA') },
       shifts: selectedItemsList,
       // Добавляем информацию о работающих вахтах для типа "Смена"
       activeVakhtas: periodType === 'shift' ? activeVakhtas : null,
@@ -169,6 +169,12 @@ const Calculations = () => {
     }
 
     console.log('Запуск расчетов с параметрами:', calculationData)
+    console.log('Даты:', {
+      selectedDate: selectedDate.toString(),
+      selectedDateLocal: selectedDate.toLocaleDateString('en-CA'),
+      selectedDateUTC: selectedDate.toISOString().split('T')[0],
+      currentTime: new Date().toString()
+    })
     
     // Если выбран таб Блоки
     if (activeTab === 'blocks') {
@@ -176,8 +182,8 @@ const Calculations = () => {
         setLoading(true)
         const result = await blocksCalculationService.performFullCalculation(calculationData)
         const date = periodType === 'period' 
-          ? `${startDate.toISOString().split('T')[0]} - ${endDate.toISOString().split('T')[0]}`
-          : selectedDate.toISOString().split('T')[0]
+          ? `${startDate.toLocaleDateString('en-CA')} - ${endDate.toLocaleDateString('en-CA')}`
+          : selectedDate.toLocaleDateString('en-CA')
         const shifts = selectedItemsList.join(', ')
         navigate('/blocks-results', {
           state: { date, periodType, shifts, calculationData, calculationResult: result }
@@ -203,8 +209,8 @@ const Calculations = () => {
         
         // Перенаправляем на страницу результатов
         const date = periodType === 'period' 
-          ? `${startDate.toISOString().split('T')[0]} - ${endDate.toISOString().split('T')[0]}`
-          : selectedDate.toISOString().split('T')[0]
+          ? `${startDate.toLocaleDateString('en-CA')} - ${endDate.toLocaleDateString('en-CA')}`
+          : selectedDate.toLocaleDateString('en-CA')
         
         const shifts = selectedItemsList.join(', ')
         

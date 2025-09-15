@@ -215,6 +215,32 @@ try {
                 sendError('Метод не поддерживается', 405);
             }
             break;
+            
+        case 'common-meters':
+            if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+                getCommonMeters();
+            } else {
+                sendError('Метод не поддерживается', 405);
+            }
+            break;
+            
+        case 'tg-blocks':
+            if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+                getTgBlocks();
+            } else {
+                sendError('Метод не поддерживается', 405);
+            }
+            break;
+            
+        case 'common-meter-usage':
+            if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+                getCommonMeterUsage();
+            } elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                saveCommonMeterUsage();
+            } else {
+                sendError('Метод не поддерживается', 405);
+            }
+            break;
         
         case (preg_match('/^equipment-tools\/status\/(\d+)$/', $path, $matches) ? true : false):
             $equipmentId = $matches[1];

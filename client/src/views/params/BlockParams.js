@@ -414,8 +414,8 @@ const BlockParams = () => {
               // Определяем, является ли это вычисляемым параметром для ОЧ-130
               const isCalculatedParam = [29, 30, 35, 37, 45, 46].includes(param.id);
               
-              // Определяем, скрывается ли поле ОЧ-130 для этого параметра (E21, E23, E24, E25, E26, E27)
-              const isOch130Hidden = [36, 38, 39, 40, 41, 42].includes(param.id);
+              // Определяем, скрывается ли поле ОЧ-130 для этого параметра (E21, E23, E24, E25, E26, E27, E12)
+              const isOch130Hidden = [36, 38, 39, 40, 41, 42, 49].includes(param.id);
               
               return (
                 <CTableRow key={param.id || idx}>
