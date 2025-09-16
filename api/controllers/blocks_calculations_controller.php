@@ -405,6 +405,112 @@ function calculateBlocksValues($date, $periodType, $shifts = null, $endDate = nu
                     'value' => $parameter52,
                     'cell' => $cell
                 ];
+                
+                // === РАСЧЕТЫ КОТЛОВ (category 3b) ===
+                
+                // 29. Фактическое качество сожженного топлива (газ) (param_id = 269)
+                $gasFuelQuality = calculateGasFuelQuality($date, $shiftId, $blockId);
+                $cell = getCellForBlock($blockId, 10); // row_num 10
+                $values[] = [
+                    'param_id' => 269, // Фактическое качество сожженного топлива (газ)
+                    'tg_id' => $blockId,
+                    'shift_id' => (int)$shiftId,
+                    'value' => $gasFuelQuality,
+                    'cell' => $cell
+                ];
+                
+                // 30. Фактическое качество сожженного топлива (мазут) (param_id = 270)
+                $oilFuelQuality = calculateOilFuelQuality($date, $shiftId, $blockId);
+                $cell = getCellForBlock($blockId, 11); // row_num 11
+                $values[] = [
+                    'param_id' => 270, // Фактическое качество сожженного топлива (мазут)
+                    'tg_id' => $blockId,
+                    'shift_id' => (int)$shiftId,
+                    'value' => $oilFuelQuality,
+                    'cell' => $cell
+                ];
+                
+                // 31. Количество топлива (газ) в натуральном исчислении (param_id = 271)
+                $gasFuelQuantity = calculateGasFuelQuantity($date, $shiftId, $blockId, $values);
+                $cell = getCellForBlock($blockId, 12); // row_num 12
+                $values[] = [
+                    'param_id' => 271, // Количество топлива (газ) в натуральном исчислении
+                    'tg_id' => $blockId,
+                    'shift_id' => (int)$shiftId,
+                    'value' => $gasFuelQuantity,
+                    'cell' => $cell
+                ];
+                
+                // 32. Количество топлива (мазут) в натуральном исчислении (param_id = 272)
+                $oilFuelQuantity = calculateOilFuelQuantity($date, $shiftId, $blockId, $values);
+                $cell = getCellForBlock($blockId, 13); // row_num 13
+                $values[] = [
+                    'param_id' => 272, // Количество топлива (мазут) в натуральном исчислении
+                    'tg_id' => $blockId,
+                    'shift_id' => (int)$shiftId,
+                    'value' => $oilFuelQuantity,
+                    'cell' => $cell
+                ];
+            }
+            
+            // === РАСЧЕТЫ ЗАВИСИМЫХ ПАРАМЕТРОВ (после расчета всех базовых) ===
+            
+            // 33-35. Расчеты расхода топлива для всех блоков
+            foreach ($blockIds as $blockId) {
+                // 33. Фактический расход топлива на производство электроэнергии в пересчете на условное (газ) (param_id = 273)
+                $gasFuelConsumption = calculateGasFuelConsumption($date, $shiftId, $blockId, $values);
+                $cell = getCellForBlock($blockId, 14); // row_num 14
+                $values[] = [
+                    'param_id' => 273, // Фактический расход топлива на производство электроэнергии в пересчете на условное (газ)
+                    'tg_id' => $blockId,
+                    'shift_id' => (int)$shiftId,
+                    'value' => $gasFuelConsumption,
+                    'cell' => $cell
+                ];
+                
+                // 34. Фактический расход топлива на производство электроэнергии в пересчете на условное (мазут) (param_id = 274)
+                $oilFuelConsumption = calculateOilFuelConsumption($date, $shiftId, $blockId, $values);
+                $cell = getCellForBlock($blockId, 15); // row_num 15
+                $values[] = [
+                    'param_id' => 274, // Фактический расход топлива на производство электроэнергии в пересчете на условное (мазут)
+                    'tg_id' => $blockId,
+                    'shift_id' => (int)$shiftId,
+                    'value' => $oilFuelConsumption,
+                    'cell' => $cell
+                ];
+                
+                // 35. Полный расход условного топлива на выработку электроэнергии за месяц (param_id = 275)
+                $totalFuelConsumption = calculateTotalFuelConsumption($date, $shiftId, $blockId, $values);
+                $cell = getCellForBlock($blockId, 16); // row_num 16
+                $values[] = [
+                    'param_id' => 275, // Полный расход условного топлива на выработку электроэнергии за месяц
+                    'tg_id' => $blockId,
+                    'shift_id' => (int)$shiftId,
+                    'value' => $totalFuelConsumption,
+                    'cell' => $cell
+                ];
+                
+                // 36. Доля газа в общем расходе топлива (param_id = 276)
+                $gasFuelShare = calculateGasFuelShare($date, $shiftId, $blockId, $values);
+                $cell = getCellForBlock($blockId, 17); // row_num 17
+                $values[] = [
+                    'param_id' => 276, // Доля газа в общем расходе топлива
+                    'tg_id' => $blockId,
+                    'shift_id' => (int)$shiftId,
+                    'value' => $gasFuelShare,
+                    'cell' => $cell
+                ];
+                
+                // 37. Число часов работы группы котлов (param_id = 277)
+                $boilerWorkingHours = calculateBoilerWorkingHours($date, $shiftId, $blockId, $values);
+                $cell = getCellForBlock($blockId, 18); // row_num 18
+                $values[] = [
+                    'param_id' => 277, // Число часов работы группы котлов
+                    'tg_id' => $blockId,
+                    'shift_id' => (int)$shiftId,
+                    'value' => $boilerWorkingHours,
+                    'cell' => $cell
+                ];
             }
         }
     } else {
@@ -716,6 +822,112 @@ function calculateBlocksValues($date, $periodType, $shifts = null, $endDate = nu
                 'tg_id' => $blockId,
                 'shift_id' => null,
                 'value' => $parameter52,
+                'cell' => $cell
+            ];
+            
+            // === РАСЧЕТЫ КОТЛОВ (category 3b) ===
+            
+            // 29. Фактическое качество сожженного топлива (газ) (param_id = 269)
+            $gasFuelQuality = calculateGasFuelQuality($date, null, $blockId);
+            $cell = getCellForBlock($blockId, 10); // row_num 10
+            $values[] = [
+                'param_id' => 269, // Фактическое качество сожженного топлива (газ)
+                'tg_id' => $blockId,
+                'shift_id' => null,
+                'value' => $gasFuelQuality,
+                'cell' => $cell
+            ];
+            
+            // 30. Фактическое качество сожженного топлива (мазут) (param_id = 270)
+            $oilFuelQuality = calculateOilFuelQuality($date, null, $blockId);
+            $cell = getCellForBlock($blockId, 11); // row_num 11
+            $values[] = [
+                'param_id' => 270, // Фактическое качество сожженного топлива (мазут)
+                'tg_id' => $blockId,
+                'shift_id' => null,
+                'value' => $oilFuelQuality,
+                'cell' => $cell
+            ];
+            
+            // 31. Количество топлива (газ) в натуральном исчислении (param_id = 271)
+            $gasFuelQuantity = calculateGasFuelQuantity($date, null, $blockId, $values);
+            $cell = getCellForBlock($blockId, 12); // row_num 12
+            $values[] = [
+                'param_id' => 271, // Количество топлива (газ) в натуральном исчислении
+                'tg_id' => $blockId,
+                'shift_id' => null,
+                'value' => $gasFuelQuantity,
+                'cell' => $cell
+            ];
+            
+            // 32. Количество топлива (мазут) в натуральном исчислении (param_id = 272)
+            $oilFuelQuantity = calculateOilFuelQuantity($date, null, $blockId, $values);
+            $cell = getCellForBlock($blockId, 13); // row_num 13
+            $values[] = [
+                'param_id' => 272, // Количество топлива (мазут) в натуральном исчислении
+                'tg_id' => $blockId,
+                'shift_id' => null,
+                'value' => $oilFuelQuantity,
+                'cell' => $cell
+            ];
+        }
+        
+        // === РАСЧЕТЫ ЗАВИСИМЫХ ПАРАМЕТРОВ (после расчета всех базовых) ===
+        
+        // 33-35. Расчеты расхода топлива для всех блоков
+        foreach ($blockIds as $blockId) {
+            // 33. Фактический расход топлива на производство электроэнергии в пересчете на условное (газ) (param_id = 273)
+            $gasFuelConsumption = calculateGasFuelConsumption($date, null, $blockId, $values);
+            $cell = getCellForBlock($blockId, 14); // row_num 14
+            $values[] = [
+                'param_id' => 273, // Фактический расход топлива на производство электроэнергии в пересчете на условное (газ)
+                'tg_id' => $blockId,
+                'shift_id' => null,
+                'value' => $gasFuelConsumption,
+                'cell' => $cell
+            ];
+            
+            // 34. Фактический расход топлива на производство электроэнергии в пересчете на условное (мазут) (param_id = 274)
+            $oilFuelConsumption = calculateOilFuelConsumption($date, null, $blockId, $values);
+            $cell = getCellForBlock($blockId, 15); // row_num 15
+            $values[] = [
+                'param_id' => 274, // Фактический расход топлива на производство электроэнергии в пересчете на условное (мазут)
+                'tg_id' => $blockId,
+                'shift_id' => null,
+                'value' => $oilFuelConsumption,
+                'cell' => $cell
+            ];
+            
+            // 35. Полный расход условного топлива на выработку электроэнергии за месяц (param_id = 275)
+            $totalFuelConsumption = calculateTotalFuelConsumption($date, null, $blockId, $values);
+            $cell = getCellForBlock($blockId, 16); // row_num 16
+            $values[] = [
+                'param_id' => 275, // Полный расход условного топлива на выработку электроэнергии за месяц
+                'tg_id' => $blockId,
+                'shift_id' => null,
+                'value' => $totalFuelConsumption,
+                'cell' => $cell
+            ];
+            
+            // 36. Доля газа в общем расходе топлива (param_id = 276)
+            $gasFuelShare = calculateGasFuelShare($date, null, $blockId, $values);
+            $cell = getCellForBlock($blockId, 17); // row_num 17
+            $values[] = [
+                'param_id' => 276, // Доля газа в общем расходе топлива
+                'tg_id' => $blockId,
+                'shift_id' => null,
+                'value' => $gasFuelShare,
+                'cell' => $cell
+            ];
+            
+            // 37. Число часов работы группы котлов (param_id = 277)
+            $boilerWorkingHours = calculateBoilerWorkingHours($date, null, $blockId, $values);
+            $cell = getCellForBlock($blockId, 18); // row_num 18
+            $values[] = [
+                'param_id' => 277, // Число часов работы группы котлов
+                'tg_id' => $blockId,
+                'shift_id' => null,
+                'value' => $boilerWorkingHours,
                 'cell' => $cell
             ];
         }
@@ -3270,5 +3482,343 @@ function getHouseholdNeedsConsumption($date, $shiftId, $blockId) {
     } catch (Exception $e) {
         error_log('Ошибка при получении расхода на хозяйственные нужды: ' . $e->getMessage());
         return 0;
+    }
+}
+
+/**
+ * Расчет фактического качества сожженного топлива (газ) (param_id = 269)
+ * Для ТГ7 и ТГ8: нет значений
+ * Для ОЧ-130: значение из исходных данных (E28)
+ */
+function calculateGasFuelQuality($date, $shiftId, $blockId) {
+    try {
+        // Для ТГ7 и ТГ8 нет значений
+        if ($blockId == 7 || $blockId == 8) {
+            return null;
+        }
+        
+        // Для ОЧ-130 берем значение из исходных данных (E28)
+        if ($blockId == 9) {
+            $db = getDbConnection();
+            $stmt = $db->prepare('
+                SELECT value FROM parameter_values 
+                WHERE parameter_id = 43 AND equipment_id = 7 AND date = ? AND shift_id = ? AND cell = "E28"
+            ');
+            $stmt->execute([$date, $shiftId]);
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($result) {
+                error_log("Фактическое качество сожженного топлива (газ) для ОЧ-130, смена $shiftId: " . $result['value']);
+                return (float)$result['value'];
+            }
+        }
+        
+        return null;
+        
+    } catch (Exception $e) {
+        error_log('Ошибка при расчете фактического качества сожженного топлива (газ): ' . $e->getMessage());
+        return null;
+    }
+}
+
+/**
+ * Расчет фактического качества сожженного топлива (мазут) (param_id = 270)
+ * Для ТГ7 и ТГ8: нет значений
+ * Для ОЧ-130: значение из исходных данных (E29)
+ */
+function calculateOilFuelQuality($date, $shiftId, $blockId) {
+    try {
+        // Для ТГ7 и ТГ8 нет значений
+        if ($blockId == 7 || $blockId == 8) {
+            return null;
+        }
+        
+        // Для ОЧ-130 берем значение из исходных данных (E29)
+        if ($blockId == 9) {
+            $db = getDbConnection();
+            $stmt = $db->prepare('
+                SELECT value FROM parameter_values 
+                WHERE parameter_id = 44 AND equipment_id = 7 AND date = ? AND shift_id = ? AND cell = "E29"
+            ');
+            $stmt->execute([$date, $shiftId]);
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($result) {
+                error_log("Фактическое качество сожженного топлива (мазут) для ОЧ-130, смена $shiftId: " . $result['value']);
+                return (float)$result['value'];
+            }
+        }
+        
+        return null;
+        
+    } catch (Exception $e) {
+        error_log('Ошибка при расчете фактического качества сожженного топлива (мазут): ' . $e->getMessage());
+        return null;
+    }
+}
+
+/**
+ * Расчет количества топлива (газ) в натуральном исчислении (param_id = 271)
+ * E12 = C30 (для ТГ7)
+ * F12 = D30 (для ТГ8) 
+ * G12 = E12 + F12 (для ОЧ-130)
+ */
+function calculateGasFuelQuantity($date, $shiftId, $blockId, &$values) {
+    try {
+        // Для ТГ7: E12 = C30
+        if ($blockId == 7) {
+            $db = getDbConnection();
+            $stmt = $db->prepare('
+                SELECT value FROM parameter_values 
+                WHERE parameter_id = 45 AND equipment_id = 1 AND date = ? AND shift_id = ? AND cell = "C30"
+            ');
+            $stmt->execute([$date, $shiftId]);
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($result) {
+                error_log("Количество топлива (газ) для ТГ7, смена $shiftId: " . $result['value']);
+                return (float)$result['value'];
+            }
+        }
+        
+        // Для ТГ8: F12 = D30
+        if ($blockId == 8) {
+            $db = getDbConnection();
+            $stmt = $db->prepare('
+                SELECT value FROM parameter_values 
+                WHERE parameter_id = 45 AND equipment_id = 2 AND date = ? AND shift_id = ? AND cell = "D30"
+            ');
+            $stmt->execute([$date, $shiftId]);
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($result) {
+                error_log("Количество топлива (газ) для ТГ8, смена $shiftId: " . $result['value']);
+                return (float)$result['value'];
+            }
+        }
+        
+        // Для ОЧ-130: G12 = E12 + F12
+        if ($blockId == 9) {
+            // Получаем значение для ТГ7 (E12)
+            $tg7Value = getParameterValue($date, $shiftId, 7, 271, $values);
+            
+            // Получаем значение для ТГ8 (F12)
+            $tg8Value = getParameterValue($date, $shiftId, 8, 271, $values);
+            
+            $sum = $tg7Value + $tg8Value;
+            error_log("Количество топлива (газ) для ОЧ-130, смена $shiftId: ТГ7=$tg7Value + ТГ8=$tg8Value = $sum");
+            return $sum;
+        }
+        
+        return null;
+        
+    } catch (Exception $e) {
+        error_log('Ошибка при расчете количества топлива (газ): ' . $e->getMessage());
+        return null;
+    }
+}
+
+/**
+ * Расчет количества топлива (мазут) в натуральном исчислении (param_id = 272)
+ * E13 = C31 (для ТГ7)
+ * F13 = D31 (для ТГ8) 
+ * G13 = E13 + F13 (для ОЧ-130)
+ */
+function calculateOilFuelQuantity($date, $shiftId, $blockId, &$values) {
+    try {
+        // Для ТГ7: E13 = C31
+        if ($blockId == 7) {
+            $db = getDbConnection();
+            $stmt = $db->prepare('
+                SELECT value FROM parameter_values 
+                WHERE parameter_id = 46 AND equipment_id = 1 AND date = ? AND shift_id = ? AND cell = "C31"
+            ');
+            $stmt->execute([$date, $shiftId]);
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($result) {
+                error_log("Количество топлива (мазут) для ТГ7, смена $shiftId: " . $result['value']);
+                return (float)$result['value'];
+            }
+        }
+        
+        // Для ТГ8: F13 = D31
+        if ($blockId == 8) {
+            $db = getDbConnection();
+            $stmt = $db->prepare('
+                SELECT value FROM parameter_values 
+                WHERE parameter_id = 46 AND equipment_id = 2 AND date = ? AND shift_id = ? AND cell = "D31"
+            ');
+            $stmt->execute([$date, $shiftId]);
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($result) {
+                error_log("Количество топлива (мазут) для ТГ8, смена $shiftId: " . $result['value']);
+                return (float)$result['value'];
+            }
+        }
+        
+        // Для ОЧ-130: G13 = E13 + F13
+        if ($blockId == 9) {
+            // Получаем значение для ТГ7 (E13)
+            $tg7Value = getParameterValue($date, $shiftId, 7, 272, $values);
+            
+            // Получаем значение для ТГ8 (F13)
+            $tg8Value = getParameterValue($date, $shiftId, 8, 272, $values);
+            
+            $sum = $tg7Value + $tg8Value;
+            error_log("Количество топлива (мазут) для ОЧ-130, смена $shiftId: ТГ7=$tg7Value + ТГ8=$tg8Value = $sum");
+            return $sum;
+        }
+        
+        return null;
+        
+    } catch (Exception $e) {
+        error_log('Ошибка при расчете количества топлива (мазут): ' . $e->getMessage());
+        return null;
+    }
+}
+
+/**
+ * Расчет фактического расхода топлива на производство электроэнергии в пересчете на условное (газ) (param_id = 273)
+ * E14 = G10/7000*E12 (для ТГ7)
+ * F14 = G10/7000*F12 (для ТГ8)
+ * G14 = E14 + F14 (для ОЧ-130)
+ */
+function calculateGasFuelConsumption($date, $shiftId, $blockId, &$values) {
+    try {
+        // Получаем качество газа (параметр 269) - G10
+        $gasQuality = getParameterValue($date, $shiftId, 9, 269, $values);
+        
+        // Получаем количество газа (параметр 271) - E12/F12
+        $gasQuantity = getParameterValue($date, $shiftId, $blockId, 271, $values);
+        
+        if ($gasQuality && $gasQuantity) {
+            $consumption = ($gasQuality / 7000) * $gasQuantity;
+            error_log("Расход топлива (газ) для блока $blockId, смена $shiftId: ($gasQuality/7000)*$gasQuantity = $consumption");
+            return $consumption;
+        }
+        
+        return null;
+        
+    } catch (Exception $e) {
+        error_log('Ошибка при расчете расхода топлива (газ): ' . $e->getMessage());
+        return null;
+    }
+}
+
+/**
+ * Расчет фактического расхода топлива на производство электроэнергии в пересчете на условное (мазут) (param_id = 274)
+ * E15 = G11/7000*E13 (для ТГ7)
+ * F15 = G11/7000*F13 (для ТГ8)
+ * G15 = E15 + F15 (для ОЧ-130)
+ */
+function calculateOilFuelConsumption($date, $shiftId, $blockId, &$values) {
+    try {
+        // Получаем качество мазута (параметр 270) - G11
+        $oilQuality = getParameterValue($date, $shiftId, 9, 270, $values);
+        
+        // Получаем количество мазута (параметр 272) - E13/F13
+        $oilQuantity = getParameterValue($date, $shiftId, $blockId, 272, $values);
+        
+        if ($oilQuality && $oilQuantity) {
+            $consumption = ($oilQuality / 7000) * $oilQuantity;
+            error_log("Расход топлива (мазут) для блока $blockId, смена $shiftId: ($oilQuality/7000)*$oilQuantity = $consumption");
+            return $consumption;
+        }
+        
+        return null;
+        
+    } catch (Exception $e) {
+        error_log('Ошибка при расчете расхода топлива (мазут): ' . $e->getMessage());
+        return null;
+    }
+}
+
+/**
+ * Расчет полного расхода условного топлива на выработку электроэнергии за месяц (param_id = 275)
+ * E16 = E14 + E15 (для ТГ7)
+ * F16 = F14 + F15 (для ТГ8)
+ * G16 = G14 + G15 (для ОЧ-130)
+ */
+function calculateTotalFuelConsumption($date, $shiftId, $blockId, &$values) {
+    try {
+        // Получаем расход газа (параметр 273)
+        $gasConsumption = getParameterValue($date, $shiftId, $blockId, 273, $values);
+        
+        // Получаем расход мазута (параметр 274)
+        $oilConsumption = getParameterValue($date, $shiftId, $blockId, 274, $values);
+        
+        $total = ($gasConsumption ?? 0) + ($oilConsumption ?? 0);
+        error_log("Полный расход топлива для блока $blockId, смена $shiftId: газ=$gasConsumption + мазут=$oilConsumption = $total");
+        return $total;
+        
+    } catch (Exception $e) {
+        error_log('Ошибка при расчете полного расхода топлива: ' . $e->getMessage());
+        return null;
+    }
+}
+
+/**
+ * Расчет доли газа в общем расходе топлива (param_id = 276)
+ * E17 = E14/E16 (для ТГ7)
+ * F17 = F14/F16 (для ТГ8)
+ * G17 = G14/G16 (для ОЧ-130)
+ */
+function calculateGasFuelShare($date, $shiftId, $blockId, &$values) {
+    try {
+        // Получаем расход газа (параметр 273)
+        $gasConsumption = getParameterValue($date, $shiftId, $blockId, 273, $values);
+        
+        // Получаем общий расход топлива (параметр 275)
+        $totalConsumption = getParameterValue($date, $shiftId, $blockId, 275, $values);
+        
+        if ($totalConsumption && $totalConsumption > 0) {
+            $share = $gasConsumption / $totalConsumption;
+            error_log("Доля газа для блока $blockId, смена $shiftId: $gasConsumption/$totalConsumption = $share");
+            return $share;
+        }
+        
+        return null;
+        
+    } catch (Exception $e) {
+        error_log('Ошибка при расчете доли газа: ' . $e->getMessage());
+        return null;
+    }
+}
+
+/**
+ * Расчет числа часов работы группы котлов (param_id = 277)
+ * E18 = getWorkingHours() для ТГ7
+ * F18 = getWorkingHours() для ТГ8
+ * G18 = E18 + F18 (для ОЧ-130)
+ */
+function calculateBoilerWorkingHours($date, $shiftId, $blockId, &$values) {
+    try {
+        // Для ТГ7 и ТГ8 используем getWorkingHours()
+        if ($blockId == 7 || $blockId == 8) {
+            $workingHours = getWorkingHours($date, $shiftId, $blockId);
+            error_log("Часы работы котлов для блока $blockId, смена $shiftId: $workingHours");
+            return $workingHours;
+        }
+        
+        // Для ОЧ-130: G18 = E18 + F18
+        if ($blockId == 9) {
+            // Получаем часы работы для ТГ7 (E18)
+            $tg7Hours = getParameterValue($date, $shiftId, 7, 277, $values);
+            
+            // Получаем часы работы для ТГ8 (F18)
+            $tg8Hours = getParameterValue($date, $shiftId, 8, 277, $values);
+            
+            $totalHours = $tg7Hours + $tg8Hours;
+            error_log("Часы работы котлов для ОЧ-130, смена $shiftId: ТГ7=$tg7Hours + ТГ8=$tg8Hours = $totalHours");
+            return $totalHours;
+        }
+        
+        return null;
+        
+    } catch (Exception $e) {
+        error_log('Ошибка при расчете часов работы котлов: ' . $e->getMessage());
+        return null;
     }
 } 
