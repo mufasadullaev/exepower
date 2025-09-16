@@ -563,22 +563,12 @@ const Counters = () => {
                             +{reserve1.toFixed(3)}
                           </div>
                         )}
-                        {reading.common_meter_usage && (
-                          <div style={{fontSize: '0.8em', color: '#28a745', fontWeight: 'bold'}}>
-                            Общие: {reading.common_meter_usage.shift1.toFixed(3)}
-                          </div>
-                        )}
                       </CTableDataCell>
                       <CTableDataCell>
                         <div>{shift2.toFixed(3)}</div>
                         {selectedType == 2 && reserve2 > 0 && (
                           <div style={{fontSize: '0.8em', color: '#0066cc', fontWeight: 'bold'}}>
                             +{reserve2.toFixed(3)}
-                          </div>
-                        )}
-                        {reading.common_meter_usage && (
-                          <div style={{fontSize: '0.8em', color: '#28a745', fontWeight: 'bold'}}>
-                            Общие: {reading.common_meter_usage.shift2.toFixed(3)}
                           </div>
                         )}
                       </CTableDataCell>
@@ -589,22 +579,12 @@ const Counters = () => {
                             +{reserve3.toFixed(3)}
                           </div>
                         )}
-                        {reading.common_meter_usage && (
-                          <div style={{fontSize: '0.8em', color: '#28a745', fontWeight: 'bold'}}>
-                            Общие: {reading.common_meter_usage.shift3.toFixed(3)}
-                          </div>
-                        )}
                       </CTableDataCell>
                       <CTableDataCell>
                         <div>{total.toFixed(3)}</div>
                         {selectedType == 2 && reserveTotal > 0 && (
                           <div style={{fontSize: '0.8em', color: '#0066cc', fontWeight: 'bold'}}>
                             +{reserveTotal.toFixed(3)}
-                          </div>
-                        )}
-                        {reading.common_meter_usage && (
-                          <div style={{fontSize: '0.8em', color: '#28a745', fontWeight: 'bold'}}>
-                            Общие: {reading.common_meter_usage.total.toFixed(3)}
                           </div>
                         )}
                       </CTableDataCell>

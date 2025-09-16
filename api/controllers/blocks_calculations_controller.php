@@ -734,6 +734,14 @@ function calculateBlocksValues($date, $periodType, $shifts = null, $endDate = nu
  */
 function calculateElectricityRelease($date, $shiftId, $blockId) {
     try {
+        // Для ОЧ-130 (blockId = 9) отпуск = сумма отпуска ТГ7 + ТГ8
+        if ($blockId == 9) {
+            $tg7Release = calculateElectricityRelease($date, $shiftId, 7);
+            $tg8Release = calculateElectricityRelease($date, $shiftId, 8);
+            error_log("Расчет отпуска для ОЧ-130: ТГ7=$tg7Release, ТГ8=$tg8Release, сумма=" . ($tg7Release + $tg8Release));
+            return $tg7Release + $tg8Release;
+        }
+        
         $db = getDbConnection();
         
         // Получаем выработку электроэнергии (Эта)
@@ -859,20 +867,43 @@ function getOwnNeedsConsumption($date, $shiftId, $blockId) {
         $stmt->execute([$equipmentId, $date]);
         $readings = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
-        if (empty($readings)) {
-            return 0;
-        }
-        
         // Суммируем расход по всем счетчикам собственных нужд блока
         $totalConsumption = 0;
-        foreach ($readings as $reading) {
+        if (!empty($readings)) {
+            foreach ($readings as $reading) {
+                if ($shiftId !== null) {
+                    // Для смены
+                    $shiftField = 'shift' . $shiftId;
+                    $totalConsumption += (float)($reading[$shiftField] ?? 0);
+                } else {
+                    // Для суточного/периодного расчета
+                    $totalConsumption += (float)($reading['total'] ?? 0);
+                }
+            }
+            error_log("Собственные нужды (прямые счетчики) для блока $blockId, смена $shiftId: $totalConsumption");
+        }
+        
+        // 2. Получаем долю от общих счетчиков для собственных нужд по показаниям
+        $commonMeterShares = calculateCommonMeterShares($date);
+        
+        if (!empty($commonMeterShares) && isset($commonMeterShares[$equipmentId])) {
+            $equipmentData = $commonMeterShares[$equipmentId];
+            
             if ($shiftId !== null) {
-                // Для смены
-                $shiftField = 'shift' . $shiftId;
-                $totalConsumption += (float)($reading[$shiftField] ?? 0);
+                // Для смены - получаем долю от общих счетчиков для собственных нужд
+                $commonOwnNeeds = $equipmentData['shifts'][$shiftId] ?? 0;
+                $totalConsumption += $commonOwnNeeds;
+                
+                error_log("Собственные нужды для блока $blockId, смена $shiftId: собственные счетчики=" . ($totalConsumption - $commonOwnNeeds) . ", общие счетчики=$commonOwnNeeds, итого=$totalConsumption");
             } else {
-                // Для суточного/периодного расчета
-                $totalConsumption += (float)($reading['total'] ?? 0);
+                // Для суточного расчета - суммируем все смены
+                $commonOwnNeeds = 0;
+                for ($i = 1; $i <= 3; $i++) {
+                    $commonOwnNeeds += $equipmentData['shifts'][$i] ?? 0;
+                }
+                $totalConsumption += $commonOwnNeeds;
+                
+                error_log("Собственные нужды для блока $blockId, сутки: собственные счетчики=" . ($totalConsumption - $commonOwnNeeds) . ", общие счетчики=$commonOwnNeeds, итого=$totalConsumption");
             }
         }
         
@@ -3032,6 +3063,174 @@ function getParameterValue($date, $shiftId, $blockId, $paramId, &$values, $calcu
 }
 
 /**
+ * Расчет долей общих счетчиков по показаниям с учетом времени использования
+ * @param string $date Дата расчета
+ * @return array Массив с долями по оборудованию и сменам
+ */
+function calculateCommonMeterShares($date) {
+    try {
+        $db = getDbConnection();
+        
+        // Получаем данные об использовании общих счетчиков за дату
+        $stmt = $db->prepare('
+            SELECT 
+                cmbu.*,
+                m.name as meter_name,
+                m.coefficient_k,
+                e.name as equipment_name
+            FROM common_meter_block_usage cmbu
+            JOIN meters m ON cmbu.meter_id = m.id
+            JOIN equipment e ON cmbu.equipment_id = e.id
+            WHERE cmbu.date = ?
+            ORDER BY cmbu.start_time
+        ');
+        $stmt->execute([$date]);
+        $usage = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        if (empty($usage)) {
+            return [];
+        }
+        
+        // Получаем показания счетчиков за дату
+        $stmt = $db->prepare('
+            SELECT mr.*, m.coefficient_k
+            FROM meter_readings mr
+            JOIN meters m ON mr.meter_id = m.id
+            WHERE mr.date = ? AND mr.meter_id IN (
+                SELECT DISTINCT meter_id FROM common_meter_block_usage WHERE date = ?
+            )
+        ');
+        $stmt->execute([$date, $date]);
+        $readings = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Создаем массив показаний по счетчикам
+        $meterReadings = [];
+        foreach ($readings as $reading) {
+            $meterReadings[$reading['meter_id']] = $reading;
+        }
+        
+        // Результат: [equipment_id => ['equipment_id' => id, 'equipment_name' => name, 'shifts' => [1 => value, 2 => value, 3 => value]]]
+        $result = [];
+        
+        // Инициализируем записи для ТГ7 и ТГ8
+        $result[1] = [
+            'equipment_id' => 1,
+            'equipment_name' => 'ТГ7',
+            'shifts' => [1 => 0, 2 => 0, 3 => 0]
+        ];
+        
+        $result[2] = [
+            'equipment_id' => 2,
+            'equipment_name' => 'ТГ8',
+            'shifts' => [1 => 0, 2 => 0, 3 => 0]
+        ];
+        
+        // Обрабатываем каждую запись использования
+        foreach ($usage as $record) {
+            $equipmentId = $record['equipment_id'];
+            $meterId = $record['meter_id'];
+            $startTime = $record['start_time'];
+            $endTime = $record['end_time'];
+            $startReading = (float)$record['start_reading'];
+            $endReading = (float)$record['end_reading'];
+            $coefficient = (float)$record['coefficient_k'];
+            
+            // Получаем показания счетчика
+            if (!isset($meterReadings[$meterId])) {
+                error_log("Нет показаний для счетчика $meterId на дату $date");
+                continue;
+            }
+            
+            $reading = $meterReadings[$meterId];
+            $r0 = (float)$reading['r0'];
+            $r8 = (float)$reading['r8'];
+            $r16 = (float)$reading['r16'];
+            $r24 = (float)$reading['r24'];
+            
+            // Определяем границы смен с правильной логикой
+            $shiftBoundaries = [
+                1 => ['start' => '00:00:00', 'end' => '08:00:00', 'r_start' => $r0, 'r_end' => $r8],
+                2 => ['start' => '08:00:00', 'end' => '16:00:00', 'r_start' => $r8, 'r_end' => $r16],
+                3 => ['start' => '16:00:00', 'end' => '24:00:00', 'r_start' => $r16, 'r_end' => $r24]
+            ];
+            
+            // Исправляем логику: если r16 или r24 NULL, используем предыдущее значение
+            if ($r16 === null && $r8 !== null) {
+                $shiftBoundaries[2]['r_end'] = $r8; // Для 2-й смены используем r8 как конечное значение
+            }
+            if ($r24 === null && $r16 !== null) {
+                $shiftBoundaries[3]['r_end'] = $r16; // Для 3-й смены используем r16 как конечное значение
+            } elseif ($r24 === null && $r8 !== null) {
+                $shiftBoundaries[3]['r_end'] = $r8; // Если r16 тоже NULL, используем r8
+            }
+            
+            // Определяем, в какой смене находится начало и конец использования
+            $startShift = null;
+            $endShift = null;
+            
+            foreach ($shiftBoundaries as $shiftNum => $boundary) {
+                $shiftStart = strtotime($date . ' ' . $boundary['start']);
+                $shiftEnd = strtotime($date . ' ' . $boundary['end']);
+                $usageStart = strtotime($date . ' ' . $startTime);
+                $usageEnd = strtotime($date . ' ' . $endTime);
+                
+                if ($usageStart >= $shiftStart && $usageStart < $shiftEnd) {
+                    $startShift = $shiftNum;
+                }
+                
+                if ($usageEnd > $shiftStart && $usageEnd <= $shiftEnd) {
+                    $endShift = $shiftNum;
+                }
+            }
+            
+            // Если использование полностью в одной смене
+            if ($startShift === $endShift && $startShift !== null) {
+                $energyConsumed = (float)$record['energy_consumed'];
+                $result[$equipmentId]['shifts'][$startShift] += $energyConsumed;
+                error_log("Оборудование $equipmentId, смена $startShift: полностью в одной смене, потребление $energyConsumed кВт⋅ч");
+            } 
+            // Если использование пересекает границы смен
+            else if ($startShift !== null && $endShift !== null) {
+                // Для начальной смены
+                $startShiftBoundary = $shiftBoundaries[$startShift];
+                $Ra = $startShiftBoundary['r_end']; // Показание на конец начальной смены
+                
+                if ($Ra !== null && $startReading !== null) {
+                    $startShiftConsumed = ($Ra - $startReading) * $coefficient / 1000;
+                    $result[$equipmentId]['shifts'][$startShift] += $startShiftConsumed;
+                    error_log("Оборудование $equipmentId, смена $startShift: пересечение смен, начальная смена, потребление $startShiftConsumed кВт⋅ч");
+                }
+                
+                // Для конечной смены
+                $endShiftBoundary = $shiftBoundaries[$endShift];
+                $Rb = $endShiftBoundary['r_start']; // Показание на начало конечной смены
+                
+                if ($Rb !== null && $endReading !== null) {
+                    $endShiftConsumed = ($endReading - $Rb) * $coefficient / 1000;
+                    $result[$equipmentId]['shifts'][$endShift] += $endShiftConsumed;
+                    error_log("Оборудование $equipmentId, смена $endShift: пересечение смен, конечная смена, потребление $endShiftConsumed кВт⋅ч");
+                }
+                
+                // Для промежуточных смен (если есть)
+                for ($i = $startShift + 1; $i < $endShift; $i++) {
+                    if (isset($shiftBoundaries[$i]) && $shiftBoundaries[$i]['r_start'] !== null && $shiftBoundaries[$i]['r_end'] !== null) {
+                        $intermediateConsumed = ($shiftBoundaries[$i]['r_end'] - $shiftBoundaries[$i]['r_start']) * $coefficient / 1000;
+                        $result[$equipmentId]['shifts'][$i] += $intermediateConsumed;
+                        error_log("Оборудование $equipmentId, смена $i: пересечение смен, промежуточная смена, потребление $intermediateConsumed кВт⋅ч");
+                    }
+                }
+            }
+        }
+        
+        return $result;
+        
+    } catch (Exception $e) {
+        error_log('Ошибка при расчете долей общих счетчиков: ' . $e->getMessage());
+        return [];
+    }
+}
+
+/**
  * Получение расхода на хозяйственные нужды (Эхн)
  */
 function getHouseholdNeedsConsumption($date, $shiftId, $blockId) {
@@ -3053,17 +3252,12 @@ function getHouseholdNeedsConsumption($date, $shiftId, $blockId) {
             return 0;
         }
         
+        // Хозяйственные нужды теперь одно значение на весь день
         // Суммируем расход по всем счетчикам хозяйственных нужд
         $totalConsumption = 0;
         foreach ($readings as $reading) {
-            if ($shiftId !== null) {
-                // Для смены
-                $shiftField = 'shift' . $shiftId;
-                $totalConsumption += (float)($reading[$shiftField] ?? 0);
-            } else {
-                // Для суточного/периодного расчета
-                $totalConsumption += (float)($reading['total'] ?? 0);
-            }
+            // Всегда используем поле 'total', так как хозяйственные нужды не делятся по сменам
+            $totalConsumption += (float)($reading['total'] ?? 0);
         }
         
         // Для ОЧ-130 хозяйственные нужды не учитываются (это сумма ТГ7+ТГ8)

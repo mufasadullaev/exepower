@@ -154,10 +154,7 @@ const CommonMeterUsageModal = ({
       setError(null)
       setSuccess(null)
 
-      if (usageData.length === 0) {
-        setError('Добавьте хотя бы одну запись о работе блока')
-        return
-      }
+      // Убрано ограничение на минимальное количество записей
 
       if (!validateUsageData()) {
         return
