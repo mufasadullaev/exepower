@@ -414,8 +414,11 @@ const BlockParams = () => {
               // Определяем, является ли это вычисляемым параметром для ОЧ-130
               const isCalculatedParam = [29, 30, 35, 37, 45, 46].includes(param.id);
               
+              // Определяем, является ли это невводимым параметром (50-57)
+              const isReadonlyParam = param.id >= 50 && param.id <= 57;
+              
               // Определяем, скрывается ли поле ОЧ-130 для этого параметра (E21, E23, E24, E25, E26, E27, E12)
-              const isOch130Hidden = [36, 38, 39, 40, 41, 42, 49].includes(param.id);
+              const isOch130Hidden = [36, 38, 39, 40, 41, 42, 49].includes(param.id) || isReadonlyParam;
               
               return (
                 <CTableRow key={param.id || idx}>
@@ -434,14 +437,14 @@ const BlockParams = () => {
                               type="number"
                               value={values[param.id]?.[block.id] || ''}
                               onChange={(e) => handleValueChange(param.id, block.id, e.target.value)}
-                              onFocus={!isCalculatedParam ? (e) => handleFocus(param.id, block.id, e) : undefined}
-                              onBlur={!isCalculatedParam ? (e) => handleBlur(param.id, block.id, e) : undefined}
+                              onFocus={!isCalculatedParam && !isReadonlyParam ? (e) => handleFocus(param.id, block.id, e) : undefined}
+                              onBlur={!isCalculatedParam && !isReadonlyParam ? (e) => handleBlur(param.id, block.id, e) : undefined}
                               style={{ 
                                 minWidth: '80px'
                               }}
-                              disabled={loadingValues || isCalculatedParam}
-                              readOnly={isCalculatedParam}
-                              title={isCalculatedParam ? 'Автоматически вычисляется из ТГ7 и ТГ8' : ''}
+                              disabled={loadingValues || isCalculatedParam || isReadonlyParam}
+                              readOnly={isCalculatedParam || isReadonlyParam}
+                              title={isCalculatedParam ? 'Автоматически вычисляется из ТГ7 и ТГ8' : isReadonlyParam ? 'Невводимый параметр' : ''}
                             />
                           )}
                         </CTableDataCell>
@@ -455,10 +458,12 @@ const BlockParams = () => {
                               step="any"
                               value={values[param.id]?.[block.id] || ''}
                               onChange={(e) => handleValueChange(param.id, block.id, e.target.value)}
-                              onFocus={(e) => handleFocus(param.id, block.id, e)}
-                              onBlur={(e) => handleBlur(param.id, block.id, e)}
+                              onFocus={!isReadonlyParam ? (e) => handleFocus(param.id, block.id, e) : undefined}
+                              onBlur={!isReadonlyParam ? (e) => handleBlur(param.id, block.id, e) : undefined}
                               style={{ minWidth: '80px' }}
-                              disabled={loadingValues}
+                              disabled={loadingValues || isReadonlyParam}
+                              readOnly={isReadonlyParam}
+                              title={isReadonlyParam ? 'Невводимый параметр' : ''}
                               lang="en-US"
                             />
                           </CTableDataCell>
