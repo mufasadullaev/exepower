@@ -451,6 +451,18 @@ function calculateBlocksValues($date, $periodType, $shifts = null, $endDate = nu
                     'value' => $oilFuelQuantity,
                     'cell' => $cell
                 ];
+                
+                // 33. Выработка тепла котлом (param_id = 278)
+                $boilerHeatGeneration = calculateReheatSteamFlow($date, $shiftId, $blockId, $values);
+                $cell = getCellForBlock($blockId, 19); // row_num 19
+                $values[] = [
+                    'param_id' => 278, // Выработка тепла котлом
+                    'tg_id' => $blockId,
+                    'shift_id' => (int)$shiftId,
+                    'value' => $boilerHeatGeneration,
+                    'cell' => $cell
+                ];
+                
             }
             
             // === РАСЧЕТЫ ЗАВИСИМЫХ ПАРАМЕТРОВ (после расчета всех базовых) ===
@@ -511,6 +523,271 @@ function calculateBlocksValues($date, $periodType, $shifts = null, $endDate = nu
                     'value' => $boilerWorkingHours,
                     'cell' => $cell
                 ];
+                
+                // 38. Средняя тепловая нагрузка котлов (param_id = 279)
+                $avgThermalLoad = calculateAvgThermalLoad($date, $shiftId, $blockId, $values);
+                $cell = getCellForBlock($blockId, 21); // row_num 21
+                $values[] = [
+                    'param_id' => 279, // Средняя тепловая нагрузка котлов
+                    'tg_id' => $blockId,
+                    'shift_id' => (int)$shiftId,
+                    'value' => $avgThermalLoad,
+                    'cell' => $cell
+                ];
+                
+                // 39. Средняя электрическая нагрузка (param_id = 280) - берет значение из 3a E26/F26
+                $avgElectricLoad = calculateAvgElectricLoadFrom3a($date, $shiftId, $blockId, $values);
+                $cell = getCellForBlock($blockId, 22); // row_num 22
+                $values[] = [
+                    'param_id' => 280, // Средняя электрическая нагрузка
+                    'tg_id' => $blockId,
+                    'shift_id' => (int)$shiftId,
+                    'value' => $avgElectricLoad,
+                    'cell' => $cell
+                ];
+                
+                // 40. Расход питательной воды группой котлов за месяц (param_id = 281)
+                $feedwaterFlowMonthly = getFeedwaterFlow($date, $shiftId, $blockId);
+                $cell = getCellForBlock($blockId, 23); // row_num 23
+                $values[] = [
+                    'param_id' => 281, // Расход питательной воды группой котлов за месяц
+                    'tg_id' => $blockId,
+                    'shift_id' => (int)$shiftId,
+                    'value' => $feedwaterFlowMonthly,
+                    'cell' => $cell
+                ];
+                
+                // 41. Средний расход питательной воды (param_id = 282)
+                $avgFeedwaterFlow = calculateAvgFeedwaterFlow($date, $shiftId, $blockId, $values);
+                $cell = getCellForBlock($blockId, 24); // row_num 24
+                $values[] = [
+                    'param_id' => 282, // Средний расход питательной воды
+                    'tg_id' => $blockId,
+                    'shift_id' => (int)$shiftId,
+                    'value' => $avgFeedwaterFlow,
+                    'cell' => $cell
+                ];
+
+                // 5. Количество пусков (param_id = 30)
+                $startCount = getStartCount($date, $shiftId, $blockId);
+                $cell = getCellForBlock($blockId, 25); // row_num 18
+                $values[] = [
+                    'param_id' => 283, // Количество пусков
+                    'tg_id' => $blockId,
+                    'shift_id' => (int)$shiftId,
+                    'value' => $startCount,
+                    'cell' => $cell
+                ];
+                
+                // 6. Температура холодного воздуха на стороне всасывания дутьевого вентилятора (param_id = 284)
+                $coldAirTemp = calculateColdAirTemperature($date, $shiftId, $blockId);
+                $cell = getCellForBlock($blockId, 26); // row_num 26
+                $values[] = [
+                    'param_id' => 284, // Температура холодного воздуха на стороне всасывания дутьевого вентилятора
+                    'tg_id' => $blockId,
+                    'shift_id' => (int)$shiftId,
+                    'value' => $coldAirTemp,
+                    'cell' => $cell
+                ];
+                
+                // 7. Температура питательной воды (param_id = 285)
+                $feedwaterTemp = calculateFeedwaterTemperature($date, $shiftId, $blockId);
+                $cell = getCellForBlock($blockId, 27); // row_num 27
+                $values[] = [
+                    'param_id' => 285, // Температура питательной воды
+                    'tg_id' => $blockId,
+                    'shift_id' => (int)$shiftId,
+                    'value' => $feedwaterTemp,
+                    'cell' => $cell
+                ];
+                
+                // 8. Продолжительность работы котла от даты составления энергетических характеристик (param_id = 286)
+                $boilerOperationDuration = calculateBoilerOperationDuration($date, $shiftId, $blockId);
+                $cell = getCellForBlock($blockId, 28); // row_num 28
+                $values[] = [
+                    'param_id' => 286, // Продолжительность работы котла от даты составления энергетических характеристик
+                    'tg_id' => $blockId,
+                    'shift_id' => (int)$shiftId,
+                    'value' => $boilerOperationDuration,
+                    'cell' => $cell
+                ];
+                
+                // 9. КПД брутто котла (param_id = 288)
+                $boilerEfficiency = calculateBoilerEfficiency($date, $shiftId, $blockId, $values);
+                $cell = getCellForBlock($blockId, 32); // row_num 32
+                $values[] = [
+                    'param_id' => 288, // КПД брутто котла
+                    'tg_id' => $blockId,
+                    'shift_id' => (int)$shiftId,
+                    'value' => $boilerEfficiency,
+                    'cell' => $cell
+                ];
+                
+                // 10. Поправка на температуру питательной воды (param_id = 289)
+                $feedwaterTempCorrection = calculateFeedwaterTempCorrection($date, $shiftId, $blockId, $values);
+                $cell = getCellForBlock($blockId, 34); // row_num 34
+                $values[] = [
+                    'param_id' => 289, // Поправка на температуру питательной воды
+                    'tg_id' => $blockId,
+                    'shift_id' => (int)$shiftId,
+                    'value' => $feedwaterTempCorrection,
+                    'cell' => $cell
+                ];
+                
+                // 11. Поправка на продолжительность работы котла (param_id = 290)
+                $operationDurationCorrection = calculateOperationDurationCorrection($date, $shiftId, $blockId, $values);
+                $cell = getCellForBlock($blockId, 35); // row_num 35
+                $values[] = [
+                    'param_id' => 290, // Поправка на продолжительность работы котла
+                    'tg_id' => $blockId,
+                    'shift_id' => (int)$shiftId,
+                    'value' => $operationDurationCorrection,
+                    'cell' => $cell
+                ];
+                
+                // 12. Поправка на температуру холодного воздуха (param_id = 291)
+                $coldAirTempCorrection = calculateColdAirTempCorrection($date, $shiftId, $blockId, $values);
+                $cell = getCellForBlock($blockId, 36); // row_num 36
+                $values[] = [
+                    'param_id' => 291, // Поправка на температуру холодного воздуха
+                    'tg_id' => $blockId,
+                    'shift_id' => (int)$shiftId,
+                    'value' => $coldAirTempCorrection,
+                    'cell' => $cell
+                ];
+                
+                // 13. Поправка на температуру холодного воздуха в процентах (param_id = 292)
+                $coldAirTempCorrectionPercent = calculateColdAirTempCorrectionPercent($date, $shiftId, $blockId, $values);
+                $cell = getCellForBlock($blockId, 37); // row_num 37
+                $values[] = [
+                    'param_id' => 292, // Поправка на температуру холодного воздуха в процентах
+                    'tg_id' => $blockId,
+                    'shift_id' => (int)$shiftId,
+                    'value' => $coldAirTempCorrectionPercent,
+                    'cell' => $cell
+                ];
+                
+                // 14. КПД брутто котла с поправками (param_id = 293)
+                $boilerEfficiencyWithCorrections = calculateBoilerEfficiencyWithCorrections($date, $shiftId, $blockId, $values);
+                $cell = getCellForBlock($blockId, 38); // row_num 38
+                $values[] = [
+                    'param_id' => 293, // КПД брутто котла с поправками
+                    'tg_id' => $blockId,
+                    'shift_id' => (int)$shiftId,
+                    'value' => $boilerEfficiencyWithCorrections,
+                    'cell' => $cell
+                ];
+                
+                // 15. КПД нетто котла (param_id = 294)
+                $boilerNetEfficiency = calculateBoilerNetEfficiency($date, $shiftId, $blockId, $values);
+                $cell = getCellForBlock($blockId, 39); // row_num 39
+                $values[] = [
+                    'param_id' => 294, // КПД нетто котла
+                    'tg_id' => $blockId,
+                    'shift_id' => (int)$shiftId,
+                    'value' => $boilerNetEfficiency,
+                    'cell' => $cell
+                ];
+                
+                // 16. Удельный расход топлива (param_id = 295)
+                $specificFuelConsumption = calculateSpecificFuelConsumption($date, $shiftId, $blockId, $values);
+                $cell = getCellForBlock($blockId, 40); // row_num 40
+                $values[] = [
+                    'param_id' => 295, // Удельный расход топлива
+                    'tg_id' => $blockId,
+                    'shift_id' => (int)$shiftId,
+                    'value' => $specificFuelConsumption,
+                    'cell' => $cell
+                ];
+                
+                // 17. Поправка на КПД (param_id = 296)
+                $efficiencyCorrection = calculateEfficiencyCorrection($date, $shiftId, $blockId, $values);
+                $cell = getCellForBlock($blockId, 41); // row_num 41
+                $values[] = [
+                    'param_id' => 296, // Поправка на КПД
+                    'tg_id' => $blockId,
+                    'shift_id' => (int)$shiftId,
+                    'value' => $efficiencyCorrection,
+                    'cell' => $cell
+                ];
+                
+                // 18. Расход топлива (param_id = 297)
+                $fuelConsumption = calculateFuelConsumption($date, $shiftId, $blockId, $values);
+                $cell = getCellForBlock($blockId, 43); // row_num 43
+                $values[] = [
+                    'param_id' => 297, // Расход топлива
+                    'tg_id' => $blockId,
+                    'shift_id' => (int)$shiftId,
+                    'value' => $fuelConsumption,
+                    'cell' => $cell
+                ];
+                
+                // 19. Удельный расход топлива на выработку тепла (param_id = 298)
+                $specificFuelConsumptionForHeat = calculateSpecificFuelConsumptionForHeat($date, $shiftId, $blockId, $values);
+                $cell = getCellForBlock($blockId, 44); // row_num 44
+                $values[] = [
+                    'param_id' => 298, // Удельный расход топлива на выработку тепла
+                    'tg_id' => $blockId,
+                    'shift_id' => (int)$shiftId,
+                    'value' => $specificFuelConsumptionForHeat,
+                    'cell' => $cell
+                ];
+                
+                // 20. Удельный расход топлива на выработку электроэнергии (param_id = 299)
+                $specificFuelConsumptionForElectricity = calculateSpecificFuelConsumptionForElectricity($date, $shiftId, $blockId, $values);
+                $cell = getCellForBlock($blockId, 45); // row_num 45
+                $values[] = [
+                    'param_id' => 299, // Удельный расход топлива на выработку электроэнергии
+                    'tg_id' => $blockId,
+                    'shift_id' => (int)$shiftId,
+                    'value' => $specificFuelConsumptionForElectricity,
+                    'cell' => $cell
+                ];
+                
+                // 21. Расход топлива на собственные нужды (param_id = 300)
+                $fuelConsumptionForOwnNeeds = calculateFuelConsumptionForOwnNeeds($date, $shiftId, $blockId, $values);
+                $cell = getCellForBlock($blockId, 47); // row_num 47
+                $values[] = [
+                    'param_id' => 300, // Расход топлива на собственные нужды
+                    'tg_id' => $blockId,
+                    'shift_id' => (int)$shiftId,
+                    'value' => $fuelConsumptionForOwnNeeds,
+                    'cell' => $cell
+                ];
+                
+                // 22. Удельный расход топлива на собственные нужды (param_id = 301)
+                $specificFuelConsumptionForOwnNeeds = calculateSpecificFuelConsumptionForOwnNeeds($date, $shiftId, $blockId, $values);
+                $cell = getCellForBlock($blockId, 49); // row_num 49
+                $values[] = [
+                    'param_id' => 301, // Удельный расход топлива на собственные нужды
+                    'tg_id' => $blockId,
+                    'shift_id' => (int)$shiftId,
+                    'value' => $specificFuelConsumptionForOwnNeeds,
+                    'cell' => $cell
+                ];
+                
+                // 23. КПД нетто котла с учетом собственных нужд (param_id = 302)
+                $netEfficiencyWithOwnNeeds = calculateNetEfficiencyWithOwnNeeds($date, $shiftId, $blockId, $values);
+                $cell = getCellForBlock($blockId, 50); // row_num 50
+                $values[] = [
+                    'param_id' => 302, // КПД нетто котла с учетом собственных нужд
+                    'tg_id' => $blockId,
+                    'shift_id' => (int)$shiftId,
+                    'value' => $netEfficiencyWithOwnNeeds,
+                    'cell' => $cell
+                ];
+                
+                // 24. Общий удельный расход топлива (param_id = 303)
+                $totalSpecificFuelConsumption = calculateTotalSpecificFuelConsumption($date, $shiftId, $blockId, $values);
+                $cell = getCellForBlock($blockId, 51); // row_num 51
+                $values[] = [
+                    'param_id' => 303, // Общий удельный расход топлива
+                    'tg_id' => $blockId,
+                    'shift_id' => (int)$shiftId,
+                    'value' => $totalSpecificFuelConsumption,
+                    'cell' => $cell
+                ];
+                
             }
         }
     } else {
@@ -870,6 +1147,18 @@ function calculateBlocksValues($date, $periodType, $shifts = null, $endDate = nu
                 'value' => $oilFuelQuantity,
                 'cell' => $cell
             ];
+            
+            // 33. Выработка тепла котлом (param_id = 278)
+            $boilerHeatGeneration = calculateReheatSteamFlow($date, null, $blockId, $values);
+            $cell = getCellForBlock($blockId, 19); // row_num 19
+            $values[] = [
+                'param_id' => 278, // Выработка тепла котлом
+                'tg_id' => $blockId,
+                'shift_id' => null,
+                'value' => $boilerHeatGeneration,
+                'cell' => $cell
+            ];
+            
         }
         
         // === РАСЧЕТЫ ЗАВИСИМЫХ ПАРАМЕТРОВ (после расчета всех базовых) ===
@@ -928,6 +1217,270 @@ function calculateBlocksValues($date, $periodType, $shifts = null, $endDate = nu
                 'tg_id' => $blockId,
                 'shift_id' => null,
                 'value' => $boilerWorkingHours,
+                'cell' => $cell
+            ];
+            
+            // 38. Средняя тепловая нагрузка котлов (param_id = 279)
+            $avgThermalLoad = calculateAvgThermalLoad($date, null, $blockId, $values);
+            $cell = getCellForBlock($blockId, 21); // row_num 21
+            $values[] = [
+                'param_id' => 279, // Средняя тепловая нагрузка котлов
+                'tg_id' => $blockId,
+                'shift_id' => null,
+                'value' => $avgThermalLoad,
+                'cell' => $cell
+            ];
+            
+            // 39. Средняя электрическая нагрузка (param_id = 280) - берет значение из 3a E26/F26
+            $avgElectricLoad = calculateAvgElectricLoadFrom3a($date, null, $blockId, $values);
+            $cell = getCellForBlock($blockId, 22); // row_num 22
+            $values[] = [
+                'param_id' => 280, // Средняя электрическая нагрузка
+                'tg_id' => $blockId,
+                'shift_id' => null,
+                'value' => $avgElectricLoad,
+                'cell' => $cell
+            ];
+            
+            // 40. Расход питательной воды группой котлов за месяц (param_id = 281)
+            $feedwaterFlowMonthly = getFeedwaterFlow($date, null, $blockId);
+            $cell = getCellForBlock($blockId, 23); // row_num 23
+            $values[] = [
+                'param_id' => 281, // Расход питательной воды группой котлов за месяц
+                'tg_id' => $blockId,
+                'shift_id' => null,
+                'value' => $feedwaterFlowMonthly,
+                'cell' => $cell
+            ];
+            
+            // 41. Средний расход питательной воды (param_id = 282)
+            $avgFeedwaterFlow = calculateAvgFeedwaterFlow($date, null, $blockId, $values);
+            $cell = getCellForBlock($blockId, 24); // row_num 24
+            $values[] = [
+                'param_id' => 282, // Средний расход питательной воды
+                'tg_id' => $blockId,
+                'shift_id' => null,
+                'value' => $avgFeedwaterFlow,
+                'cell' => $cell
+            ];
+            
+            // 5. Количество пусков (param_id = 30)
+            $startCount = getStartCount($date, null, $blockId);
+            $cell = getCellForBlock($blockId, 25); // row_num 18
+            $values[] = [
+                'param_id' => 283, // Количество пусков
+                'tg_id' => $blockId,
+                'shift_id' => null,
+                'value' => $startCount,
+                'cell' => $cell
+            ];
+            
+            // 6. Температура холодного воздуха на стороне всасывания дутьевого вентилятора (param_id = 284)
+            $coldAirTemp = calculateColdAirTemperature($date, null, $blockId);
+            $cell = getCellForBlock($blockId, 26); // row_num 26
+            $values[] = [
+                'param_id' => 284, // Температура холодного воздуха на стороне всасывания дутьевого вентилятора
+                'tg_id' => $blockId,
+                'shift_id' => null,
+                'value' => $coldAirTemp,
+                'cell' => $cell
+            ];
+            
+            // 7. Температура питательной воды (param_id = 285)
+            $feedwaterTemp = calculateFeedwaterTemperature($date, null, $blockId);
+            $cell = getCellForBlock($blockId, 27); // row_num 27
+            $values[] = [
+                'param_id' => 285, // Температура питательной воды
+                'tg_id' => $blockId,
+                'shift_id' => null,
+                'value' => $feedwaterTemp,
+                'cell' => $cell
+            ];
+            
+            // 8. Продолжительность работы котла от даты составления энергетических характеристик (param_id = 286)
+            $boilerOperationDuration = calculateBoilerOperationDuration($date, null, $blockId);
+            $cell = getCellForBlock($blockId, 28); // row_num 28
+            $values[] = [
+                'param_id' => 286, // Продолжительность работы котла от даты составления энергетических характеристик
+                'tg_id' => $blockId,
+                'shift_id' => null,
+                'value' => $boilerOperationDuration,
+                'cell' => $cell
+            ];
+            
+            // 9. КПД брутто котла (param_id = 288)
+            $boilerEfficiency = calculateBoilerEfficiency($date, null, $blockId, $values);
+            $cell = getCellForBlock($blockId, 32); // row_num 32
+            $values[] = [
+                'param_id' => 288, // КПД брутто котла
+                'tg_id' => $blockId,
+                'shift_id' => null,
+                'value' => $boilerEfficiency,
+                'cell' => $cell
+            ];
+            
+            // 10. Поправка на температуру питательной воды (param_id = 289)
+            $feedwaterTempCorrection = calculateFeedwaterTempCorrection($date, null, $blockId, $values);
+            $cell = getCellForBlock($blockId, 34); // row_num 34
+            $values[] = [
+                'param_id' => 289, // Поправка на температуру питательной воды
+                'tg_id' => $blockId,
+                'shift_id' => null,
+                'value' => $feedwaterTempCorrection,
+                'cell' => $cell
+            ];
+            
+            // 11. Поправка на продолжительность работы котла (param_id = 290)
+            $operationDurationCorrection = calculateOperationDurationCorrection($date, null, $blockId, $values);
+            $cell = getCellForBlock($blockId, 35); // row_num 35
+            $values[] = [
+                'param_id' => 290, // Поправка на продолжительность работы котла
+                'tg_id' => $blockId,
+                'shift_id' => null,
+                'value' => $operationDurationCorrection,
+                'cell' => $cell
+            ];
+            
+            // 12. Поправка на температуру холодного воздуха (param_id = 291)
+            $coldAirTempCorrection = calculateColdAirTempCorrection($date, null, $blockId, $values);
+            $cell = getCellForBlock($blockId, 36); // row_num 36
+            $values[] = [
+                'param_id' => 291, // Поправка на температуру холодного воздуха
+                'tg_id' => $blockId,
+                'shift_id' => null,
+                'value' => $coldAirTempCorrection,
+                'cell' => $cell
+            ];
+            
+            // 13. Поправка на температуру холодного воздуха в процентах (param_id = 292)
+            $coldAirTempCorrectionPercent = calculateColdAirTempCorrectionPercent($date, null, $blockId, $values);
+            $cell = getCellForBlock($blockId, 37); // row_num 37
+            $values[] = [
+                'param_id' => 292, // Поправка на температуру холодного воздуха в процентах
+                'tg_id' => $blockId,
+                'shift_id' => null,
+                'value' => $coldAirTempCorrectionPercent,
+                'cell' => $cell
+            ];
+            
+            // 14. КПД брутто котла с поправками (param_id = 293)
+            $boilerEfficiencyWithCorrections = calculateBoilerEfficiencyWithCorrections($date, null, $blockId, $values);
+            $cell = getCellForBlock($blockId, 38); // row_num 38
+            $values[] = [
+                'param_id' => 293, // КПД брутто котла с поправками
+                'tg_id' => $blockId,
+                'shift_id' => null,
+                'value' => $boilerEfficiencyWithCorrections,
+                'cell' => $cell
+            ];
+            
+            // 15. КПД нетто котла (param_id = 294)
+            $boilerNetEfficiency = calculateBoilerNetEfficiency($date, null, $blockId, $values);
+            $cell = getCellForBlock($blockId, 39); // row_num 39
+            $values[] = [
+                'param_id' => 294, // КПД нетто котла
+                'tg_id' => $blockId,
+                'shift_id' => null,
+                'value' => $boilerNetEfficiency,
+                'cell' => $cell
+            ];
+            
+            // 16. Удельный расход топлива (param_id = 295)
+            $specificFuelConsumption = calculateSpecificFuelConsumption($date, null, $blockId, $values);
+            $cell = getCellForBlock($blockId, 40); // row_num 40
+            $values[] = [
+                'param_id' => 295, // Удельный расход топлива
+                'tg_id' => $blockId,
+                'shift_id' => null,
+                'value' => $specificFuelConsumption,
+                'cell' => $cell
+            ];
+            
+            // 17. Поправка на КПД (param_id = 296)
+            $efficiencyCorrection = calculateEfficiencyCorrection($date, null, $blockId, $values);
+            $cell = getCellForBlock($blockId, 41); // row_num 41
+            $values[] = [
+                'param_id' => 296, // Поправка на КПД
+                'tg_id' => $blockId,
+                'shift_id' => null,
+                'value' => $efficiencyCorrection,
+                'cell' => $cell
+            ];
+            
+            // 18. Расход топлива (param_id = 297)
+            $fuelConsumption = calculateFuelConsumption($date, null, $blockId, $values);
+            $cell = getCellForBlock($blockId, 43); // row_num 43
+            $values[] = [
+                'param_id' => 297, // Расход топлива
+                'tg_id' => $blockId,
+                'shift_id' => null,
+                'value' => $fuelConsumption,
+                'cell' => $cell
+            ];
+            
+            // 19. Удельный расход топлива на выработку тепла (param_id = 298)
+            $specificFuelConsumptionForHeat = calculateSpecificFuelConsumptionForHeat($date, null, $blockId, $values);
+            $cell = getCellForBlock($blockId, 44); // row_num 44
+            $values[] = [
+                'param_id' => 298, // Удельный расход топлива на выработку тепла
+                'tg_id' => $blockId,
+                'shift_id' => null,
+                'value' => $specificFuelConsumptionForHeat,
+                'cell' => $cell
+            ];
+            
+            // 20. Удельный расход топлива на выработку электроэнергии (param_id = 299)
+            $specificFuelConsumptionForElectricity = calculateSpecificFuelConsumptionForElectricity($date, null, $blockId, $values);
+            $cell = getCellForBlock($blockId, 45); // row_num 45
+            $values[] = [
+                'param_id' => 299, // Удельный расход топлива на выработку электроэнергии
+                'tg_id' => $blockId,
+                'shift_id' => null,
+                'value' => $specificFuelConsumptionForElectricity,
+                'cell' => $cell
+            ];
+            
+            // 21. Расход топлива на собственные нужды (param_id = 300)
+            $fuelConsumptionForOwnNeeds = calculateFuelConsumptionForOwnNeeds($date, null, $blockId, $values);
+            $cell = getCellForBlock($blockId, 47); // row_num 47
+            $values[] = [
+                'param_id' => 300, // Расход топлива на собственные нужды
+                'tg_id' => $blockId,
+                'shift_id' => null,
+                'value' => $fuelConsumptionForOwnNeeds,
+                'cell' => $cell
+            ];
+            
+            // 22. Удельный расход топлива на собственные нужды (param_id = 301)
+            $specificFuelConsumptionForOwnNeeds = calculateSpecificFuelConsumptionForOwnNeeds($date, null, $blockId, $values);
+            $cell = getCellForBlock($blockId, 49); // row_num 49
+            $values[] = [
+                'param_id' => 301, // Удельный расход топлива на собственные нужды
+                'tg_id' => $blockId,
+                'shift_id' => null,
+                'value' => $specificFuelConsumptionForOwnNeeds,
+                'cell' => $cell
+            ];
+            
+            // 23. КПД нетто котла с учетом собственных нужд (param_id = 302)
+            $netEfficiencyWithOwnNeeds = calculateNetEfficiencyWithOwnNeeds($date, null, $blockId, $values);
+            $cell = getCellForBlock($blockId, 50); // row_num 50
+            $values[] = [
+                'param_id' => 302, // КПД нетто котла с учетом собственных нужд
+                'tg_id' => $blockId,
+                'shift_id' => null,
+                'value' => $netEfficiencyWithOwnNeeds,
+                'cell' => $cell
+            ];
+            
+            // 24. Общий удельный расход топлива (param_id = 303)
+            $totalSpecificFuelConsumption = calculateTotalSpecificFuelConsumption($date, null, $blockId, $values);
+            $cell = getCellForBlock($blockId, 51); // row_num 51
+            $values[] = [
+                'param_id' => 303, // Общий удельный расход топлива
+                'tg_id' => $blockId,
+                'shift_id' => null,
+                'value' => $totalSpecificFuelConsumption,
                 'cell' => $cell
             ];
         }
@@ -1293,9 +1846,12 @@ function getFeedwaterFlowForBlock($date, $shiftId, $equipmentId) {
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if ($result) {
-            return (float)$result['value'];
+            $value = (float)$result['value'];
+            error_log("getFeedwaterFlowForBlock: equipment_id=$equipmentId, date=$date, shift_id=$shiftId, value=$value");
+            return $value;
         }
         
+        error_log("getFeedwaterFlowForBlock: equipment_id=$equipmentId, date=$date, shift_id=$shiftId, НЕ НАЙДЕНО, возвращаем 0");
         return 0;
         
     } catch (Exception $e) {
@@ -3820,5 +4376,1749 @@ function calculateBoilerWorkingHours($date, $shiftId, $blockId, &$values) {
     } catch (Exception $e) {
         error_log('Ошибка при расчете часов работы котлов: ' . $e->getMessage());
         return null;
+    }
+}
+
+/**
+ * Расчет выработки тепла котлом (param_id = 278)
+ * Формула: IF(C11=0,0,(21.125+0.8218*C20/C11))
+ * 
+ * Для ТГ7: C11 - часы работы (param_id=28), C20 - выработка пара котлами (parameter_values с cell C20)
+ * Для ТГ8: D11 - часы работы (param_id=28), D20 - выработка пара котлами (parameter_values с cell D20)
+ * Для ОЧ-130: E11 - часы работы (param_id=28), E20 - сумма выработки пара ТГ7 и ТГ8
+ */
+function calculateReheatSteamFlow($date, $shiftId, $blockId, $values) {
+    try {
+        // Получаем часы работы (param_id = 28)
+        $workingHours = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 28 && $value['tg_id'] == $blockId) {
+                $workingHours = $value['value'];
+                break;
+            }
+        }
+        
+        error_log("Часы работы для блока $blockId: " . ($workingHours !== null ? $workingHours : 'null'));
+        
+        if ($workingHours === null || $workingHours == 0) {
+            error_log("Часы работы равны 0 или null, возвращаем 0");
+            return 0;
+        }
+        
+        // Получаем выработку пара котлами из parameter_values
+        $db = getDbConnection();
+        
+        // Определяем cell в зависимости от блока
+        $cell = '';
+        $equipmentId = 0;
+        if ($blockId == 7) {
+            $cell = 'C20';
+            $equipmentId = 1;
+        } elseif ($blockId == 8) {
+            $cell = 'D20';
+            $equipmentId = 2;
+        } else {
+            // Для ОЧ-130 суммируем значения ТГ7 и ТГ8
+            $cell = 'E20';
+            $equipmentId = 0; // Не используется для ОЧ-130
+        }
+        
+        error_log("Выработка тепла котлом: блок=$blockId, equipment_id=$equipmentId, cell=$cell, date=$date, shift_id=$shiftId");
+        
+        // Ищем parameter_id = 35 (Выработка пара котлами)
+        if ($blockId == 9) {
+            // Для ОЧ-130 суммируем значения ТГ7 и ТГ8
+            $steamGeneration = 0;
+            
+            // Получаем значение для ТГ7 (equipment_id = 1, cell = 'C20')
+            if ($shiftId === null) {
+                $stmt = $db->prepare('
+                    SELECT value FROM parameter_values 
+                    WHERE parameter_id = 35 AND equipment_id = 1 AND date = ? AND cell = "C20"
+                    LIMIT 1
+                ');
+                $stmt->execute([$date]);
+            } else {
+                $stmt = $db->prepare('
+                    SELECT value FROM parameter_values 
+                    WHERE parameter_id = 35 AND equipment_id = 1 AND date = ? AND shift_id = ? AND cell = "C20"
+                ');
+                $stmt->execute([$date, $shiftId]);
+            }
+            $result1 = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($result1 && $result1['value']) {
+                $steamGeneration += $result1['value'];
+            }
+            
+            // Получаем значение для ТГ8 (equipment_id = 2, cell = 'D20')
+            if ($shiftId === null) {
+                $stmt = $db->prepare('
+                    SELECT value FROM parameter_values 
+                    WHERE parameter_id = 35 AND equipment_id = 2 AND date = ? AND cell = "D20"
+                    LIMIT 1
+                ');
+                $stmt->execute([$date]);
+            } else {
+                $stmt = $db->prepare('
+                    SELECT value FROM parameter_values 
+                    WHERE parameter_id = 35 AND equipment_id = 2 AND date = ? AND shift_id = ? AND cell = "D20"
+                ');
+                $stmt->execute([$date, $shiftId]);
+            }
+            $result2 = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($result2 && $result2['value']) {
+                $steamGeneration += $result2['value'];
+            }
+            
+            error_log("ОЧ-130: ТГ7=" . ($result1 ? $result1['value'] : '0') . ", ТГ8=" . ($result2 ? $result2['value'] : '0') . ", сумма=$steamGeneration");
+            
+        } else {
+            // Для ТГ7 и ТГ8 используем обычную логику
+            if ($shiftId === null) {
+                // Для суточных расчетов ищем любую смену
+                $stmt = $db->prepare('
+                    SELECT value FROM parameter_values 
+                    WHERE parameter_id = 35 AND equipment_id = ? AND date = ? AND cell = ?
+                    LIMIT 1
+                ');
+                $stmt->execute([$equipmentId, $date, $cell]);
+            } else {
+                // Для сменных расчетов ищем конкретную смену
+                $stmt = $db->prepare('
+                    SELECT value FROM parameter_values 
+                    WHERE parameter_id = 35 AND equipment_id = ? AND date = ? AND shift_id = ? AND cell = ?
+                ');
+                $stmt->execute([$equipmentId, $date, $shiftId, $cell]);
+            }
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            error_log("Запрос к parameter_values: equipment_id=$equipmentId, date=$date, shift_id=$shiftId, cell=$cell");
+            error_log("Результат запроса: " . ($result ? json_encode($result) : 'null'));
+            
+            if (!$result || !$result['value']) {
+                error_log("Не найдены данные для выработки пара котлами");
+                return 0;
+            }
+            
+            $steamGeneration = $result['value'];
+        }
+        
+        // Применяем формулу: 21.125 + 0.8218 * C20/C11
+        $reheatSteamFlow = 21.125 + 0.8218 * ($steamGeneration / $workingHours);
+        
+        error_log("Выработка тепла котлом для блока $blockId: часы=$workingHours, пар=$steamGeneration, результат=$reheatSteamFlow");
+        
+        return $reheatSteamFlow;
+        
+    } catch (Exception $e) {
+        error_log('Ошибка при расчете выработки тепла котлом: ' . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * Расчет средней тепловой нагрузки котлов (param_id = 279)
+ * Формула: IF(часы_работы=0, 0, выработка_тепла_котлом / часы_работы)
+ * 
+ * Для ТГ7: E21 = IF(E18=0,0,E19/E18)
+ * Для ТГ8: F21 = IF(F18=0,0,F19/F18)  
+ * Для ОЧ-130: G21 = IF(G18=0,0,G19/G18)
+ */
+function calculateAvgThermalLoad($date, $shiftId, $blockId, $values) {
+    try {
+        // Получаем часы работы котлов (param_id = 277)
+        $boilerWorkingHours = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 277 && $value['tg_id'] == $blockId) {
+                $boilerWorkingHours = $value['value'];
+                break;
+            }
+        }
+        
+        error_log("Часы работы котлов для блока $blockId: " . ($boilerWorkingHours !== null ? $boilerWorkingHours : 'null'));
+        
+        if ($boilerWorkingHours === null || $boilerWorkingHours == 0) {
+            error_log("Часы работы котлов равны 0 или null, возвращаем 0");
+            return 0;
+        }
+        
+        // Получаем выработку тепла котлом (param_id = 278)
+        $boilerHeatGeneration = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 278 && $value['tg_id'] == $blockId) {
+                $boilerHeatGeneration = $value['value'];
+                break;
+            }
+        }
+        
+        error_log("Выработка тепла котлом для блока $blockId: " . ($boilerHeatGeneration !== null ? $boilerHeatGeneration : 'null'));
+        
+        if ($boilerHeatGeneration === null || $boilerHeatGeneration == 0) {
+            error_log("Выработка тепла котлом равна 0 или null, возвращаем 0");
+            return 0;
+        }
+        
+        // Применяем формулу: выработка_тепла_котлом / часы_работы_котлов
+        $avgThermalLoad = $boilerHeatGeneration / $boilerWorkingHours;
+        
+        error_log("Средняя тепловая нагрузка котлов для блока $blockId: выработка=$boilerHeatGeneration, часы=$boilerWorkingHours, результат=$avgThermalLoad");
+        
+        return $avgThermalLoad;
+        
+    } catch (Exception $e) {
+        error_log('Ошибка при расчете средней тепловой нагрузки котлов: ' . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * Расчет средней электрической нагрузки (param_id = 280)
+ * Берет значение из категории 3a, param_id = 35 (E26/F26)
+ * 
+ * E22 = 'НоваяЭХ -3 стр.(а)'!E26
+ * F22 = 'НоваяЭХ -3 стр.(а)'!F26
+ */
+function calculateAvgElectricLoadFrom3a($date, $shiftId, $blockId, $values) {
+    try {
+        // Ищем значение param_id = 35 (средняя электрическая нагрузка турбоагрегата) из категории 3a
+        $avgElectricLoad = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 35 && $value['tg_id'] == $blockId) {
+                $avgElectricLoad = $value['value'];
+                break;
+            }
+        }
+        
+        error_log("Средняя электрическая нагрузка из 3a для блока $blockId: " . ($avgElectricLoad !== null ? $avgElectricLoad : 'null'));
+        
+        if ($avgElectricLoad === null) {
+            error_log("Не найдено значение param_id = 35 для блока $blockId");
+            return 0;
+        }
+        
+        return $avgElectricLoad;
+        
+    } catch (Exception $e) {
+        error_log('Ошибка при получении средней электрической нагрузки из 3a: ' . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * Расчет среднего расхода питательной воды (param_id = 282)
+ * Формула: IF(часы_работы=0,0,расход_питательной_воды/часы_работы)
+ * 
+ * E24 = IF(E18=0,0,E23/E18)
+ * F24 = IF(F18=0,0,F23/F18)
+ * G24 = IF(G18=0,0,G23/G18)
+ */
+function calculateAvgFeedwaterFlow($date, $shiftId, $blockId, $values) {
+    try {
+        // Получаем часы работы котлов (param_id = 277)
+        $boilerWorkingHours = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 277 && $value['tg_id'] == $blockId) {
+                $boilerWorkingHours = $value['value'];
+                break;
+            }
+        }
+        
+        error_log("Часы работы котлов для расчета среднего расхода питательной воды блока $blockId: " . ($boilerWorkingHours !== null ? $boilerWorkingHours : 'null'));
+        
+        if ($boilerWorkingHours === null || $boilerWorkingHours == 0) {
+            error_log("Часы работы котлов равны 0 или null, возвращаем 0");
+            return 0;
+        }
+        
+        // Получаем расход питательной воды за месяц (param_id = 281)
+        $feedwaterFlowMonthly = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 281 && $value['tg_id'] == $blockId) {
+                $feedwaterFlowMonthly = $value['value'];
+                break;
+            }
+        }
+        
+        error_log("Расход питательной воды за месяц для блока $blockId: " . ($feedwaterFlowMonthly !== null ? $feedwaterFlowMonthly : 'null') . " (тип: " . gettype($feedwaterFlowMonthly) . ")");
+        
+        // Более строгая проверка на ноль
+        if ($feedwaterFlowMonthly === null || $feedwaterFlowMonthly == 0 || $feedwaterFlowMonthly === 0.0 || $feedwaterFlowMonthly === '0' || $feedwaterFlowMonthly === '0.0') {
+            error_log("Расход питательной воды за месяц равен 0 или null, возвращаем 0");
+            return 0;
+        }
+        
+        // Применяем формулу: расход_питательной_воды_за_месяц / часы_работы_котлов
+        $avgFeedwaterFlow = $feedwaterFlowMonthly / $boilerWorkingHours;
+        
+        error_log("Средний расход питательной воды для блока $blockId: расход=$feedwaterFlowMonthly, часы=$boilerWorkingHours, результат=$avgFeedwaterFlow");
+        
+        return $avgFeedwaterFlow;
+        
+    } catch (Exception $e) {
+        error_log('Ошибка при расчете среднего расхода питательной воды: ' . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * Расчет температуры холодного воздуха на стороне всасывания дутьевого вентилятора (param_id = 284)
+ * Берет значение из исходных данных
+ * 
+ * E26 = 'Исх. данные оч.130'!C27
+ * F26 = 'Исх. данные оч.130'!D27
+ * G26 - нет (только для ТГ7 и ТГ8)
+ */
+function calculateColdAirTemperature($date, $shiftId, $blockId) {
+    try {
+        $db = getDbConnection();
+        
+        // Определяем cell в зависимости от блока
+        $cell = '';
+        $equipmentId = 0;
+        if ($blockId == 7) {
+            $cell = 'C27';
+            $equipmentId = 1;
+        } elseif ($blockId == 8) {
+            $cell = 'D27';
+            $equipmentId = 2;
+        } else {
+            // Для ОЧ-130 или других блоков возвращаем 0 (нет G26)
+            error_log("Температура холодного воздуха: неподдерживаемый блок $blockId (нет G26)");
+            return 0;
+        }
+        
+        error_log("Температура холодного воздуха: блок=$blockId, equipment_id=$equipmentId, cell=$cell, date=$date, shift_id=$shiftId");
+        
+        // Ищем значение в исходных данных (parameter_values)
+        // Нужно найти правильный parameter_id для температуры холодного воздуха
+        // Предполагаем, что это parameter_id = 45 (температура холодного воздуха)
+        if ($shiftId === null) {
+            // Для суточных расчетов ищем любую смену
+            $stmt = $db->prepare('
+                SELECT value FROM parameter_values 
+                WHERE parameter_id = 42 AND equipment_id = ? AND date = ? AND cell = ?
+                LIMIT 1
+            ');
+            $stmt->execute([$equipmentId, $date, $cell]);
+        } else {
+            // Для сменных расчетов ищем конкретную смену
+            $stmt = $db->prepare('
+                SELECT value FROM parameter_values 
+                WHERE parameter_id = 42 AND equipment_id = ? AND date = ? AND shift_id = ? AND cell = ?
+            ');
+            $stmt->execute([$equipmentId, $date, $shiftId, $cell]);
+        }
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        error_log("Запрос к parameter_values: parameter_id=45, equipment_id=$equipmentId, date=$date, shift_id=$shiftId, cell=$cell");
+        error_log("Результат запроса: " . ($result ? json_encode($result) : 'null'));
+        
+        if (!$result || !$result['value']) {
+            error_log("Не найдены данные для температуры холодного воздуха");
+            return 0;
+        }
+        
+        $coldAirTemp = (float)$result['value'];
+        
+        error_log("Температура холодного воздуха для блока $blockId: $coldAirTemp");
+        
+        return $coldAirTemp;
+        
+    } catch (Exception $e) {
+        error_log('Ошибка при расчете температуры холодного воздуха: ' . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * Расчет температуры питательной воды (param_id = 285)
+ * Берет значение из исходных данных
+ * 
+ * E27 = 'Исх. данные оч.130'!C25
+ * F27 = 'Исх. данные оч.130'!D25
+ */
+function calculateFeedwaterTemperature($date, $shiftId, $blockId) {
+    try {
+        $db = getDbConnection();
+        
+        // Определяем cell в зависимости от блока
+        $cell = '';
+        $equipmentId = 0;
+        if ($blockId == 7) {
+            $cell = 'C25';
+            $equipmentId = 1;
+        } elseif ($blockId == 8) {
+            $cell = 'D25';
+            $equipmentId = 2;
+        } else {
+            // Для ОЧ-130 или других блоков возвращаем 0 (нет G27)
+            error_log("Температура питательной воды: неподдерживаемый блок $blockId (нет G27)");
+            return 0;
+        }
+        
+        error_log("Температура питательной воды: блок=$blockId, equipment_id=$equipmentId, cell=$cell, date=$date, shift_id=$shiftId");
+        
+        // Ищем значение в исходных данных (parameter_values)
+        // Предполагаем, что это parameter_id = 43 (температура питательной воды)
+        if ($shiftId === null) {
+            // Для суточных расчетов ищем любую смену
+            $stmt = $db->prepare('
+                SELECT value FROM parameter_values 
+                WHERE parameter_id = 40 AND equipment_id = ? AND date = ? AND cell = ?
+                LIMIT 1
+            ');
+            $stmt->execute([$equipmentId, $date, $cell]);
+        } else {
+            // Для сменных расчетов ищем конкретную смену
+            $stmt = $db->prepare('
+                SELECT value FROM parameter_values 
+                WHERE parameter_id = 40 AND equipment_id = ? AND date = ? AND shift_id = ? AND cell = ?
+            ');
+            $stmt->execute([$equipmentId, $date, $shiftId, $cell]);
+        }
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        error_log("Запрос к parameter_values: parameter_id=43, equipment_id=$equipmentId, date=$date, shift_id=$shiftId, cell=$cell");
+        error_log("Результат запроса: " . ($result ? json_encode($result) : 'null'));
+        
+        if (!$result || !$result['value']) {
+            error_log("Не найдены данные для температуры питательной воды");
+            return 0;
+        }
+        
+        $feedwaterTemp = (float)$result['value'];
+        
+        error_log("Температура питательной воды для блока $blockId: $feedwaterTemp");
+        
+        return $feedwaterTemp;
+        
+    } catch (Exception $e) {
+        error_log('Ошибка при расчете температуры питательной воды: ' . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * Расчет продолжительности работы котла от даты составления энергетических характеристик (param_id = 286)
+ * Берет значение из исходных данных
+ * 
+ * E28 = 'Исх. данные оч.130'!C12
+ * F28 = 'Исх. данные оч.130'!D12
+ */
+function calculateBoilerOperationDuration($date, $shiftId, $blockId) {
+    try {
+        $db = getDbConnection();
+        
+        // Определяем cell в зависимости от блока
+        $cell = '';
+        $equipmentId = 0;
+        if ($blockId == 7) {
+            $cell = 'C12';
+            $equipmentId = 1;
+        } elseif ($blockId == 8) {
+            $cell = 'D12';
+            $equipmentId = 2;
+        } else {
+            // Для ОЧ-130 или других блоков возвращаем 0 (нет G28)
+            error_log("Продолжительность работы котла: неподдерживаемый блок $blockId (нет G28)");
+            return 0;
+        }
+        
+        error_log("Продолжительность работы котла: блок=$blockId, equipment_id=$equipmentId, cell=$cell, date=$date, shift_id=$shiftId");
+        
+        // Ищем значение в исходных данных (parameter_values)
+        // Предполагаем, что это parameter_id = 44 (продолжительность работы котла)
+        if ($shiftId === null) {
+            // Для суточных расчетов ищем любую смену
+            $stmt = $db->prepare('
+                SELECT value FROM parameter_values 
+                WHERE parameter_id = 49 AND equipment_id = ? AND date = ? AND cell = ?
+                LIMIT 1
+            ');
+            $stmt->execute([$equipmentId, $date, $cell]);
+        } else {
+            // Для сменных расчетов ищем конкретную смену
+            $stmt = $db->prepare('
+                SELECT value FROM parameter_values 
+                WHERE parameter_id = 49 AND equipment_id = ? AND date = ? AND shift_id = ? AND cell = ?
+            ');
+            $stmt->execute([$equipmentId, $date, $shiftId, $cell]);
+        }
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        error_log("Запрос к parameter_values: parameter_id=44, equipment_id=$equipmentId, date=$date, shift_id=$shiftId, cell=$cell");
+        error_log("Результат запроса: " . ($result ? json_encode($result) : 'null'));
+        
+        if (!$result || !$result['value']) {
+            error_log("Не найдены данные для продолжительности работы котла");
+            return 0;
+        }
+        
+        $operationDuration = (float)$result['value'];
+        
+        error_log("Продолжительность работы котла для блока $blockId: $operationDuration");
+        
+        return $operationDuration;
+        
+    } catch (Exception $e) {
+        error_log('Ошибка при расчете продолжительности работы котла: ' . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * Расчет КПД брутто котла (param_id = 288)
+ * Сложная формула, зависящая от средней электрической нагрузки и коэффициента использования топлива
+ * 
+ * E32 = (-0.000022*E26^2 -0.001195*E26+94.199705)*E17+(0.0000007164*E26^3 - 0.0003935316*E26^2 + 0.0601780611*E26 + 89.291015565)*(1-E17)
+ * F32 = (-0.000022*F26^2 -0.001195*F26+94.199705)*F17+(0.0000007164*F26^3 - 0.0003935316*F26^2 + 0.0601780611*F26 + 89.291015565)*(1-F17)
+ * G32 = (E32+F32)/2
+ */
+function calculateBoilerEfficiency($date, $shiftId, $blockId, $values) {
+    try {
+        // Для ОЧ-130 (blockId = 9) G32 = (E32+F32)/2
+        if ($blockId == 9) {
+            // Получаем E32 (ТГ7) и F32 (ТГ8)
+            $tg7Efficiency = calculateBoilerEfficiencyForBlock($date, $shiftId, 7, $values);
+            $tg8Efficiency = calculateBoilerEfficiencyForBlock($date, $shiftId, 8, $values);
+            
+            $avgEfficiency = ($tg7Efficiency + $tg8Efficiency) / 2;
+            
+            error_log("КПД брутто котла для ОЧ-130: ТГ7=$tg7Efficiency, ТГ8=$tg8Efficiency, среднее=$avgEfficiency");
+            
+            return $avgEfficiency;
+        }
+        
+        // Для ТГ7 и ТГ8 используем обычную формулу
+        return calculateBoilerEfficiencyForBlock($date, $shiftId, $blockId, $values);
+        
+    } catch (Exception $e) {
+        error_log('Ошибка при расчете КПД брутто котла: ' . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * Расчет КПД брутто котла для конкретного блока (ТГ7 или ТГ8)
+ */
+function calculateBoilerEfficiencyForBlock($date, $shiftId, $blockId, $values) {
+    try {
+        // Получаем среднюю электрическую нагрузку (E26/F26) - param_id = 35
+        $avgElectricLoad = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 35 && $value['tg_id'] == $blockId) {
+                $avgElectricLoad = $value['value'];
+                break;
+            }
+        }
+        
+        error_log("КПД брутто котла: средняя электрическая нагрузка для блока $blockId: " . ($avgElectricLoad !== null ? $avgElectricLoad : 'null'));
+        
+        if ($avgElectricLoad === null) {
+            error_log("Не найдено значение средней электрической нагрузки для блока $blockId");
+            return 0;
+        }
+        
+        // Получаем коэффициент использования топлива (E17/F17) - param_id = 277
+        $fuelUtilizationFactor = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 277 && $value['tg_id'] == $blockId) {
+                $fuelUtilizationFactor = $value['value'];
+                break;
+            }
+        }
+        
+        error_log("КПД брутто котла: коэффициент использования топлива для блока $blockId: " . ($fuelUtilizationFactor !== null ? $fuelUtilizationFactor : 'null'));
+        
+        if ($fuelUtilizationFactor === null) {
+            error_log("Не найден коэффициент использования топлива для блока $blockId");
+            return 0;
+        }
+        
+        // Применяем формулу
+        $x = (float)$avgElectricLoad;
+        $k = (float)$fuelUtilizationFactor;
+        
+        // Первая часть формулы: (-0.000022*x^2 -0.001195*x+94.199705)*k
+        $part1 = (-0.000022 * $x * $x - 0.001195 * $x + 94.199705) * $k;
+        
+        // Вторая часть формулы: (0.0000007164*x^3 - 0.0003935316*x^2 + 0.0601780611*x + 89.291015565)*(1-k)
+        $part2 = (0.0000007164 * $x * $x * $x - 0.0003935316 * $x * $x + 0.0601780611 * $x + 89.291015565) * (1 - $k);
+        
+        $efficiency = $part1 + $part2;
+        
+        error_log("КПД брутто котла для блока $blockId: x=$x, k=$k, part1=$part1, part2=$part2, результат=$efficiency");
+        
+        return $efficiency;
+        
+    } catch (Exception $e) {
+        error_log('Ошибка при расчете КПД брутто котла для блока: ' . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * Расчет поправки на температуру питательной воды (param_id = 289)
+ * 
+ * E34 = IF(E19=0,0,(E26-30)*0.044)
+ * F34 = IF(F19=0,0,(F26-30)*0.044)
+ * G34 = IF(G19=0,0,(E34*E19+F34*F19)/G19)
+ */
+function calculateFeedwaterTempCorrection($date, $shiftId, $blockId, $values) {
+    try {
+        // Получаем выработку тепла котлом (E19/F19) - param_id = 278
+        $boilerHeatGeneration = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 278 && $value['tg_id'] == $blockId) {
+                $boilerHeatGeneration = $value['value'];
+                break;
+            }
+        }
+        
+        error_log("Поправка на температуру питательной воды: выработка тепла котлом для блока $blockId: " . ($boilerHeatGeneration !== null ? $boilerHeatGeneration : 'null'));
+        
+        if ($boilerHeatGeneration === null || $boilerHeatGeneration == 0) {
+            error_log("Выработка тепла котлом равна 0 или null, возвращаем 0");
+            return 0;
+        }
+        
+        // Получаем среднюю электрическую нагрузку (E26/F26) - param_id = 35
+        $avgElectricLoad = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 35 && $value['tg_id'] == $blockId) {
+                $avgElectricLoad = $value['value'];
+                break;
+            }
+        }
+        
+        error_log("Поправка на температуру питательной воды: средняя электрическая нагрузка для блока $blockId: " . ($avgElectricLoad !== null ? $avgElectricLoad : 'null'));
+        
+        if ($avgElectricLoad === null) {
+            error_log("Не найдено значение средней электрической нагрузки для блока $blockId");
+            return 0;
+        }
+        
+        // Для ОЧ-130 (G34) используем формулу: (E34*E19+F34*F19)/G19
+        if ($blockId == 9) {
+            // Получаем E34 и F34 (ТГ7 и ТГ8)
+            $tg7Correction = calculateFeedwaterTempCorrectionForBlock($date, $shiftId, 7, $values);
+            $tg8Correction = calculateFeedwaterTempCorrectionForBlock($date, $shiftId, 8, $values);
+            
+            // Получаем E19 и F19 (выработка тепла котлом для ТГ7 и ТГ8)
+            $tg7HeatGeneration = null;
+            $tg8HeatGeneration = null;
+            foreach ($values as $value) {
+                if ($value['param_id'] == 278 && $value['tg_id'] == 7) {
+                    $tg7HeatGeneration = $value['value'];
+                } elseif ($value['param_id'] == 278 && $value['tg_id'] == 8) {
+                    $tg8HeatGeneration = $value['value'];
+                }
+            }
+            
+            if ($tg7HeatGeneration === null || $tg8HeatGeneration === null) {
+                error_log("Не найдены значения выработки тепла котлом для ТГ7 или ТГ8");
+                return 0;
+            }
+            
+            $g19 = $tg7HeatGeneration + $tg8HeatGeneration; // G19 = E19 + F19
+            
+            if ($g19 == 0) {
+                error_log("G19 равно 0, возвращаем 0");
+                return 0;
+            }
+            
+            $correction = ($tg7Correction * $tg7HeatGeneration + $tg8Correction * $tg8HeatGeneration) / $g19;
+            
+            error_log("Поправка на температуру питательной воды для ОЧ-130: E34=$tg7Correction, F34=$tg8Correction, E19=$tg7HeatGeneration, F19=$tg8HeatGeneration, G19=$g19, результат=$correction");
+            
+            return $correction;
+        }
+        
+        // Для ТГ7 и ТГ8 используем формулу: (E26-30)*0.044
+        return calculateFeedwaterTempCorrectionForBlock($date, $shiftId, $blockId, $values);
+        
+    } catch (Exception $e) {
+        error_log('Ошибка при расчете поправки на температуру питательной воды: ' . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * Расчет поправки на температуру питательной воды для конкретного блока (ТГ7 или ТГ8)
+ */
+function calculateFeedwaterTempCorrectionForBlock($date, $shiftId, $blockId, $values) {
+    try {
+        // Получаем среднюю электрическую нагрузку (E26/F26) - param_id = 35
+        $avgElectricLoad = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 284 && $value['tg_id'] == $blockId) {
+                $avgElectricLoad = $value['value'];
+                break;
+            }
+        }
+        
+        if ($avgElectricLoad === null) {
+            error_log("Не найдено значение средней электрической нагрузки для блока $blockId");
+            return 0;
+        }
+        
+        // Применяем формулу: (E26-30)*0.044
+        $correction = ($avgElectricLoad - 30) * 0.044;
+        
+        error_log("Поправка на температуру питательной воды для блока $blockId: E26=$avgElectricLoad, результат=$correction");
+        
+        return $correction;
+        
+    } catch (Exception $e) {
+        error_log('Ошибка при расчете поправки на температуру питательной воды для блока: ' . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * Расчет поправки на продолжительность работы котла (param_id = 290)
+ * 
+ * E35 = IF(E19=0,0,(-0.0015*E28/1000))
+ * F35 = IF(F19=0,0,(-0.0015*F28/1000))
+ */
+function calculateOperationDurationCorrection($date, $shiftId, $blockId, $values) {
+    try {
+        // Получаем выработку тепла котлом (E19/F19) - param_id = 278
+        $boilerHeatGeneration = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 278 && $value['tg_id'] == $blockId) {
+                $boilerHeatGeneration = $value['value'];
+                break;
+            }
+        }
+        
+        error_log("Поправка на продолжительность работы котла: выработка тепла котлом для блока $blockId: " . ($boilerHeatGeneration !== null ? $boilerHeatGeneration : 'null'));
+        
+        if ($boilerHeatGeneration === null || $boilerHeatGeneration == 0) {
+            error_log("Выработка тепла котлом равна 0 или null, возвращаем 0");
+            return 0;
+        }
+        
+        // Получаем продолжительность работы котла (E28/F28) - param_id = 286
+        $operationDuration = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 286 && $value['tg_id'] == $blockId) {
+                $operationDuration = $value['value'];
+                break;
+            }
+        }
+        
+        error_log("Поправка на продолжительность работы котла: продолжительность работы для блока $blockId: " . ($operationDuration !== null ? $operationDuration : 'null'));
+        
+        if ($operationDuration === null) {
+            error_log("Не найдено значение продолжительности работы котла для блока $blockId");
+            return 0;
+        }
+        
+        // Применяем формулу: (-0.0015*E28/1000)
+        $correction = -0.0015 * $operationDuration / 1000;
+        
+        error_log("Поправка на продолжительность работы котла для блока $blockId: E28=$operationDuration, результат=$correction");
+        
+        return $correction;
+        
+    } catch (Exception $e) {
+        error_log('Ошибка при расчете поправки на продолжительность работы котла: ' . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * Расчет поправки на температуру холодного воздуха (param_id = 291)
+ * 
+ * E36 = IF(E26<0,E21*0.008,E21*0.006)
+ * F36 = IF(F26<0,F21*0.008,F21*0.006)
+ */
+function calculateColdAirTempCorrection($date, $shiftId, $blockId, $values) {
+    try {
+        // Получаем среднюю электрическую нагрузку (E26/F26) - param_id = 35
+        $avgElectricLoad = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 284 && $value['tg_id'] == $blockId) {
+                $avgElectricLoad = $value['value'];
+                break;
+            }
+        }
+        
+        error_log("Поправка на температуру холодного воздуха: средняя электрическая нагрузка для блока $blockId: " . ($avgElectricLoad !== null ? $avgElectricLoad : 'null'));
+        
+        if ($avgElectricLoad === null) {
+            error_log("Не найдено значение средней электрической нагрузки для блока $blockId");
+            return 0;
+        }
+        
+        // Получаем среднюю тепловую нагрузку котлов (E21/F21) - param_id = 279
+        $avgThermalLoad = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 279 && $value['tg_id'] == $blockId) {
+                $avgThermalLoad = $value['value'];
+                break;
+            }
+        }
+        
+        error_log("Поправка на температуру холодного воздуха: средняя тепловая нагрузка для блока $blockId: " . ($avgThermalLoad !== null ? $avgThermalLoad : 'null'));
+        
+        if ($avgThermalLoad === null) {
+            error_log("Не найдено значение средней тепловой нагрузки для блока $blockId");
+            return 0;
+        }
+        
+        // Применяем формулу: IF(E26<0,E21*0.008,E21*0.006)
+        $coefficient = ($avgElectricLoad < 0) ? 0.008 : 0.006;
+        $correction = $avgThermalLoad * $coefficient;
+        
+        error_log("Поправка на температуру холодного воздуха для блока $blockId: E26=$avgElectricLoad, E21=$avgThermalLoad, коэффициент=$coefficient, результат=$correction");
+        
+        return $correction;
+        
+    } catch (Exception $e) {
+        error_log('Ошибка при расчете поправки на температуру холодного воздуха: ' . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * Расчет поправки на температуру холодного воздуха в процентах (param_id = 292)
+ * 
+ * E37 = E36/E21*100
+ * F37 = F36/F21*100
+ */
+function calculateColdAirTempCorrectionPercent($date, $shiftId, $blockId, $values) {
+    try {
+        // Получаем поправку на температуру холодного воздуха (E36/F36) - param_id = 291
+        $coldAirTempCorrection = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 291 && $value['tg_id'] == $blockId) {
+                $coldAirTempCorrection = $value['value'];
+                break;
+            }
+        }
+        
+        error_log("Поправка на температуру холодного воздуха в процентах: поправка для блока $blockId: " . ($coldAirTempCorrection !== null ? $coldAirTempCorrection : 'null'));
+        
+        if ($coldAirTempCorrection === null) {
+            error_log("Не найдено значение поправки на температуру холодного воздуха для блока $blockId");
+            return 0;
+        }
+        
+        // Получаем среднюю тепловую нагрузку котлов (E21/F21) - param_id = 279
+        $avgThermalLoad = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 279 && $value['tg_id'] == $blockId) {
+                $avgThermalLoad = $value['value'];
+                break;
+            }
+        }
+        
+        error_log("Поправка на температуру холодного воздуха в процентах: средняя тепловая нагрузка для блока $blockId: " . ($avgThermalLoad !== null ? $avgThermalLoad : 'null'));
+        
+        if ($avgThermalLoad === null || $avgThermalLoad == 0) {
+            error_log("Средняя тепловая нагрузка равна 0 или null, возвращаем 0");
+            return 0;
+        }
+        
+        // Применяем формулу: E36/E21*100
+        $correctionPercent = ($coldAirTempCorrection / $avgThermalLoad) * 100;
+        
+        error_log("Поправка на температуру холодного воздуха в процентах для блока $blockId: E36=$coldAirTempCorrection, E21=$avgThermalLoad, результат=$correctionPercent");
+        
+        return $correctionPercent;
+        
+    } catch (Exception $e) {
+        error_log('Ошибка при расчете поправки на температуру холодного воздуха в процентах: ' . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * Расчет КПД брутто котла с поправками (param_id = 293)
+ * 
+ * E38 = IF(E19=0,0,(E32+E34+E35-E37))
+ * F38 = IF(F19=0,0,(F32+F34+F35-F37))
+ */
+function calculateBoilerEfficiencyWithCorrections($date, $shiftId, $blockId, $values) {
+    try {
+        // Получаем выработку тепла котлом (E19/F19) - param_id = 278
+        $boilerHeatGeneration = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 278 && $value['tg_id'] == $blockId) {
+                $boilerHeatGeneration = $value['value'];
+                break;
+            }
+        }
+        
+        error_log("КПД брутто котла с поправками: выработка тепла котлом для блока $blockId: " . ($boilerHeatGeneration !== null ? $boilerHeatGeneration : 'null'));
+        
+        if ($boilerHeatGeneration === null || $boilerHeatGeneration == 0) {
+            error_log("Выработка тепла котлом равна 0 или null, возвращаем 0");
+            return 0;
+        }
+        
+        // Получаем КПД брутто котла (E32/F32) - param_id = 288
+        $boilerEfficiency = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 288 && $value['tg_id'] == $blockId) {
+                $boilerEfficiency = $value['value'];
+                break;
+            }
+        }
+        
+        if ($boilerEfficiency === null) {
+            error_log("Не найдено значение КПД брутто котла для блока $blockId");
+            return 0;
+        }
+        
+        // Получаем поправку на температуру питательной воды (E34/F34) - param_id = 289
+        $feedwaterTempCorrection = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 289 && $value['tg_id'] == $blockId) {
+                $feedwaterTempCorrection = $value['value'];
+                break;
+            }
+        }
+        
+        if ($feedwaterTempCorrection === null) {
+            error_log("Не найдено значение поправки на температуру питательной воды для блока $blockId");
+            return 0;
+        }
+        
+        // Получаем поправку на продолжительность работы котла (E35/F35) - param_id = 290
+        $operationDurationCorrection = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 290 && $value['tg_id'] == $blockId) {
+                $operationDurationCorrection = $value['value'];
+                break;
+            }
+        }
+        
+        if ($operationDurationCorrection === null) {
+            error_log("Не найдено значение поправки на продолжительность работы котла для блока $blockId");
+            return 0;
+        }
+        
+        // Получаем поправку на температуру холодного воздуха в процентах (E37/F37) - param_id = 292
+        $coldAirTempCorrectionPercent = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 292 && $value['tg_id'] == $blockId) {
+                $coldAirTempCorrectionPercent = $value['value'];
+                break;
+            }
+        }
+        
+        if ($coldAirTempCorrectionPercent === null) {
+            error_log("Не найдено значение поправки на температуру холодного воздуха в процентах для блока $blockId");
+            return 0;
+        }
+        
+        // Применяем формулу: E32+E34+E35-E37
+        $efficiencyWithCorrections = $boilerEfficiency + $feedwaterTempCorrection + $operationDurationCorrection - $coldAirTempCorrectionPercent;
+        
+        error_log("КПД брутто котла с поправками для блока $blockId: E32=$boilerEfficiency, E34=$feedwaterTempCorrection, E35=$operationDurationCorrection, E37=$coldAirTempCorrectionPercent, результат=$efficiencyWithCorrections");
+        
+        return $efficiencyWithCorrections;
+        
+    } catch (Exception $e) {
+        error_log('Ошибка при расчете КПД брутто котла с поправками: ' . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * Расчет КПД нетто котла (param_id = 294)
+ * Сложная формула с условной логикой и полиномиальными коэффициентами
+ * 
+ * E39 = IF(E19=0,0,IF(E24<540,17.0477-0.05398*E24+0.000056*E24*E24,40.8655-0.120431*E24+0.000103*E24*E24))*E17+(0.000044*E24^2 - 0.047029*E24 + 18.8321)*(1-E17)
+ * F39 = IF(F19=0,0,IF(F24<540,17.0477-0.05398*F24+0.000056*F24*F24,40.8655-0.120431*F24+0.000103*F24*F24))*F17+(0.000044*F24^2 - 0.047029*F24 + 18.8321)*(1-F17)
+ */
+function calculateBoilerNetEfficiency($date, $shiftId, $blockId, $values) {
+    try {
+        // Получаем выработку тепла котлом (E19/F19) - param_id = 278
+        $boilerHeatGeneration = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 278 && $value['tg_id'] == $blockId) {
+                $boilerHeatGeneration = $value['value'];
+                break;
+            }
+        }
+        
+        error_log("КПД нетто котла: выработка тепла котлом для блока $blockId: " . ($boilerHeatGeneration !== null ? $boilerHeatGeneration : 'null'));
+        
+        if ($boilerHeatGeneration === null || $boilerHeatGeneration == 0) {
+            error_log("Выработка тепла котлом равна 0 или null, возвращаем 0");
+            return 0;
+        }
+        
+        // Получаем средний расход питательной воды (E24/F24) - param_id = 282
+        $avgFeedwaterFlow = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 282 && $value['tg_id'] == $blockId) {
+                $avgFeedwaterFlow = $value['value'];
+                break;
+            }
+        }
+        
+        error_log("КПД нетто котла: средний расход питательной воды для блока $blockId: " . ($avgFeedwaterFlow !== null ? $avgFeedwaterFlow : 'null'));
+        
+        if ($avgFeedwaterFlow === null) {
+            error_log("Не найдено значение среднего расхода питательной воды для блока $blockId");
+            return 0;
+        }
+        
+        // Получаем коэффициент использования топлива (E17/F17) - param_id = 277
+        $fuelUtilizationFactor = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 277 && $value['tg_id'] == $blockId) {
+                $fuelUtilizationFactor = $value['value'];
+                break;
+            }
+        }
+        
+        error_log("КПД нетто котла: коэффициент использования топлива для блока $blockId: " . ($fuelUtilizationFactor !== null ? $fuelUtilizationFactor : 'null'));
+        
+        if ($fuelUtilizationFactor === null) {
+            error_log("Не найден коэффициент использования топлива для блока $blockId");
+            return 0;
+        }
+        
+        // Применяем сложную формулу
+        $x = (float)$avgFeedwaterFlow;
+        $k = (float)$fuelUtilizationFactor;
+        
+        // Первая часть: IF(E24<540,17.0477-0.05398*E24+0.000056*E24*E24,40.8655-0.120431*E24+0.000103*E24*E24)
+        if ($x < 540) {
+            $part1Coeff = 17.0477 - 0.05398 * $x + 0.000056 * $x * $x;
+        } else {
+            $part1Coeff = 40.8655 - 0.120431 * $x + 0.000103 * $x * $x;
+        }
+        
+        // Вторая часть: (0.000044*E24^2 - 0.047029*E24 + 18.8321)
+        $part2Coeff = 0.000044 * $x * $x - 0.047029 * $x + 18.8321;
+        
+        // Итоговая формула: part1Coeff * E17 + part2Coeff * (1-E17)
+        $netEfficiency = $part1Coeff * $k + $part2Coeff * (1 - $k);
+        
+        error_log("КПД нетто котла для блока $blockId: x=$x, k=$k, part1Coeff=$part1Coeff, part2Coeff=$part2Coeff, результат=$netEfficiency");
+        
+        return $netEfficiency;
+        
+    } catch (Exception $e) {
+        error_log('Ошибка при расчете КПД нетто котла: ' . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * Расчет удельного расхода топлива (param_id = 295)
+ * 
+ * E40 = IF(E19=0,0,25.3-0.151161*'НоваяЭХ -3 стр.(а)'!E26+0.000295*'НоваяЭХ -3 стр.(а)'!E26*'НоваяЭХ -3 стр.(а)'!E26)
+ * F40 = IF(F19=0,0,25.3-0.151161*'НоваяЭХ -3 стр.(а)'!F26+0.000295*'НоваяЭХ -3 стр.(а)'!F26*'НоваяЭХ -3 стр.(а)'!F26)
+ * 
+ * 'НоваяЭХ -3 стр.(а)'!E26/F26 означает param_id = 280 (E22/F22 - средняя электрическая нагрузка из категории 3b)
+ */
+function calculateSpecificFuelConsumption($date, $shiftId, $blockId, $values) {
+    try {
+        // Получаем выработку тепла котлом (E19/F19) - param_id = 278
+        $boilerHeatGeneration = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 278 && $value['tg_id'] == $blockId) {
+                $boilerHeatGeneration = $value['value'];
+                break;
+            }
+        }
+        
+        error_log("Удельный расход топлива: выработка тепла котлом для блока $blockId: " . ($boilerHeatGeneration !== null ? $boilerHeatGeneration : 'null'));
+        
+        if ($boilerHeatGeneration === null || $boilerHeatGeneration == 0) {
+            error_log("Выработка тепла котлом равна 0 или null, возвращаем 0");
+            return 0;
+        }
+        
+        // Получаем среднюю электрическую нагрузку из категории 3b (E22/F22) - param_id = 280
+        $avgElectricLoad3b = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 280 && $value['tg_id'] == $blockId) {
+                $avgElectricLoad3b = $value['value'];
+                break;
+            }
+        }
+        
+        error_log("Удельный расход топлива: средняя электрическая нагрузка из 3b для блока $blockId: " . ($avgElectricLoad3b !== null ? $avgElectricLoad3b : 'null'));
+        
+        if ($avgElectricLoad3b === null) {
+            error_log("Не найдено значение средней электрической нагрузки из 3b для блока $blockId");
+            return 0;
+        }
+        
+        // Применяем формулу: 25.3-0.151161*E22+0.000295*E22*E22
+        $x = (float)$avgElectricLoad3b;
+        $specificFuelConsumption = 25.3 - 0.151161 * $x + 0.000295 * $x * $x;
+        
+        error_log("Удельный расход топлива для блока $blockId: E22(3b)=$x, результат=$specificFuelConsumption");
+        
+        return $specificFuelConsumption;
+        
+    } catch (Exception $e) {
+        error_log('Ошибка при расчете удельного расхода топлива: ' . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * Расчет поправки на КПД (param_id = 296)
+ * 
+ * E41 = IF(E18=0,0,1.2)
+ * F41 = IF(F18=0,0,1.2)
+ */
+function calculateEfficiencyCorrection($date, $shiftId, $blockId, $values) {
+    try {
+        // Получаем часы работы котлов (E18/F18) - param_id = 277
+        $boilerWorkingHours = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 277 && $value['tg_id'] == $blockId) {
+                $boilerWorkingHours = $value['value'];
+                break;
+            }
+        }
+        
+        error_log("Поправка на КПД: часы работы котлов для блока $blockId: " . ($boilerWorkingHours !== null ? $boilerWorkingHours : 'null'));
+        
+        if ($boilerWorkingHours === null || $boilerWorkingHours == 0) {
+            error_log("Часы работы котлов равны 0 или null, возвращаем 0");
+            return 0;
+        }
+        
+        // Если часы работы > 0, то поправка = 1.2
+        $correction = 1.2;
+        
+        error_log("Поправка на КПД для блока $blockId: E18=$boilerWorkingHours, результат=$correction");
+        
+        return $correction;
+        
+    } catch (Exception $e) {
+        error_log('Ошибка при расчете поправки на КПД: ' . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * Расчет расхода топлива (param_id = 297)
+ * 
+ * E43 = (((E39+E41)*E19+E40*E23)*1.043)/1000
+ * F43 = (((F39+F41)*F19+F40*F23)*1.043)/1000
+ */
+function calculateFuelConsumption($date, $shiftId, $blockId, $values) {
+    try {
+        // Получаем КПД нетто котла (E39/F39) - param_id = 294
+        $boilerNetEfficiency = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 294 && $value['tg_id'] == $blockId) {
+                $boilerNetEfficiency = $value['value'];
+                break;
+            }
+        }
+        
+        if ($boilerNetEfficiency === null) {
+            error_log("Не найдено значение КПД нетто котла для блока $blockId");
+            return 0;
+        }
+        
+        // Получаем поправку на КПД (E41/F41) - param_id = 296
+        $efficiencyCorrection = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 296 && $value['tg_id'] == $blockId) {
+                $efficiencyCorrection = $value['value'];
+                break;
+            }
+        }
+        
+        if ($efficiencyCorrection === null) {
+            error_log("Не найдено значение поправки на КПД для блока $blockId");
+            return 0;
+        }
+        
+        // Получаем выработку тепла котлом (E19/F19) - param_id = 278
+        $boilerHeatGeneration = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 278 && $value['tg_id'] == $blockId) {
+                $boilerHeatGeneration = $value['value'];
+                break;
+            }
+        }
+        
+        if ($boilerHeatGeneration === null) {
+            error_log("Не найдено значение выработки тепла котлом для блока $blockId");
+            return 0;
+        }
+        
+        // Получаем удельный расход топлива (E40/F40) - param_id = 295
+        $specificFuelConsumption = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 295 && $value['tg_id'] == $blockId) {
+                $specificFuelConsumption = $value['value'];
+                break;
+            }
+        }
+        
+        if ($specificFuelConsumption === null) {
+            error_log("Не найдено значение удельного расхода топлива для блока $blockId");
+            return 0;
+        }
+        
+        // Получаем расход питательной воды (E23/F23) - param_id = 281
+        $feedwaterFlow = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 281 && $value['tg_id'] == $blockId) {
+                $feedwaterFlow = $value['value'];
+                break;
+            }
+        }
+        
+        if ($feedwaterFlow === null) {
+            error_log("Не найдено значение расхода питательной воды для блока $blockId");
+            return 0;
+        }
+        
+        // Применяем формулу: (((E39+E41)*E19+E40*E23)*1.043)/1000
+        $fuelConsumption = ((($boilerNetEfficiency + $efficiencyCorrection) * $boilerHeatGeneration + $specificFuelConsumption * $feedwaterFlow) * 1.043) / 1000;
+        
+        error_log("Расход топлива для блока $blockId: E39=$boilerNetEfficiency, E41=$efficiencyCorrection, E19=$boilerHeatGeneration, E40=$specificFuelConsumption, E23=$feedwaterFlow, результат=$fuelConsumption");
+        
+        return $fuelConsumption;
+        
+    } catch (Exception $e) {
+        error_log('Ошибка при расчете расхода топлива: ' . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * Расчет удельного расхода топлива на выработку тепла (param_id = 298)
+ * 
+ * E44 = IF(E19=0,0,1000*E43/E19)
+ * F44 = IF(F19=0,0,1000*F43/F19)
+ */
+function calculateSpecificFuelConsumptionForHeat($date, $shiftId, $blockId, $values) {
+    try {
+        // Получаем выработку тепла котлом (E19/F19) - param_id = 278
+        $boilerHeatGeneration = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 278 && $value['tg_id'] == $blockId) {
+                $boilerHeatGeneration = $value['value'];
+                break;
+            }
+        }
+        
+        error_log("Удельный расход топлива на выработку тепла: выработка тепла котлом для блока $blockId: " . ($boilerHeatGeneration !== null ? $boilerHeatGeneration : 'null'));
+        
+        if ($boilerHeatGeneration === null || $boilerHeatGeneration == 0) {
+            error_log("Выработка тепла котлом равна 0 или null, возвращаем 0");
+            return 0;
+        }
+        
+        // Получаем расход топлива (E43/F43) - param_id = 297
+        $fuelConsumption = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 297 && $value['tg_id'] == $blockId) {
+                $fuelConsumption = $value['value'];
+                break;
+            }
+        }
+        
+        if ($fuelConsumption === null) {
+            error_log("Не найдено значение расхода топлива для блока $blockId");
+            return 0;
+        }
+        
+        // Применяем формулу: 1000*E43/E19
+        $specificFuelConsumptionForHeat = 1000 * $fuelConsumption / $boilerHeatGeneration;
+        
+        error_log("Удельный расход топлива на выработку тепла для блока $blockId: E43=$fuelConsumption, E19=$boilerHeatGeneration, результат=$specificFuelConsumptionForHeat");
+        
+        return $specificFuelConsumptionForHeat;
+        
+    } catch (Exception $e) {
+        error_log('Ошибка при расчете удельного расхода топлива на выработку тепла: ' . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * Расчет удельного расхода топлива на выработку электроэнергии (param_id = 299)
+ * 
+ * E45 = IF(E19=0,0,(100*E43/'НоваяЭХ -3 стр.(а)'!E13))
+ * F45 = IF(F19=0,0,(100*F43/'НоваяЭХ -3 стр.(а)'!F13))
+ * 
+ * 'НоваяЭХ -3 стр.(а)'!E13/F13 означает param_id = 35 (категория 3a)
+ */
+function calculateSpecificFuelConsumptionForElectricity($date, $shiftId, $blockId, $values) {
+    try {
+        // Получаем выработку тепла котлом (E19/F19) - param_id = 278
+        $boilerHeatGeneration = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 278 && $value['tg_id'] == $blockId) {
+                $boilerHeatGeneration = $value['value'];
+                break;
+            }
+        }
+        
+        error_log("Удельный расход топлива на выработку электроэнергии: выработка тепла котлом для блока $blockId: " . ($boilerHeatGeneration !== null ? $boilerHeatGeneration : 'null'));
+        
+        if ($boilerHeatGeneration === null || $boilerHeatGeneration == 0) {
+            error_log("Выработка тепла котлом равна 0 или null, возвращаем 0");
+            return 0;
+        }
+        
+        // Получаем расход топлива (E43/F43) - param_id = 297
+        $fuelConsumption = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 297 && $value['tg_id'] == $blockId) {
+                $fuelConsumption = $value['value'];
+                break;
+            }
+        }
+        
+        if ($fuelConsumption === null) {
+            error_log("Не найдено значение расхода топлива для блока $blockId");
+            return 0;
+        }
+        
+        // Получаем среднюю электрическую нагрузку из категории 3a (E13/F13) - param_id = 35
+        $avgElectricLoad3a = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 35 && $value['tg_id'] == $blockId) {
+                $avgElectricLoad3a = $value['value'];
+                break;
+            }
+        }
+        
+        error_log("Удельный расход топлива на выработку электроэнергии: средняя электрическая нагрузка из 3a для блока $blockId: " . ($avgElectricLoad3a !== null ? $avgElectricLoad3a : 'null'));
+        
+        if ($avgElectricLoad3a === null || $avgElectricLoad3a == 0) {
+            error_log("Средняя электрическая нагрузка из 3a равна 0 или null, возвращаем 0");
+            return 0;
+        }
+        
+        // Применяем формулу: 100*E43/E13
+        $specificFuelConsumptionForElectricity = 100 * $fuelConsumption / $avgElectricLoad3a;
+        
+        error_log("Удельный расход топлива на выработку электроэнергии для блока $blockId: E43=$fuelConsumption, E13(3a)=$avgElectricLoad3a, результат=$specificFuelConsumptionForElectricity");
+        
+        return $specificFuelConsumptionForElectricity;
+        
+    } catch (Exception $e) {
+        error_log('Ошибка при расчете удельного расхода топлива на выработку электроэнергии: ' . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * Расчет расхода топлива на собственные нужды (param_id = 300)
+ * 
+ * E47 = 0.005*E19
+ * F47 = 0.005*F19
+ */
+function calculateFuelConsumptionForOwnNeeds($date, $shiftId, $blockId, $values) {
+    try {
+        // Получаем выработку тепла котлом (E19/F19) - param_id = 278
+        $boilerHeatGeneration = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 278 && $value['tg_id'] == $blockId) {
+                $boilerHeatGeneration = $value['value'];
+                break;
+            }
+        }
+        
+        error_log("Расход топлива на собственные нужды: выработка тепла котлом для блока $blockId: " . ($boilerHeatGeneration !== null ? $boilerHeatGeneration : 'null'));
+        
+        if ($boilerHeatGeneration === null) {
+            error_log("Не найдено значение выработки тепла котлом для блока $blockId");
+            return 0;
+        }
+        
+        // Применяем формулу: 0.005*E19
+        $fuelConsumptionForOwnNeeds = 0.005 * $boilerHeatGeneration;
+        
+        error_log("Расход топлива на собственные нужды для блока $blockId: E19=$boilerHeatGeneration, результат=$fuelConsumptionForOwnNeeds");
+        
+        return $fuelConsumptionForOwnNeeds;
+        
+    } catch (Exception $e) {
+        error_log('Ошибка при расчете расхода топлива на собственные нужды: ' . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * Расчет удельного расхода топлива на собственные нужды (param_id = 301)
+ * 
+ * E49 = IF(E19=0,0,100*E47/E19)
+ * F49 = IF(F19=0,0,100*F47/F19)
+ */
+function calculateSpecificFuelConsumptionForOwnNeeds($date, $shiftId, $blockId, $values) {
+    try {
+        // Получаем выработку тепла котлом (E19/F19) - param_id = 278
+        $boilerHeatGeneration = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 278 && $value['tg_id'] == $blockId) {
+                $boilerHeatGeneration = $value['value'];
+                break;
+            }
+        }
+        
+        error_log("Удельный расход топлива на собственные нужды: выработка тепла котлом для блока $blockId: " . ($boilerHeatGeneration !== null ? $boilerHeatGeneration : 'null'));
+        
+        if ($boilerHeatGeneration === null || $boilerHeatGeneration == 0) {
+            error_log("Выработка тепла котлом равна 0 или null, возвращаем 0");
+            return 0;
+        }
+        
+        // Получаем расход топлива на собственные нужды (E47/F47) - param_id = 300
+        $fuelConsumptionForOwnNeeds = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 300 && $value['tg_id'] == $blockId) {
+                $fuelConsumptionForOwnNeeds = $value['value'];
+                break;
+            }
+        }
+        
+        if ($fuelConsumptionForOwnNeeds === null) {
+            error_log("Не найдено значение расхода топлива на собственные нужды для блока $blockId");
+            return 0;
+        }
+        
+        // Применяем формулу: 100*E47/E19
+        $specificFuelConsumptionForOwnNeeds = 100 * $fuelConsumptionForOwnNeeds / $boilerHeatGeneration;
+        
+        error_log("Удельный расход топлива на собственные нужды для блока $blockId: E47=$fuelConsumptionForOwnNeeds, E19=$boilerHeatGeneration, результат=$specificFuelConsumptionForOwnNeeds");
+        
+        return $specificFuelConsumptionForOwnNeeds;
+        
+    } catch (Exception $e) {
+        error_log('Ошибка при расчете удельного расхода топлива на собственные нужды: ' . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * Расчет КПД нетто котла с учетом собственных нужд (param_id = 302)
+ * 
+ * E50 = IF('НоваяЭХ -3 стр.(а)'!E49=0,0,E38*(100-E49)/100*((100-E51)/(100-'НоваяЭХ -3 стр.(а)'!E49)))
+ * F50 = IF('НоваяЭХ -3 стр.(а)'!F49=0,0,F38*(100-F49)/100*((100-F51)/(100-'НоваяЭХ -3 стр.(а)'!F49)))
+ * G50 = (E50*E21+F50*F21)/G21
+ * 
+ * 'НоваяЭХ -3 стр.(а)'!E49/F49 означает param_id = 35 (категория 3a)
+ */
+function calculateNetEfficiencyWithOwnNeeds($date, $shiftId, $blockId, $values) {
+    try {
+        // Получаем среднюю электрическую нагрузку из категории 3a (E49/F49) - param_id = 35
+        $avgElectricLoad3a = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 35 && $value['tg_id'] == $blockId) {
+                $avgElectricLoad3a = $value['value'];
+                break;
+            }
+        }
+        
+        error_log("КПД нетто котла с учетом собственных нужд: средняя электрическая нагрузка из 3a для блока $blockId: " . ($avgElectricLoad3a !== null ? $avgElectricLoad3a : 'null'));
+        
+        if ($avgElectricLoad3a === null || $avgElectricLoad3a == 0) {
+            error_log("Средняя электрическая нагрузка из 3a равна 0 или null, возвращаем 0");
+            return 0;
+        }
+        
+        // Получаем КПД брутто котла с поправками (E38/F38) - param_id = 293
+        $boilerEfficiencyWithCorrections = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 293 && $value['tg_id'] == $blockId) {
+                $boilerEfficiencyWithCorrections = $value['value'];
+                break;
+            }
+        }
+        
+        if ($boilerEfficiencyWithCorrections === null) {
+            error_log("Не найдено значение КПД брутто котла с поправками для блока $blockId");
+            return 0;
+        }
+        
+        // Получаем удельный расход топлива на собственные нужды (E49/F49) - param_id = 301
+        $specificFuelConsumptionForOwnNeeds = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 301 && $value['tg_id'] == $blockId) {
+                $specificFuelConsumptionForOwnNeeds = $value['value'];
+                break;
+            }
+        }
+        
+        if ($specificFuelConsumptionForOwnNeeds === null) {
+            error_log("Не найдено значение удельного расхода топлива на собственные нужды для блока $blockId");
+            return 0;
+        }
+        
+        // Получаем общий удельный расход топлива (E51/F51) - param_id = 303
+        $totalSpecificFuelConsumption = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 303 && $value['tg_id'] == $blockId) {
+                $totalSpecificFuelConsumption = $value['value'];
+                break;
+            }
+        }
+        
+        if ($totalSpecificFuelConsumption === null) {
+            error_log("Не найдено значение общего удельного расхода топлива для блока $blockId");
+            return 0;
+        }
+        
+        // Для ОЧ-130 (G50) используем формулу: (E50*E21+F50*F21)/G21
+        if ($blockId == 9) {
+            // Получаем E50 и F50 (ТГ7 и ТГ8)
+            $tg7Efficiency = calculateNetEfficiencyWithOwnNeedsForBlock($date, $shiftId, 7, $values);
+            $tg8Efficiency = calculateNetEfficiencyWithOwnNeedsForBlock($date, $shiftId, 8, $values);
+            
+            // Получаем E21 и F21 (средняя тепловая нагрузка для ТГ7 и ТГ8)
+            $tg7ThermalLoad = null;
+            $tg8ThermalLoad = null;
+            foreach ($values as $value) {
+                if ($value['param_id'] == 279 && $value['tg_id'] == 7) {
+                    $tg7ThermalLoad = $value['value'];
+                } elseif ($value['param_id'] == 279 && $value['tg_id'] == 8) {
+                    $tg8ThermalLoad = $value['value'];
+                }
+            }
+            
+            if ($tg7ThermalLoad === null || $tg8ThermalLoad === null) {
+                error_log("Не найдены значения средней тепловой нагрузки для ТГ7 или ТГ8");
+                return 0;
+            }
+            
+            $g21 = $tg7ThermalLoad + $tg8ThermalLoad; // G21 = E21 + F21
+            
+            if ($g21 == 0) {
+                error_log("G21 равно 0, возвращаем 0");
+                return 0;
+            }
+            
+            $efficiency = ($tg7Efficiency * $tg7ThermalLoad + $tg8Efficiency * $tg8ThermalLoad) / $g21;
+            
+            error_log("КПД нетто котла с учетом собственных нужд для ОЧ-130: E50=$tg7Efficiency, F50=$tg8Efficiency, E21=$tg7ThermalLoad, F21=$tg8ThermalLoad, G21=$g21, результат=$efficiency");
+            
+            return $efficiency;
+        }
+        
+        // Для ТГ7 и ТГ8 используем обычную формулу
+        return calculateNetEfficiencyWithOwnNeedsForBlock($date, $shiftId, $blockId, $values);
+        
+    } catch (Exception $e) {
+        error_log('Ошибка при расчете КПД нетто котла с учетом собственных нужд: ' . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * Расчет КПД нетто котла с учетом собственных нужд для конкретного блока (ТГ7 или ТГ8)
+ */
+function calculateNetEfficiencyWithOwnNeedsForBlock($date, $shiftId, $blockId, $values) {
+    try {
+        // Получаем среднюю электрическую нагрузку из категории 3a (E49/F49) - param_id = 35
+        $avgElectricLoad3a = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 35 && $value['tg_id'] == $blockId) {
+                $avgElectricLoad3a = $value['value'];
+                break;
+            }
+        }
+        
+        if ($avgElectricLoad3a === null || $avgElectricLoad3a == 0) {
+            error_log("Средняя электрическая нагрузка из 3a равна 0 или null, возвращаем 0");
+            return 0;
+        }
+        
+        // Получаем КПД брутто котла с поправками (E38/F38) - param_id = 293
+        $boilerEfficiencyWithCorrections = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 293 && $value['tg_id'] == $blockId) {
+                $boilerEfficiencyWithCorrections = $value['value'];
+                break;
+            }
+        }
+        
+        if ($boilerEfficiencyWithCorrections === null) {
+            error_log("Не найдено значение КПД брутто котла с поправками для блока $blockId");
+            return 0;
+        }
+        
+        // Получаем удельный расход топлива на собственные нужды (E49/F49) - param_id = 301
+        $specificFuelConsumptionForOwnNeeds = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 301 && $value['tg_id'] == $blockId) {
+                $specificFuelConsumptionForOwnNeeds = $value['value'];
+                break;
+            }
+        }
+        
+        if ($specificFuelConsumptionForOwnNeeds === null) {
+            error_log("Не найдено значение удельного расхода топлива на собственные нужды для блока $blockId");
+            return 0;
+        }
+        
+        // Получаем общий удельный расход топлива (E51/F51) - param_id = 303
+        $totalSpecificFuelConsumption = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 303 && $value['tg_id'] == $blockId) {
+                $totalSpecificFuelConsumption = $value['value'];
+                break;
+            }
+        }
+        
+        if ($totalSpecificFuelConsumption === null) {
+            error_log("Не найдено значение общего удельного расхода топлива для блока $blockId");
+            return 0;
+        }
+        
+        // Применяем формулу: E38*(100-E49)/100*((100-E51)/(100-E49))
+        $efficiency = $boilerEfficiencyWithCorrections * (100 - $avgElectricLoad3a) / 100 * ((100 - $totalSpecificFuelConsumption) / (100 - $avgElectricLoad3a));
+        
+        error_log("КПД нетто котла с учетом собственных нужд для блока $blockId: E38=$boilerEfficiencyWithCorrections, E49(3a)=$avgElectricLoad3a, E51=$totalSpecificFuelConsumption, результат=$efficiency");
+        
+        return $efficiency;
+        
+    } catch (Exception $e) {
+        error_log('Ошибка при расчете КПД нетто котла с учетом собственных нужд для блока: ' . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * Расчет общего удельного расхода топлива (param_id = 303)
+ * 
+ * E51 = E45+'НоваяЭХ -3 стр.(а)'!E49
+ * F51 = F45+'НоваяЭХ -3 стр.(а)'!F49
+ * G51 = (E51*'НоваяЭХ -3 стр.(а)'!E11+F51*'НоваяЭХ -3 стр.(а)'!F11)/'НоваяЭХ -3 стр.(а)'!G11
+ * 
+ * 'НоваяЭХ -3 стр.(а)'!E49/F49 означает param_id = 35 (категория 3a)
+ * 'НоваяЭХ -3 стр.(а)'!E11/F11/G11 означает param_id = 28 (часы работы)
+ */
+function calculateTotalSpecificFuelConsumption($date, $shiftId, $blockId, $values) {
+    try {
+        // Получаем удельный расход топлива на выработку электроэнергии (E45/F45) - param_id = 299
+        $specificFuelConsumptionForElectricity = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 299 && $value['tg_id'] == $blockId) {
+                $specificFuelConsumptionForElectricity = $value['value'];
+                break;
+            }
+        }
+        
+        if ($specificFuelConsumptionForElectricity === null) {
+            error_log("Не найдено значение удельного расхода топлива на выработку электроэнергии для блока $blockId");
+            return 0;
+        }
+        
+        // Получаем среднюю электрическую нагрузку из категории 3a (E49/F49) - param_id = 35
+        $avgElectricLoad3a = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 35 && $value['tg_id'] == $blockId) {
+                $avgElectricLoad3a = $value['value'];
+                break;
+            }
+        }
+        
+        if ($avgElectricLoad3a === null) {
+            error_log("Не найдено значение средней электрической нагрузки из 3a для блока $blockId");
+            return 0;
+        }
+        
+        // Для ОЧ-130 (G51) используем формулу: (E51*E11+F51*F11)/G11
+        if ($blockId == 9) {
+            // Получаем E51 и F51 (ТГ7 и ТГ8)
+            $tg7TotalConsumption = calculateTotalSpecificFuelConsumptionForBlock($date, $shiftId, 7, $values);
+            $tg8TotalConsumption = calculateTotalSpecificFuelConsumptionForBlock($date, $shiftId, 8, $values);
+            
+            // Получаем E11 и F11 (часы работы для ТГ7 и ТГ8)
+            $tg7WorkingHours = null;
+            $tg8WorkingHours = null;
+            foreach ($values as $value) {
+                if ($value['param_id'] == 28 && $value['tg_id'] == 7) {
+                    $tg7WorkingHours = $value['value'];
+                } elseif ($value['param_id'] == 28 && $value['tg_id'] == 8) {
+                    $tg8WorkingHours = $value['value'];
+                }
+            }
+            
+            if ($tg7WorkingHours === null || $tg8WorkingHours === null) {
+                error_log("Не найдены значения часов работы для ТГ7 или ТГ8");
+                return 0;
+            }
+            
+            $g11 = $tg7WorkingHours + $tg8WorkingHours; // G11 = E11 + F11
+            
+            if ($g11 == 0) {
+                error_log("G11 равно 0, возвращаем 0");
+                return 0;
+            }
+            
+            $totalConsumption = ($tg7TotalConsumption * $tg7WorkingHours + $tg8TotalConsumption * $tg8WorkingHours) / $g11;
+            
+            error_log("Общий удельный расход топлива для ОЧ-130: E51=$tg7TotalConsumption, F51=$tg8TotalConsumption, E11=$tg7WorkingHours, F11=$tg8WorkingHours, G11=$g11, результат=$totalConsumption");
+            
+            return $totalConsumption;
+        }
+        
+        // Для ТГ7 и ТГ8 используем обычную формулу
+        return calculateTotalSpecificFuelConsumptionForBlock($date, $shiftId, $blockId, $values);
+        
+    } catch (Exception $e) {
+        error_log('Ошибка при расчете общего удельного расхода топлива: ' . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * Расчет общего удельного расхода топлива для конкретного блока (ТГ7 или ТГ8)
+ */
+function calculateTotalSpecificFuelConsumptionForBlock($date, $shiftId, $blockId, $values) {
+    try {
+        // Получаем удельный расход топлива на выработку электроэнергии (E45/F45) - param_id = 299
+        $specificFuelConsumptionForElectricity = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 299 && $value['tg_id'] == $blockId) {
+                $specificFuelConsumptionForElectricity = $value['value'];
+                break;
+            }
+        }
+        
+        if ($specificFuelConsumptionForElectricity === null) {
+            error_log("Не найдено значение удельного расхода топлива на выработку электроэнергии для блока $blockId");
+            return 0;
+        }
+        
+        // Получаем среднюю электрическую нагрузку из категории 3a (E49/F49) - param_id = 35
+        $avgElectricLoad3a = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 35 && $value['tg_id'] == $blockId) {
+                $avgElectricLoad3a = $value['value'];
+                break;
+            }
+        }
+        
+        if ($avgElectricLoad3a === null) {
+            error_log("Не найдено значение средней электрической нагрузки из 3a для блока $blockId");
+            return 0;
+        }
+        
+        // Применяем формулу: E45+E49
+        $totalConsumption = $specificFuelConsumptionForElectricity + $avgElectricLoad3a;
+        
+        error_log("Общий удельный расход топлива для блока $blockId: E45=$specificFuelConsumptionForElectricity, E49(3a)=$avgElectricLoad3a, результат=$totalConsumption");
+        
+        return $totalConsumption;
+        
+    } catch (Exception $e) {
+        error_log('Ошибка при расчете общего удельного расхода топлива для блока: ' . $e->getMessage());
+        return 0;
     }
 } 
