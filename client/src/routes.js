@@ -11,6 +11,7 @@ const FunctionVariables = React.lazy(() => import('./views/functions/FunctionVar
 const Calculations = React.lazy(() => import('./views/calculations/Calculations'))
 const PguResults = React.lazy(() => import('./views/calculations/PguResults'))
 const BlocksResults = React.lazy(() => import('./views/calculations/BlocksResults'))
+const UrtAnalysis = React.lazy(() => import('./views/calculations/UrtAnalysis'))
 
 const routes = [
   {
@@ -34,6 +35,7 @@ const routes = [
   { path: 'calculations', name: 'Расчеты', element: Calculations },
   { path: 'pgu-results', name: 'Результаты ПГУ', element: PguResults },
   { path: 'blocks-results', name: 'Результаты Блоков', element: BlocksResults },
+  { path: 'urt-analysis', name: 'Анализ УРТ', element: UrtAnalysis },
 ]
 
 export default routes

@@ -26,6 +26,7 @@ import 'react-datepicker/dist/react-datepicker.css'
 import { calculateActiveVakhtas } from '../../services/calculationsService'
 import { pguCalculationService } from '../../services/pguCalculationService'
 import blocksCalculationService from '../../services/blocksCalculationService'
+import urtAnalysisService from '../../services/urtAnalysisService'
 import './Calculations.scss'
 
 // Регистрируем русскую локаль
@@ -227,6 +228,38 @@ const Calculations = () => {
       } catch (error) {
         console.error('Ошибка при выполнении расчета:', error)
         alert('Ошибка при выполнении расчета: ' + error.message)
+      } finally {
+        setLoading(false)
+      }
+      return
+    }
+    
+    // Если выбран таб УРТ, выполняем расчет анализа УРТ
+    if (activeTab === 'urt') {
+      try {
+        setLoading(true)
+        
+        // Выполняем расчет анализа УРТ
+        const result = await urtAnalysisService.performUrtAnalysisCalculation(calculationData)
+        
+        const date = periodType === 'period' 
+          ? `${startDate.toLocaleDateString('en-CA')} - ${endDate.toLocaleDateString('en-CA')}`
+          : selectedDate.toLocaleDateString('en-CA')
+        const shifts = selectedItemsList.join(', ')
+        
+        navigate('/urt-analysis', {
+          state: { 
+            date, 
+            periodType, 
+            shifts, 
+            calculationData, 
+            calculationResult: result 
+          }
+        })
+        
+      } catch (error) {
+        console.error('Ошибка при выполнении расчета УРТ:', error)
+        alert('Ошибка при выполнении расчета УРТ: ' + error.message)
       } finally {
         setLoading(false)
       }

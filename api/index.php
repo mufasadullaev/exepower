@@ -9,12 +9,33 @@ ini_set('display_errors', 0);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
-header('Access-Control-Allow-Origin: *');
+// CORS headers - allow specific origins for development
+$allowed_origins = [
+    'http://localhost:3001',
+    'http://www.localhost:3001',
+    'http://127.0.0.1:3001',
+    'http://localhost:3000',
+    'http://www.localhost:3000',
+    'http://127.0.0.1:3000'
+];
+
+$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+if (in_array($origin, $allowed_origins)) {
+    header('Access-Control-Allow-Origin: ' . $origin);
+} else {
+    // Fallback for development - allow all origins
+    header('Access-Control-Allow-Origin: *');
+}
+
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
+header('Access-Control-Allow-Credentials: true');
+header('Access-Control-Max-Age: 86400'); // Cache preflight for 24 hours
 header('Content-Type: application/json');
 
+// Handle preflight requests
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
     exit(0);
 }
 
@@ -33,6 +54,7 @@ require_once 'controllers/equipment_tools_controller.php';
 require_once 'controllers/pgu_results_controller.php';
 require_once 'controllers/pgu_calculations_controller.php';
 require_once 'controllers/meter_reserves_controller.php';
+require_once 'controllers/urt_analysis_controller.php';
 
 $request_uri = $_SERVER['REQUEST_URI'];
 $path = parse_url($request_uri, PHP_URL_PATH);
@@ -317,6 +339,31 @@ try {
             require_once 'controllers/blocks_calculations_controller.php';
             if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 performBlocksFullCalculation();
+            } else {
+                sendError('Метод не поддерживается', 405);
+            }
+            break;
+        
+        // --- URT Analysis endpoints ---
+        case 'urt-analysis-params':
+            getUrtAnalysisParams();
+            break;
+        
+        case 'urt-analysis-values':
+            if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+                $data = $_GET;
+                getUrtAnalysisValues($data);
+            } elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                $data = json_decode(file_get_contents('php://input'), true);
+                saveUrtAnalysisValues($data);
+            } else {
+                sendError('Метод не поддерживается', 405);
+            }
+            break;
+        
+        case 'urt-analysis/perform':
+            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                performUrtAnalysisCalculation();
             } else {
                 sendError('Метод не поддерживается', 405);
             }

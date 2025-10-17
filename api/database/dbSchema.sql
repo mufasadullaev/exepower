@@ -5312,6 +5312,105 @@ ALTER TABLE `pgu_result_values`
   ADD CONSTRAINT `fk_pgu_result_param` FOREIGN KEY (`param_id`) REFERENCES `pgu_result_params` (`id`) ON DELETE CASCADE,
   ADD CONSTRAINT `fk_pgu_result_shift` FOREIGN KEY (`shift_id`) REFERENCES `shifts` (`id`) ON DELETE SET NULL,
   ADD CONSTRAINT `fk_pgu_result_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `urt_result_params`
+--
+
+CREATE TABLE `urt_result_params` (
+  `id` int NOT NULL,
+  `name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `unit` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `symbol` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `row_num` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `description` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `urt_result_params`
+--
+
+INSERT INTO `urt_result_params` (`id`, `name`, `unit`, `symbol`, `row_num`, `description`) VALUES
+(1, 'Выработка электроэнергии', 'тыс. кВт×ч', 'Wэ', '1', 'Общая выработка электроэнергии'),
+(2, 'Расход электроэнергии на с.н.', 'тыс. кВт×ч', 'Wсн', '2', 'Расход электроэнергии на собственные нужды'),
+(3, 'Отпуск электроэнергии', 'тыс. кВт×ч', 'Wотп', '3', 'Электроэнергия, отпущенная в сеть'),
+(4, 'Отпуск тепла', 'Гкал/ч', 'Qт', '4', 'Тепловая энергия, отпущенная потребителям'),
+(5, 'Средняя электрическая нагрузка', 'МВт', 'Nср', '5', 'Средняя электрическая нагрузка блока'),
+(6, 'Температура острого пара', '°C', 'tоп', '6', 'Температура острого пара на выходе из котла'),
+(7, 'Давление острого пара', 'ата', 'Pоп', '7', 'Давление острого пара на выходе из котла'),
+(8, 'Температура пара промперегрева', '°C', 'tпп', '8', 'Температура пара промперегрева'),
+(9, 'Температура питательной воды', '°C', 'tпв', '9', 'Температура питательной воды'),
+(10, 'Вакуум', 'мм рт.ст.', 'Pвак', '10', 'Вакуум в конденсаторе'),
+(11, 'Температура уходящих газов', '°C', 'tух', '11', 'Температура уходящих газов'),
+(12, 'Избыток воздуха', '%', 'α', '12', 'Коэффициент избытка воздуха'),
+(13, 'Температура наружного воздуха', '°C', 'tнар', '13', 'Температура наружного воздуха'),
+(14, 'Расход газа', 'тыс. м³', 'Vг', '14', 'Расход природного газа'),
+(15, 'Калорийность газа', 'ккал/м³', 'Qнр', '15', 'Низшая теплота сгорания газа'),
+(16, 'Расход топлива на электроэнергию', 'тут', 'Bэ', '16', 'Расход топлива на производство электроэнергии'),
+(17, 'Расход топлива на тепло', 'тут', 'Bт', '17', 'Расход топлива на производство тепла'),
+(18, 'Доля газа в балансе топлива', '%', 'γг', '18', 'Доля газа в общем балансе топлива'),
+(19, 'Исходно-номинальный УРТ', 'г/кВт×ч', 'bэ(ином)', '19', 'Исходно-номинальный удельный расход топлива'),
+(20, 'Номинальный УРТ', 'г/кВт×ч', 'bэ(ном)', '20', 'Номинальный удельный расход топлива'),
+(21, 'Нормативный УРТ', 'г/кВт×ч', 'bэ(норм)', '21', 'Нормативный удельный расход топлива'),
+(22, 'Фактический УРТ', 'г/кВт×ч', 'bэ(факт)', '22', 'Фактический удельный расход топлива'),
+(23, 'Экономия топлива (+) / Пережог топлива(-)', 'г/кВт×ч', 'Δbэ', '23', 'Отклонение фактического УРТ от нормативного');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `urt_result_values`
+--
+
+CREATE TABLE `urt_result_values` (
+  `id` bigint NOT NULL,
+  `param_id` int NOT NULL,
+  `block_id` int NOT NULL,
+  `date` date NOT NULL,
+  `shift_id` int DEFAULT NULL,
+  `value` decimal(20,4) DEFAULT NULL,
+  `norm_value` decimal(20,4) DEFAULT NULL,
+  `fact_value` decimal(20,4) DEFAULT NULL,
+  `db3_value` decimal(20,4) DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Indexes for table `urt_result_params`
+--
+ALTER TABLE `urt_result_params`
+  ADD PRIMARY KEY (`id`);
+
+--
+-- Indexes for table `urt_result_values`
+--
+ALTER TABLE `urt_result_values`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_urt_values_param` (`param_id`),
+  ADD KEY `idx_urt_values_block` (`block_id`),
+  ADD KEY `idx_urt_values_date` (`date`),
+  ADD KEY `idx_urt_values_shift` (`shift_id`);
+
+--
+-- AUTO_INCREMENT for table `urt_result_params`
+--
+ALTER TABLE `urt_result_params`
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=24;
+
+--
+-- AUTO_INCREMENT for table `urt_result_values`
+--
+ALTER TABLE `urt_result_values`
+  MODIFY `id` bigint NOT NULL AUTO_INCREMENT;
+
+--
+-- Constraints for table `urt_result_values`
+--
+ALTER TABLE `urt_result_values`
+  ADD CONSTRAINT `fk_urt_result_param` FOREIGN KEY (`param_id`) REFERENCES `urt_result_params` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_urt_result_shift` FOREIGN KEY (`shift_id`) REFERENCES `shifts` (`id`) ON DELETE SET NULL;
+
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

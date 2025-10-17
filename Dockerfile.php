@@ -32,13 +32,6 @@ RUN echo '<VirtualHost *:80>\n\
         AllowOverride All\n\
         Require all granted\n\
     </Directory>\n\
-    # API routes\n\
-    <LocationMatch "^/(?!index\\.php)">\n\
-        RewriteEngine On\n\
-        RewriteCond %{REQUEST_FILENAME} !-f\n\
-        RewriteCond %{REQUEST_FILENAME} !-d\n\
-        RewriteRule ^(.*)$ /index.php [QSA,L]\n\
-    </LocationMatch>\n\
 </VirtualHost>' > /etc/apache2/sites-available/000-default.conf
 
 # Устанавливаем рабочую директорию
