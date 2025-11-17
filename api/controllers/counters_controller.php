@@ -249,6 +249,28 @@ function getReadings() {
                         ];
                     }
                 }
+                
+                // Также добавляем данные об использовании общих счетчиков к счетчикам расхода на собственные нужды
+                $stmt = $db->prepare('
+                    SELECT id FROM meters 
+                    WHERE equipment_id = ? AND meter_type_id = 2 AND is_active = 1
+                ');
+                $stmt->execute([$equipmentId]);
+                $ownNeedsMeters = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                
+                foreach ($ownNeedsMeters as $meter) {
+                    $meterId = $meter['id'];
+                    
+                    // Если у счетчика собственных нужд есть показания, добавляем данные об использовании общих счетчиков
+                    if (isset($formattedReadings[$meterId])) {
+                        $formattedReadings[$meterId]['common_meter_usage'] = [
+                            'shift1' => round($usage['shifts'][1], 3),
+                            'shift2' => round($usage['shifts'][2], 3),
+                            'shift3' => round($usage['shifts'][3], 3),
+                            'total' => round($usage['shifts'][1] + $usage['shifts'][2] + $usage['shifts'][3], 3)
+                        ];
+                    }
+                }
             }
         } catch (Exception $commonEx) {
             // Не роняем выдачу при ошибке обработки общих счетчиков
@@ -293,14 +315,19 @@ function saveReadings() {
         
         try {
             foreach ($readings as $meterId => $reading) {
-                // Получаем информацию о счетчике
-                $stmt = $db->prepare('SELECT coefficient_k FROM meters WHERE id = ?');
+                // Получаем информацию о счетчике (включая тип для определения способа ввода)
+                $stmt = $db->prepare('SELECT coefficient_k, name, meter_type_id FROM meters WHERE id = ?');
                 $stmt->execute([$meterId]);
                 $meter = $stmt->fetch(PDO::FETCH_ASSOC);
                 
                 if (!$meter) {
                     throw new Exception("Счетчик не найден");
                 }
+                
+                // Проверяем, является ли это счетчиком ФЭС (прямой ввод значений смен)
+                $isFesMeter = stripos($meter['name'], 'ФЭС') !== false;
+                // Проверяем, является ли это счетчиком хозяйственных нужд (тип 4, прямой ввод значений смен)
+                $isHouseholdMeter = ($meter['meter_type_id'] == 4);
                 
                 // Обеспечиваем что r0 не NULL (обязательное поле в БД)
                 if (!isset($reading['r0']) || $reading['r0'] === null) {
@@ -316,155 +343,174 @@ function saveReadings() {
                 $stmt->execute([$meterId, $date]);
                 $replacement = $stmt->fetch(PDO::FETCH_ASSOC);
 
-                // Валидация показаний
-                if ($replacement) {
-                    // Если была замена, проверяем показания с учетом времени замены
-                    $replacementTime = $replacement['replacement_time'];
-                    $shift8Time = '08:00';
-                    $shift16Time = '16:00';
-                    $shift24Time = '24:00';
+                // Для счетчиков ФЭС и хозяйственных нужд используем прямой ввод значений смен, без расчета из показаний
+                if ($isFesMeter || $isHouseholdMeter) {
+                    // Для ФЭС используем напрямую переданные значения shift1, shift2, shift3
+                    $shift1 = isset($reading['shift1']) ? (float)$reading['shift1'] : null;
+                    $shift2 = isset($reading['shift2']) ? (float)$reading['shift2'] : null;
+                    $shift3 = isset($reading['shift3']) ? (float)$reading['shift3'] : null;
+                    
+                    // Рассчитываем total из сменных значений
+                    $total = ($shift1 !== null ? $shift1 : 0) + 
+                            ($shift2 !== null ? $shift2 : 0) + 
+                            ($shift3 !== null ? $shift3 : 0);
+                } else {
+                    // Валидация показаний (только для не-ФЭС счетчиков)
+                    if ($replacement) {
+                        // Если была замена, проверяем показания с учетом времени замены
+                        $replacementTime = $replacement['replacement_time'];
+                        $shift8Time = '08:00';
+                        $shift16Time = '16:00';
+                        $shift24Time = '24:00';
 
-                    // Проверяем показания до замены
-                    if ($replacementTime > $shift8Time) {
-                        // До замены в первой смене
+                        // Проверяем показания до замены
+                        if ($replacementTime > $shift8Time) {
+                            // До замены в первой смене
+                            if (isset($reading['r0']) && isset($reading['r8']) && $reading['r8'] < $reading['r0']) {
+                                throw new Exception("Показание R8 не может быть меньше R0 (до замены счетчика)");
+                            }
+                        }
+                        if ($replacementTime > $shift16Time) {
+                            // До замены во второй смене
+                            if (isset($reading['r8']) && isset($reading['r16']) && $reading['r16'] < $reading['r8']) {
+                                throw new Exception("Показание R16 не может быть меньше R8 (до замены счетчика)");
+                            }
+                        }
+                        if ($replacementTime > $shift24Time) {
+                            // До замены в третьей смене
+                            if (isset($reading['r16']) && isset($reading['r24']) && $reading['r24'] < $reading['r16']) {
+                                throw new Exception("Показание R24 не может быть меньше R16 (до замены счетчика)");
+                            }
+                        }
+
+                        // Проверяем показания после замены
+                        if ($replacementTime < $shift8Time) {
+                            // Замена в первой смене
+                            if (isset($reading['r8']) && $reading['r8'] < $replacement['new_reading']) {
+                                throw new Exception("Показание R8 не может быть меньше показания нового счетчика");
+                            }
+                            if (isset($reading['r16']) && $reading['r16'] < $replacement['new_reading']) {
+                                throw new Exception("Показание R16 не может быть меньше показания нового счетчика");
+                            }
+                            if (isset($reading['r24']) && $reading['r24'] < $replacement['new_reading']) {
+                                throw new Exception("Показание R24 не может быть меньше показания нового счетчика");
+                            }
+                        } else if ($replacementTime < $shift16Time) {
+                            // Замена во второй смене
+                            if (isset($reading['r16']) && $reading['r16'] < $replacement['new_reading']) {
+                                throw new Exception("Показание R16 не может быть меньше показания нового счетчика");
+                            }
+                            if (isset($reading['r24']) && $reading['r24'] < $replacement['new_reading']) {
+                                throw new Exception("Показание R24 не может быть меньше показания нового счетчика");
+                            }
+                            // Проверяем R24 > R16, так как замена была во второй смене
+                            if (isset($reading['r16']) && isset($reading['r24']) && $reading['r24'] < $reading['r16']) {
+                                throw new Exception("Показание R24 не может быть меньше R16");
+                            }
+                        } else if ($replacementTime < $shift24Time) {
+                            // Замена в третьей смене
+                            if (isset($reading['r24']) && $reading['r24'] < $replacement['new_reading']) {
+                                throw new Exception("Показание R24 не может быть меньше показания нового счетчика");
+                            }
+                        }
+                    } else {
+                        // Если замены не было, проверяем последовательность показаний
                         if (isset($reading['r0']) && isset($reading['r8']) && $reading['r8'] < $reading['r0']) {
-                            throw new Exception("Показание R8 не может быть меньше R0 (до замены счетчика)");
+                            throw new Exception("Показание R8 не может быть меньше R0");
                         }
-                    }
-                    if ($replacementTime > $shift16Time) {
-                        // До замены во второй смене
                         if (isset($reading['r8']) && isset($reading['r16']) && $reading['r16'] < $reading['r8']) {
-                            throw new Exception("Показание R16 не может быть меньше R8 (до замены счетчика)");
+                            throw new Exception("Показание R16 не может быть меньше R8");
                         }
-                    }
-                    if ($replacementTime > $shift24Time) {
-                        // До замены в третьей смене
-                        if (isset($reading['r16']) && isset($reading['r24']) && $reading['r24'] < $reading['r16']) {
-                            throw new Exception("Показание R24 не может быть меньше R16 (до замены счетчика)");
-                        }
-                    }
-
-                    // Проверяем показания после замены
-                    if ($replacementTime < $shift8Time) {
-                        // Замена в первой смене
-                        if (isset($reading['r8']) && $reading['r8'] < $replacement['new_reading']) {
-                            throw new Exception("Показание R8 не может быть меньше показания нового счетчика");
-                        }
-                        if (isset($reading['r16']) && $reading['r16'] < $replacement['new_reading']) {
-                            throw new Exception("Показание R16 не может быть меньше показания нового счетчика");
-                        }
-                        if (isset($reading['r24']) && $reading['r24'] < $replacement['new_reading']) {
-                            throw new Exception("Показание R24 не может быть меньше показания нового счетчика");
-                        }
-                    } else if ($replacementTime < $shift16Time) {
-                        // Замена во второй смене
-                        if (isset($reading['r16']) && $reading['r16'] < $replacement['new_reading']) {
-                            throw new Exception("Показание R16 не может быть меньше показания нового счетчика");
-                        }
-                        if (isset($reading['r24']) && $reading['r24'] < $replacement['new_reading']) {
-                            throw new Exception("Показание R24 не может быть меньше показания нового счетчика");
-                        }
-                        // Проверяем R24 > R16, так как замена была во второй смене
                         if (isset($reading['r16']) && isset($reading['r24']) && $reading['r24'] < $reading['r16']) {
                             throw new Exception("Показание R24 не может быть меньше R16");
                         }
-                    } else if ($replacementTime < $shift24Time) {
-                        // Замена в третьей смене
-                        if (isset($reading['r24']) && $reading['r24'] < $replacement['new_reading']) {
-                            throw new Exception("Показание R24 не может быть меньше показания нового счетчика");
+                    }
+
+                    // Рассчитываем значения смен
+                    $shift1 = null;
+                    $shift2 = null;
+                    $shift3 = null;
+
+                    // Сначала рассчитываем основные значения смен
+                    if ($replacement) {
+                        // Если была замена, рассчитываем с учетом времени замены
+                        $replacementTime = $replacement['replacement_time'];
+                        $shift8Time = '08:00';
+                        $shift16Time = '16:00';
+                        $shift24Time = '24:00';
+
+                        // Смена 1 (0-8)
+                        if (isset($reading['r0']) && isset($reading['r8'])) {
+                            if ($replacementTime < $shift8Time) { // замена произошла во время первой смены
+                                // Расчет по старому счетчику до замены
+                                $beforeReplacement = ($replacement['old_reading'] - $reading['r0']) * $replacement['old_coefficient'] / 1000;
+                                // Расчет по новому счетчику после замены
+                                $afterReplacement = ($reading['r8'] - $replacement['new_reading']) * $replacement['new_coefficient'] / 1000;
+                                // Расчет простоя
+                                $downtimePower = ($replacement['downtime_min'] / 60) * $replacement['power_mw'];
+                                $shift1 = $beforeReplacement + $downtimePower + $afterReplacement;
+                            } else { // замена произошла после первой смены
+                                $shift1 = ($reading['r8'] - $reading['r0']) * $replacement['old_coefficient'] / 1000;
+                            }
+                        }
+
+                        // Смена 2 (8-16)
+                        if (isset($reading['r8']) && isset($reading['r16'])) {
+                            if ($replacementTime >= $shift8Time && $replacementTime < $shift16Time) { // замена произошла во время второй смены
+                                // Расчет по старому счетчику до замены
+                                $beforeReplacement = ($replacement['old_reading'] - $reading['r8']) * $replacement['old_coefficient'] / 1000;
+                                // Расчет по новому счетчику после замены
+                                $afterReplacement = ($reading['r16'] - $replacement['new_reading']) * $replacement['new_coefficient'] / 1000;
+                                // Расчет простоя
+                                $downtimePower = ($replacement['downtime_min'] / 60) * $replacement['power_mw'];
+                                $shift2 = $beforeReplacement + $downtimePower + $afterReplacement;
+                            } else if ($replacementTime < $shift8Time) { // замена произошла до второй смены
+                                $shift2 = ($reading['r16'] - $reading['r8']) * $replacement['new_coefficient'] / 1000;
+                            } else { // замена произошла после второй смены
+                                $shift2 = ($reading['r16'] - $reading['r8']) * $replacement['old_coefficient'] / 1000;
+                            }
+                        }
+
+                        // Смена 3 (16-24)
+                        if (isset($reading['r16']) && isset($reading['r24'])) {
+                            if ($replacementTime >= $shift16Time) { // замена произошла во время третьей смены
+                                // Расчет по старому счетчику до замены
+                                $beforeReplacement = ($replacement['old_reading'] - $reading['r16']) * $replacement['old_coefficient'] / 1000;
+                                // Расчет по новому счетчику после замены
+                                $afterReplacement = ($reading['r24'] - $replacement['new_reading']) * $replacement['new_coefficient'] / 1000;
+                                // Расчет простоя
+                                $downtimePower = ($replacement['downtime_min'] / 60) * $replacement['power_mw'];
+                                $shift3 = $beforeReplacement + $downtimePower + $afterReplacement;
+                            } else { // замена произошла до третьей смены
+                                $shift3 = ($reading['r24'] - $reading['r16']) * $replacement['new_coefficient'] / 1000;
+                            }
+                        }
+                    } else {
+                        // Если замены не было, используем обычный расчет
+                        if (isset($reading['r0']) && isset($reading['r8'])) {
+                            $shift1 = ($reading['r8'] - $reading['r0']) * $meter['coefficient_k'] / 1000;
+                        }
+                        if (isset($reading['r8']) && isset($reading['r16'])) {
+                            $shift2 = ($reading['r16'] - $reading['r8']) * $meter['coefficient_k'] / 1000;
+                        }
+                        if (isset($reading['r16']) && isset($reading['r24'])) {
+                            $shift3 = ($reading['r24'] - $reading['r16']) * $meter['coefficient_k'] / 1000;
                         }
                     }
-                } else {
-                    // Если замены не было, проверяем последовательность показаний
-                    if (isset($reading['r0']) && isset($reading['r8']) && $reading['r8'] < $reading['r0']) {
-                        throw new Exception("Показание R8 не может быть меньше R0");
-                    }
-                    if (isset($reading['r8']) && isset($reading['r16']) && $reading['r16'] < $reading['r8']) {
-                        throw new Exception("Показание R16 не может быть меньше R8");
-                    }
-                    if (isset($reading['r16']) && isset($reading['r24']) && $reading['r24'] < $reading['r16']) {
-                        throw new Exception("Показание R24 не может быть меньше R16");
-                    }
+
+                    // Резервные добавки пока оставляем как есть - они будут рассчитаны в getReadings
+
+                    $total = ($shift1 !== null ? $shift1 : 0) + 
+                            ($shift2 !== null ? $shift2 : 0) + 
+                            ($shift3 !== null ? $shift3 : 0);
                 }
 
-                // Рассчитываем значения смен
-                $shift1 = null;
-                $shift2 = null;
-                $shift3 = null;
-
-                // Сначала рассчитываем основные значения смен
-                if ($replacement) {
-                    // Если была замена, рассчитываем с учетом времени замены
-                    $replacementTime = $replacement['replacement_time'];
-                    $shift8Time = '08:00';
-                    $shift16Time = '16:00';
-                    $shift24Time = '24:00';
-
-                    // Смена 1 (0-8)
-                    if (isset($reading['r0']) && isset($reading['r8'])) {
-                        if ($replacementTime < $shift8Time) { // замена произошла во время первой смены
-                            // Расчет по старому счетчику до замены
-                            $beforeReplacement = ($replacement['old_reading'] - $reading['r0']) * $replacement['old_coefficient'] / 1000;
-                            // Расчет по новому счетчику после замены
-                            $afterReplacement = ($reading['r8'] - $replacement['new_reading']) * $replacement['new_coefficient'] / 1000;
-                            // Расчет простоя
-                            $downtimePower = ($replacement['downtime_min'] / 60) * $replacement['power_mw'];
-                            $shift1 = $beforeReplacement + $downtimePower + $afterReplacement;
-                        } else { // замена произошла после первой смены
-                            $shift1 = ($reading['r8'] - $reading['r0']) * $replacement['old_coefficient'] / 1000;
-                        }
-                    }
-
-                    // Смена 2 (8-16)
-                    if (isset($reading['r8']) && isset($reading['r16'])) {
-                        if ($replacementTime >= $shift8Time && $replacementTime < $shift16Time) { // замена произошла во время второй смены
-                            // Расчет по старому счетчику до замены
-                            $beforeReplacement = ($replacement['old_reading'] - $reading['r8']) * $replacement['old_coefficient'] / 1000;
-                            // Расчет по новому счетчику после замены
-                            $afterReplacement = ($reading['r16'] - $replacement['new_reading']) * $replacement['new_coefficient'] / 1000;
-                            // Расчет простоя
-                            $downtimePower = ($replacement['downtime_min'] / 60) * $replacement['power_mw'];
-                            $shift2 = $beforeReplacement + $downtimePower + $afterReplacement;
-                        } else if ($replacementTime < $shift8Time) { // замена произошла до второй смены
-                            $shift2 = ($reading['r16'] - $reading['r8']) * $replacement['new_coefficient'] / 1000;
-                        } else { // замена произошла после второй смены
-                            $shift2 = ($reading['r16'] - $reading['r8']) * $replacement['old_coefficient'] / 1000;
-                        }
-                    }
-
-                    // Смена 3 (16-24)
-                    if (isset($reading['r16']) && isset($reading['r24'])) {
-                        if ($replacementTime >= $shift16Time) { // замена произошла во время третьей смены
-                            // Расчет по старому счетчику до замены
-                            $beforeReplacement = ($replacement['old_reading'] - $reading['r16']) * $replacement['old_coefficient'] / 1000;
-                            // Расчет по новому счетчику после замены
-                            $afterReplacement = ($reading['r24'] - $replacement['new_reading']) * $replacement['new_coefficient'] / 1000;
-                            // Расчет простоя
-                            $downtimePower = ($replacement['downtime_min'] / 60) * $replacement['power_mw'];
-                            $shift3 = $beforeReplacement + $downtimePower + $afterReplacement;
-                        } else { // замена произошла до третьей смены
-                            $shift3 = ($reading['r24'] - $reading['r16']) * $replacement['new_coefficient'] / 1000;
-                        }
-                    }
-                } else {
-                    // Если замены не было, используем обычный расчет
-                    if (isset($reading['r0']) && isset($reading['r8'])) {
-                        $shift1 = ($reading['r8'] - $reading['r0']) * $meter['coefficient_k'] / 1000;
-                    }
-                    if (isset($reading['r8']) && isset($reading['r16'])) {
-                        $shift2 = ($reading['r16'] - $reading['r8']) * $meter['coefficient_k'] / 1000;
-                    }
-                    if (isset($reading['r16']) && isset($reading['r24'])) {
-                        $shift3 = ($reading['r24'] - $reading['r16']) * $meter['coefficient_k'] / 1000;
-                    }
-                }
-
-                // Резервные добавки пока оставляем как есть - они будут рассчитаны в getReadings
-
-                $total = ($shift1 !== null ? $shift1 : 0) + 
-                        ($shift2 !== null ? $shift2 : 0) + 
-                        ($shift3 !== null ? $shift3 : 0);
-
+                // Для ФЭС и хозяйственных нужд счетчиков устанавливаем r8, r16, r24 в NULL, так как они не используются
+                $r0 = ($isFesMeter || $isHouseholdMeter) ? 0 : ($reading['r0'] ?? 0);
+                $r8 = ($isFesMeter || $isHouseholdMeter) ? null : ($reading['r8'] ?? null);
+                $r16 = ($isFesMeter || $isHouseholdMeter) ? null : ($reading['r16'] ?? null);
+                $r24 = ($isFesMeter || $isHouseholdMeter) ? null : ($reading['r24'] ?? null);
+                
                 // Проверяем существование показаний
                 $stmt = $db->prepare('
                     SELECT id FROM meter_readings 
@@ -484,10 +530,10 @@ function saveReadings() {
                         WHERE id = ?
                     ');
                     $stmt->execute([
-                        $reading['r0'],
-                        $reading['r8'],
-                        $reading['r16'],
-                        $reading['r24'],
+                        $r0,
+                        $r8,
+                        $r16,
+                        $r24,
                         $shift1,
                         $shift2,
                         $shift3,
@@ -505,10 +551,10 @@ function saveReadings() {
                     $stmt->execute([
                         $meterId,
                         $date,
-                        $reading['r0'],
-                        $reading['r8'],
-                        $reading['r16'],
-                        $reading['r24'],
+                        $r0,
+                        $r8,
+                        $r16,
+                        $r24,
                         $shift1,
                         $shift2,
                         $shift3,
@@ -1213,8 +1259,8 @@ function getCommonMeters() {
     try {
         $db = getDbConnection();
         
-        // ID общих счетчиков
-        $commonMeterIds = [48, 49, 50, 51, 52, 53];
+        // ID общих счетчиков (включая новые: ТСБ-7 ВСР-13/14, ТСБ-8 ВСР-15/16, ТСН-1/2 ПГУ)
+        $commonMeterIds = [44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55];
         $placeholders = str_repeat('?,', count($commonMeterIds) - 1) . '?';
         
         $stmt = $db->prepare("
@@ -1234,24 +1280,50 @@ function getCommonMeters() {
 }
 
 /**
- * Получение блоков ТГ7 и ТГ8
+ * Получение блоков (ТГ7, ТГ8, ПГУ1, ПГУ2)
  */
 function getTgBlocks() {
     try {
         $db = getDbConnection();
         
+        // Получаем ТГ7, ТГ8, ПГУ1, ПГУ2
+        // ПГУ1 и ПГУ2 определяем через equipment: ГТ1 (id=3) и ГТ2 (id=5) относятся к ПГУ1 и ПГУ2 соответственно
         $stmt = $db->prepare("
-            SELECT id, name 
+            SELECT id, name, 
+                   CASE 
+                     WHEN id = 1 THEN 'ТГ7'
+                     WHEN id = 2 THEN 'ТГ8'
+                     WHEN id = 3 THEN 'ПГУ1'
+                     WHEN id = 5 THEN 'ПГУ2'
+                   END as display_name
             FROM equipment 
-            WHERE id IN (1, 2)
-            ORDER BY name
+            WHERE id IN (1, 2, 3, 5)
+            ORDER BY 
+              CASE id
+                WHEN 1 THEN 1
+                WHEN 2 THEN 2
+                WHEN 3 THEN 3
+                WHEN 5 THEN 4
+              END
         ");
         $stmt->execute();
         $blocks = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
+        // Для ПГУ используем equipment_id ГТ (3 для ПГУ1, 5 для ПГУ2)
+        // Но в базе common_meter_block_usage используется equipment_id
+        // Поэтому оставляем как есть - equipment_id 3 и 5
+        foreach ($blocks as &$block) {
+            if ($block['id'] == 3) {
+                $block['name'] = 'ПГУ1';
+            } elseif ($block['id'] == 5) {
+                $block['name'] = 'ПГУ2';
+            }
+        }
+        unset($block);
+        
         sendSuccess($blocks);
     } catch (Exception $e) {
-        sendError('Ошибка при получении блоков ТГ: ' . $e->getMessage());
+        sendError('Ошибка при получении блоков: ' . $e->getMessage());
     }
 }
 

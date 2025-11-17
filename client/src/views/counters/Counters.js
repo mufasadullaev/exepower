@@ -87,8 +87,8 @@ const Counters = () => {
   const [showCommonMeterModal, setShowCommonMeterModal] = useState(false)
   const [selectedCommonMeter, setSelectedCommonMeter] = useState(null)
 
-  // ID общих счетчиков
-  const commonMeterIds = [48, 49, 50, 51, 52, 53]
+  // ID общих счетчиков (включая новые: ТСБ-7 ВСР-13/14, ТСБ-8 ВСР-15/16, ТСН-1/2 ПГУ)
+  const commonMeterIds = [44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55]
 
   const isCommonMeter = (meterId) => {
     return commonMeterIds.includes(meterId)
@@ -122,7 +122,8 @@ const Counters = () => {
         try {
           const allType2 = await counterService.getMeters(2)
           setReserveMeters(allType2.filter(m => m.name?.includes('ТСР-3-6')))
-          setPrimaryMeters(allType2.filter(m => m.name?.includes('ВСР')))
+          // Основные счетчики: ВСР и ТСН (ПГУ)
+          setPrimaryMeters(allType2.filter(m => m.name?.includes('ВСР') || m.name?.includes('ТСН')))
           const active = await counterService.getReserveAssignments(null, true)
           setActiveReserveAssignments(active || [])
         } catch (e) {
@@ -519,6 +520,16 @@ const Counters = () => {
                   const reserve2 = reading.effective_shift2 != null ? parseFloat(reading.effective_shift2) : 0
                   const reserve3 = reading.effective_shift3 != null ? parseFloat(reading.effective_shift3) : 0
                   const reserveTotal = reading.effective_total != null ? parseFloat(reading.effective_total) : 0
+                  // Данные об использовании общих счетчиков для собственных нужд
+                  const commonUsage = reading.common_meter_usage || {}
+                  const common1 = parseFloat(commonUsage.shift1) || 0
+                  const common2 = parseFloat(commonUsage.shift2) || 0
+                  const common3 = parseFloat(commonUsage.shift3) || 0
+                  const commonTotal = parseFloat(commonUsage.total) || 0
+                  // Проверяем, является ли это счетчиком ФЭС (прямой ввод значений смен)
+                  const isFesMeter = meter.name?.includes('ФЭС') || false
+                  // Проверяем, является ли это счетчиком хозяйственных нужд (прямой ввод значений смен)
+                  const isHouseholdMeter = selectedType == 4 || false
 
                   return (
                     <CTableRow key={meter.id}>
@@ -528,64 +539,136 @@ const Counters = () => {
                       <CTableDataCell>
                         {meter.coefficient_k}
                       </CTableDataCell>
+                      {!isFesMeter && !isHouseholdMeter ? (
+                        <>
+                          <CTableDataCell>
+                            <CFormInput
+                              type="number"
+                              value={reading.r0 || ''}
+                              onChange={e => handleReadingChange(meter.id, 'r0', e.target.value === '' ? null : parseFloat(e.target.value))}
+                            />
+                          </CTableDataCell>
+                          <CTableDataCell>
+                            <CFormInput
+                              type="number"
+                              value={reading.r8 || ''}
+                              onChange={e => handleReadingChange(meter.id, 'r8', e.target.value === '' ? null : parseFloat(e.target.value))}
+                            />
+                          </CTableDataCell>
+                          <CTableDataCell>
+                            <CFormInput
+                              type="number"
+                              value={reading.r16 || ''}
+                              onChange={e => handleReadingChange(meter.id, 'r16', e.target.value === '' ? null : parseFloat(e.target.value))}
+                            />
+                          </CTableDataCell>
+                          <CTableDataCell>
+                            <CFormInput
+                              type="number"
+                              value={reading.r24 || ''}
+                              onChange={e => handleReadingChange(meter.id, 'r24', e.target.value === '' ? null : parseFloat(e.target.value))}
+                            />
+                          </CTableDataCell>
+                        </>
+                      ) : (
+                        <>
+                          <CTableDataCell colSpan="4" className="text-center text-muted">
+                            Прямой ввод значений смен
+                          </CTableDataCell>
+                        </>
+                      )}
                       <CTableDataCell>
-                        <CFormInput
-                          type="number"
-                          value={reading.r0 || ''}
-                          onChange={e => handleReadingChange(meter.id, 'r0', e.target.value === '' ? null : parseFloat(e.target.value))}
-                        />
-                      </CTableDataCell>
-                      <CTableDataCell>
-                        <CFormInput
-                          type="number"
-                          value={reading.r8 || ''}
-                          onChange={e => handleReadingChange(meter.id, 'r8', e.target.value === '' ? null : parseFloat(e.target.value))}
-                        />
-                      </CTableDataCell>
-                      <CTableDataCell>
-                        <CFormInput
-                          type="number"
-                          value={reading.r16 || ''}
-                          onChange={e => handleReadingChange(meter.id, 'r16', e.target.value === '' ? null : parseFloat(e.target.value))}
-                        />
-                      </CTableDataCell>
-                      <CTableDataCell>
-                        <CFormInput
-                          type="number"
-                          value={reading.r24 || ''}
-                          onChange={e => handleReadingChange(meter.id, 'r24', e.target.value === '' ? null : parseFloat(e.target.value))}
-                        />
-                      </CTableDataCell>
-                      <CTableDataCell>
-                        <div>{shift1.toFixed(3)}</div>
-                        {selectedType == 2 && reserve1 > 0 && (
-                          <div style={{fontSize: '0.8em', color: '#0066cc', fontWeight: 'bold'}}>
-                            +{reserve1.toFixed(3)}
-                          </div>
+                        {(isFesMeter || isHouseholdMeter) ? (
+                          <CFormInput
+                            type="number"
+                            step="0.001"
+                            value={reading.shift1 !== null && reading.shift1 !== undefined ? reading.shift1 : ''}
+                            onChange={e => handleReadingChange(meter.id, 'shift1', e.target.value === '' ? null : parseFloat(e.target.value))}
+                            placeholder="С1"
+                          />
+                        ) : (
+                          <>
+                            <div>{shift1.toFixed(3)}</div>
+                            {selectedType == 2 && reserve1 > 0 && (
+                              <div style={{fontSize: '0.8em', color: '#0066cc', fontWeight: 'bold'}}>
+                                +{reserve1.toFixed(3)} (резерв)
+                              </div>
+                            )}
+                            {selectedType == 2 && common1 > 0 && (
+                              <div style={{fontSize: '0.8em', color: '#28a745', fontWeight: 'bold'}}>
+                                +{common1.toFixed(3)} (общие)
+                              </div>
+                            )}
+                          </>
                         )}
                       </CTableDataCell>
                       <CTableDataCell>
-                        <div>{shift2.toFixed(3)}</div>
-                        {selectedType == 2 && reserve2 > 0 && (
-                          <div style={{fontSize: '0.8em', color: '#0066cc', fontWeight: 'bold'}}>
-                            +{reserve2.toFixed(3)}
-                          </div>
+                        {(isFesMeter || isHouseholdMeter) ? (
+                          <CFormInput
+                            type="number"
+                            step="0.001"
+                            value={reading.shift2 !== null && reading.shift2 !== undefined ? reading.shift2 : ''}
+                            onChange={e => handleReadingChange(meter.id, 'shift2', e.target.value === '' ? null : parseFloat(e.target.value))}
+                            placeholder="С2"
+                          />
+                        ) : (
+                          <>
+                            <div>{shift2.toFixed(3)}</div>
+                            {selectedType == 2 && reserve2 > 0 && (
+                              <div style={{fontSize: '0.8em', color: '#0066cc', fontWeight: 'bold'}}>
+                                +{reserve2.toFixed(3)} (резерв)
+                              </div>
+                            )}
+                            {selectedType == 2 && common2 > 0 && (
+                              <div style={{fontSize: '0.8em', color: '#28a745', fontWeight: 'bold'}}>
+                                +{common2.toFixed(3)} (общие)
+                              </div>
+                            )}
+                          </>
                         )}
                       </CTableDataCell>
                       <CTableDataCell>
-                        <div>{shift3.toFixed(3)}</div>
-                        {selectedType == 2 && reserve3 > 0 && (
-                          <div style={{fontSize: '0.8em', color: '#0066cc', fontWeight: 'bold'}}>
-                            +{reserve3.toFixed(3)}
-                          </div>
+                        {(isFesMeter || isHouseholdMeter) ? (
+                          <CFormInput
+                            type="number"
+                            step="0.001"
+                            value={reading.shift3 !== null && reading.shift3 !== undefined ? reading.shift3 : ''}
+                            onChange={e => handleReadingChange(meter.id, 'shift3', e.target.value === '' ? null : parseFloat(e.target.value))}
+                            placeholder="С3"
+                          />
+                        ) : (
+                          <>
+                            <div>{shift3.toFixed(3)}</div>
+                            {selectedType == 2 && reserve3 > 0 && (
+                              <div style={{fontSize: '0.8em', color: '#0066cc', fontWeight: 'bold'}}>
+                                +{reserve3.toFixed(3)} (резерв)
+                              </div>
+                            )}
+                            {selectedType == 2 && common3 > 0 && (
+                              <div style={{fontSize: '0.8em', color: '#28a745', fontWeight: 'bold'}}>
+                                +{common3.toFixed(3)} (общие)
+                              </div>
+                            )}
+                          </>
                         )}
                       </CTableDataCell>
                       <CTableDataCell>
-                        <div>{total.toFixed(3)}</div>
-                        {selectedType == 2 && reserveTotal > 0 && (
-                          <div style={{fontSize: '0.8em', color: '#0066cc', fontWeight: 'bold'}}>
-                            +{reserveTotal.toFixed(3)}
-                          </div>
+                        {(isFesMeter || isHouseholdMeter) ? (
+                          <div>{(shift1 + shift2 + shift3).toFixed(3)}</div>
+                        ) : (
+                          <>
+                            <div>{total.toFixed(3)}</div>
+                            {selectedType == 2 && reserveTotal > 0 && (
+                              <div style={{fontSize: '0.8em', color: '#0066cc', fontWeight: 'bold'}}>
+                                +{reserveTotal.toFixed(3)} (резерв)
+                              </div>
+                            )}
+                            {selectedType == 2 && commonTotal > 0 && (
+                              <div style={{fontSize: '0.8em', color: '#28a745', fontWeight: 'bold'}}>
+                                +{commonTotal.toFixed(3)} (общие)
+                              </div>
+                            )}
+                          </>
                         )}
                       </CTableDataCell>
                       <CTableDataCell>
@@ -870,7 +953,7 @@ const Counters = () => {
                 </CFormSelect>
               </CCol>
               <CCol md={6}>
-                <CFormLabel>Основной (ВСР)</CFormLabel>
+                <CFormLabel>Основной</CFormLabel>
                 <CFormSelect
                   value={reserveStartForm.primary_meter_id || ''}
                   onChange={e => setReserveStartForm(prev => ({ ...prev, primary_meter_id: parseInt(e.target.value) }))}

@@ -6,20 +6,14 @@ import {
   CCardHeader,
   CCol,
   CRow,
-  CTable,
-  CTableBody,
-  CTableDataCell,
-  CTableHead,
-  CTableHeaderCell,
-  CTableRow,
   CButton,
   CSpinner,
-  CAlert,
-  CBadge
+  CAlert
 } from '@coreui/react'
 import { cilArrowLeft, cilFile, cilReload } from '@coreui/icons'
 import CIcon from '@coreui/icons-react'
 import urtAnalysisService from '../../services/urtAnalysisService'
+import UrtAnalysisTable from './UrtAnalysisTable'
 
 // Маппинг смен
 const mapShiftNameToId = (n) => ({ shift1: 1, shift2: 2, shift3: 3 }[n])
@@ -36,36 +30,13 @@ const formatValue = (v, rowNum = null, paramId = null) => {
   return num.toFixed(decimalPlaces)
 }
 
-// Группировка параметров УРТ
-const groupUrtParameters = (params) => {
-  const groups = {
-    'urt_main': {
-      name: 'Основные показатели УРТ',
-      params: []
-    },
-    'urt_calculated': {
-      name: 'Расчетные показатели УРТ',
-      params: []
-    },
-    'urt_efficiency': {
-      name: 'Показатели эффективности',
-      params: []
-    }
-  }
-  
-  params.forEach(param => {
-    const rowNum = parseInt(param.row_num, 10)
-    
-    if (rowNum >= 1 && rowNum <= 15) {
-      groups.urt_main.params.push(param)
-    } else if (rowNum >= 16 && rowNum <= 30) {
-      groups.urt_calculated.params.push(param)
-    } else {
-      groups.urt_efficiency.params.push(param)
-    }
-  })
-  
-  return groups
+// Сортировка параметров УРТ по row_num
+const sortUrtParameters = (params) => {
+  return [...params].sort((a, b) => {
+    const rowNumA = parseInt(a.row_num, 10) || 999;
+    const rowNumB = parseInt(b.row_num, 10) || 999;
+    return rowNumA - rowNumB;
+  });
 }
 
 const UrtAnalysis = () => {
@@ -75,7 +46,6 @@ const UrtAnalysis = () => {
   const [loading, setLoading] = useState(true)
   const [params, setParams] = useState([])
   const [calculationResult, setCalculationResult] = useState(null)
-  const [activeGroup, setActiveGroup] = useState('urt_main')
   const [error, setError] = useState(null)
 
   const searchParams = new URLSearchParams(location.search)
@@ -116,14 +86,23 @@ const UrtAnalysis = () => {
         shifts: selectedShiftIds
       })
       
+      console.log('URT Analysis: Получены параметры:', paramsData.length)
+      console.log('URT Analysis: Получены значения:', valuesData?.length || 0, valuesData)
+      
       // Объединяем параметры с их значениями
       const paramsWithValues = paramsData.map(param => {
-        const paramValues = valuesData.find(p => p.id === param.id)
-        return {
+        const paramValues = valuesData?.find(p => p.id === param.id)
+        const result = {
           ...param,
           values: paramValues?.values || {},
           valuesByShift: paramValues?.valuesByShift || {}
         }
+        console.log(`URT Analysis: Параметр ${param.name} (id=${param.id}):`, {
+          hasParamValues: !!paramValues,
+          valuesCount: Object.keys(result.values).length,
+          valuesByShiftCount: Object.keys(result.valuesByShift).length
+        })
+        return result
       })
       
       setParams(paramsWithValues)
@@ -145,29 +124,61 @@ const UrtAnalysis = () => {
 
   const handleExportExcel = () => {
     try {
-      // Создаем данные для экспорта
+      // Создаем данные для экспорта с новой структурой
       const exportData = []
       
-      params.forEach(param => {
+      sortedParams.forEach(param => {
         const row = {
           'Показатель': param.name,
           'Единица': param.unit,
           'Символ': param.symbol
         }
         
+        // Добавляем данные для каждого блока
+        const blocksWithNormFactDb = [
+          { id: 7, name: 'ТГ7' },
+          { id: 8, name: 'ТГ8' },
+          { id: 1, name: 'ПГУ1' },
+          { id: 2, name: 'ПГУ2' }
+        ]
+        
+        const otherBlocks = [
+          { id: 9, name: 'по Блокам' },
+          { id: 3, name: 'по ПГУ' },
+          { id: 4, name: 'ФЭС' },
+          { id: 5, name: 'по Станции' }
+        ]
+        
         if (periodType === 'shift') {
           selectedShiftIds.forEach(shiftId => {
-            const byShift = param.valuesByShift?.[shiftId] || {}
-            row[`Блок 7 (смена ${shiftId})`] = formatValue(byShift[7]?.value)
-            row[`Блок 8 (смена ${shiftId})`] = formatValue(byShift[8]?.value)
-            row[`ПГУ 1 (смена ${shiftId})`] = formatValue(byShift[1]?.value)
-            row[`ПГУ 2 (смена ${shiftId})`] = formatValue(byShift[2]?.value)
+            // Для ТГ7, ТГ8, ПГУ1 и ПГУ2 показываем Норма, Факт, dbэ
+            blocksWithNormFactDb.forEach(block => {
+              const values = param.valuesByShift?.[shiftId]?.[block.id] || {}
+              row[`${block.name} (смена ${shiftId}) - Норма`] = formatValue(values.norm)
+              row[`${block.name} (смена ${shiftId}) - Факт`] = formatValue(values.fact)
+              row[`${block.name} (смена ${shiftId}) - dbэ`] = formatValue(values.db3)
+            })
+            
+            // Для остальных блоков только значение (fact)
+            otherBlocks.forEach(block => {
+              const values = param.valuesByShift?.[shiftId]?.[block.id] || {}
+              row[`${block.name} (смена ${shiftId})`] = formatValue(values.fact)
+            })
           })
         } else {
-          row['Блок 7'] = formatValue(param.values?.[7]?.value)
-          row['Блок 8'] = formatValue(param.values?.[8]?.value)
-          row['ПГУ 1'] = formatValue(param.values?.[1]?.value)
-          row['ПГУ 2'] = formatValue(param.values?.[2]?.value)
+          // Для ТГ7, ТГ8, ПГУ1 и ПГУ2 показываем Норма, Факт, dbэ
+          blocksWithNormFactDb.forEach(block => {
+            const values = param.values?.[block.id] || {}
+            row[`${block.name} - Норма`] = formatValue(values.norm)
+            row[`${block.name} - Факт`] = formatValue(values.fact)
+            row[`${block.name} - dbэ`] = formatValue(values.db3)
+          })
+          
+          // Для остальных блоков только значение (fact)
+          otherBlocks.forEach(block => {
+            const values = param.values?.[block.id] || {}
+            row[`${block.name}`] = formatValue(values.fact)
+          })
         }
         
         exportData.push(row)
@@ -195,45 +206,16 @@ const UrtAnalysis = () => {
     }
   }
 
-  const renderResultsTable = (groupParams) => {
-    if (!groupParams || groupParams.length === 0) {
-      return (
-        <CTableRow>
-          <CTableDataCell colSpan={3 + (periodType === 'shift' ? selectedShiftIds.length * 4 : 4)} className="text-center">
-            Нет данных для отображения
-          </CTableDataCell>
-        </CTableRow>
-      )
-    }
-
-    return groupParams.map((param) => (
-      <CTableRow key={param.id}>
-        <CTableDataCell><strong>{param.name}</strong></CTableDataCell>
-        <CTableDataCell>{param.unit}</CTableDataCell>
-        <CTableDataCell>{param.symbol}</CTableDataCell>
-        {periodType === 'shift' ? (
-          selectedShiftIds.flatMap(shiftId => {
-            const byShift = param.valuesByShift?.[shiftId] || {}
-            return [
-              <CTableDataCell key={`block7-${param.id}-${shiftId}`}>{formatValue(byShift[7]?.value)}</CTableDataCell>,
-              <CTableDataCell key={`block8-${param.id}-${shiftId}`}>{formatValue(byShift[8]?.value)}</CTableDataCell>,
-              <CTableDataCell key={`pgu1-${param.id}-${shiftId}`}>{formatValue(byShift[1]?.value)}</CTableDataCell>,
-              <CTableDataCell key={`pgu2-${param.id}-${shiftId}`}>{formatValue(byShift[2]?.value)}</CTableDataCell>
-            ]
-          })
-        ) : (
-          [
-            <CTableDataCell key={`block7-${param.id}`}>{formatValue(param.values?.[7]?.value)}</CTableDataCell>,
-            <CTableDataCell key={`block8-${param.id}`}>{formatValue(param.values?.[8]?.value)}</CTableDataCell>,
-            <CTableDataCell key={`pgu1-${param.id}`}>{formatValue(param.values?.[1]?.value)}</CTableDataCell>,
-            <CTableDataCell key={`pgu2-${param.id}`}>{formatValue(param.values?.[2]?.value)}</CTableDataCell>
-          ]
-        )}
-      </CTableRow>
-    ))
+  // Используем новый компонент UrtAnalysisTable для всех параметров
+  const renderUrtAnalysisTable = () => {
+    return <UrtAnalysisTable 
+      params={sortedParams} 
+      periodType={periodType} 
+      selectedShiftIds={selectedShiftIds} 
+    />
   }
 
-  const groupedParams = useMemo(() => groupUrtParameters(params), [params])
+  const sortedParams = useMemo(() => sortUrtParameters(params), [params])
 
   if (loading) {
     return (
@@ -306,54 +288,8 @@ const UrtAnalysis = () => {
               </CAlert>
             )}
 
-            {/* Группы параметров */}
-            <div className="mb-3">
-              <div className="btn-group" role="group">
-                {Object.entries(groupedParams).map(([key, group]) => (
-                  <CButton
-                    key={key}
-                    color={activeGroup === key ? 'primary' : 'outline-primary'}
-                    variant={activeGroup === key ? 'solid' : 'outline'}
-                    onClick={() => setActiveGroup(key)}
-                    className="me-2"
-                  >
-                    {group.name}
-                    <CBadge color="light" className="ms-2">
-                      {group.params.length}
-                    </CBadge>
-                  </CButton>
-                ))}
-              </div>
-            </div>
-
             {/* Таблица результатов */}
-            <CTable responsive striped hover>
-              <CTableHead>
-                <CTableRow>
-                  <CTableHeaderCell>Показатель</CTableHeaderCell>
-                  <CTableHeaderCell>Единица</CTableHeaderCell>
-                  <CTableHeaderCell>Символ</CTableHeaderCell>
-                  {periodType === 'shift' ? (
-                    selectedShiftIds.flatMap(shiftId => [
-                      <CTableHeaderCell key={`h-block7-${shiftId}`}>Блок 7 (смена {shiftId})</CTableHeaderCell>,
-                      <CTableHeaderCell key={`h-block8-${shiftId}`}>Блок 8 (смена {shiftId})</CTableHeaderCell>,
-                      <CTableHeaderCell key={`h-pgu1-${shiftId}`}>ПГУ 1 (смена {shiftId})</CTableHeaderCell>,
-                      <CTableHeaderCell key={`h-pgu2-${shiftId}`}>ПГУ 2 (смена {shiftId})</CTableHeaderCell>
-                    ])
-                  ) : (
-                    [
-                      <CTableHeaderCell key="h-block7">Блок 7</CTableHeaderCell>,
-                      <CTableHeaderCell key="h-block8">Блок 8</CTableHeaderCell>,
-                      <CTableHeaderCell key="h-pgu1">ПГУ 1</CTableHeaderCell>,
-                      <CTableHeaderCell key="h-pgu2">ПГУ 2</CTableHeaderCell>
-                    ]
-                  )}
-                </CTableRow>
-              </CTableHead>
-              <CTableBody>
-                {renderResultsTable(groupedParams[activeGroup]?.params)}
-              </CTableBody>
-            </CTable>
+            {renderUrtAnalysisTable()}
           </CCardBody>
         </CCard>
       </CCol>

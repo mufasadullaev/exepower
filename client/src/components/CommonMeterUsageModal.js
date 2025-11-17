@@ -199,7 +199,7 @@ const CommonMeterUsageModal = ({
 
         <CCard>
           <CCardHeader>
-            <CCardTitle>Работа блоков на общем счетчике</CCardTitle>
+            <CCardTitle>Работа блоков/ПГУ на общем счетчике</CCardTitle>
           </CCardHeader>
           <CCardBody>
             <div className="mb-3">

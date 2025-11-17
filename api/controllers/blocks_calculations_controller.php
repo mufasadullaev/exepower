@@ -788,6 +788,150 @@ function calculateBlocksValues($date, $periodType, $shifts = null, $endDate = nu
                     'cell' => $cell
                 ];
                 
+                // Category 4 calculations (Прочие параметры)
+                // 1. Коэффициент теплового потока, % (param_id = 312)
+                $heatFlowCoefficient = calculateHeatFlowCoefficient($date, $shiftId, $blockId, $values);
+                $cell = getCellForBlock($blockId, 7); // row_num 7
+                $values[] = [
+                    'param_id' => 1, // Коэффициент теплового потока, %
+                    'tg_id' => $blockId,
+                    'shift_id' => (int)$shiftId,
+                    'value' => $heatFlowCoefficient,
+                    'cell' => $cell
+                ];
+                
+                // 2. Коэффициент учитывающий влияние стабилизации тепловых процессов, % (param_id = 313)
+                $stabilizationCoefficient = calculateStabilizationCoefficient($date, $shiftId, $blockId, $values);
+                $cell = getCellForBlock($blockId, 8); // row_num 8
+                $values[] = [
+                    'param_id' => 2, // Коэффициент учитывающий влияние стабилизации тепловых процессов, %
+                    'tg_id' => $blockId,
+                    'shift_id' => (int)$shiftId,
+                    'value' => $stabilizationCoefficient,
+                    'cell' => $cell
+                ];
+                
+                // 3. Удельный расход условного топлива на отпуск электроэнергии (param_id = 314)
+                $specificFuelConsumptionForElectricity4 = calculateSpecificFuelConsumptionForElectricity4($date, $shiftId, $blockId, $values);
+                $cell = getCellForBlock($blockId, 9); // row_num 9
+                $values[] = [
+                    'param_id' => 3, // Удельный расход условного топлива на отпуск электроэнергии
+                    'tg_id' => $blockId,
+                    'shift_id' => (int)$shiftId,
+                    'value' => $specificFuelConsumptionForElectricity4,
+                    'cell' => $cell
+                ];
+                
+                // 4. Номинальное значение без учета работы ОИУ (param_id = 315)
+                $nominalValueWithoutOIU = calculateNominalValueWithoutOIU($date, $shiftId, $blockId, $values);
+                $cell = getCellForBlock($blockId, 10); // row_num 10
+                $values[] = [
+                    'param_id' => 4, // Номинальное значение без учета работы ОИУ
+                    'tg_id' => $blockId,
+                    'shift_id' => (int)$shiftId,
+                    'value' => $nominalValueWithoutOIU,
+                    'cell' => $cell
+                ];
+                
+                // 5. Поправка к удельному расходу топлива на пуски (param_id = 316)
+                $startupCorrection = calculateStartupCorrection($date, $shiftId, $blockId, $values);
+                $cell = getCellForBlock($blockId, 11); // row_num 11
+                $values[] = [
+                    'param_id' => 5, // Поправка к удельному расходу топлива на пуски
+                    'tg_id' => $blockId,
+                    'shift_id' => (int)$shiftId,
+                    'value' => $startupCorrection,
+                    'cell' => $cell
+                ];
+                
+                // 6. Поправка к удельному расходу топлива на cos φ (param_id = 317)
+                $cosPhiCorrection = calculateCosPhiCorrection($date, $shiftId, $blockId, $values);
+                $cell = getCellForBlock($blockId, 12); // row_num 12
+                $values[] = [
+                    'param_id' => 6, // Поправка к удельному расходу топлива на cos φ
+                    'tg_id' => $blockId,
+                    'shift_id' => (int)$shiftId,
+                    'value' => $cosPhiCorrection,
+                    'cell' => $cell
+                ];
+                
+                // 7. Поправка к удельному расходу топлива на работу ОИУ (param_id = 318)
+                $oiuCorrection = calculateOIUCorrection($date, $shiftId, $blockId, $values);
+                $cell = getCellForBlock($blockId, 13); // row_num 13
+                $values[] = [
+                    'param_id' => 7, // Поправка к удельному расходу топлива на работу ОИУ
+                    'tg_id' => $blockId,
+                    'shift_id' => (int)$shiftId,
+                    'value' => $oiuCorrection,
+                    'cell' => $cell
+                ];
+                
+                // 8. Поправка к удельному расходу топлива на карбонатный занос конденсатора (param_id = 319)
+                $carbonateCorrection = calculateCarbonateCorrection($date, $shiftId, $blockId, $values);
+                $cell = getCellForBlock($blockId, 14); // row_num 14
+                $values[] = [
+                    'param_id' => 8, // Поправка к удельному расходу топлива на карбонатный занос конденсатора
+                    'tg_id' => $blockId,
+                    'shift_id' => (int)$shiftId,
+                    'value' => $carbonateCorrection,
+                    'cell' => $cell
+                ];
+                
+                // 9. Поправка к удельному расходу топлива на режимы работы (param_id = 320)
+                $operationModeCorrection = calculateOperationModeCorrection($date, $shiftId, $blockId, $values);
+                $cell = getCellForBlock($blockId, 15); // row_num 15
+                $values[] = [
+                    'param_id' => 9, // Поправка к удельному расходу топлива на режимы работы
+                    'tg_id' => $blockId,
+                    'shift_id' => (int)$shiftId,
+                    'value' => $operationModeCorrection,
+                    'cell' => $cell
+                ];
+                
+                // 10. Поправка к удельному расходу топлива на работу БН (param_id = 321)
+                $bnCorrection = calculateBNCorrection($date, $shiftId, $blockId, $values);
+                $cell = getCellForBlock($blockId, 16); // row_num 16
+                $values[] = [
+                    'param_id' => 10, // Поправка к удельному расходу топлива на работу БН
+                    'tg_id' => $blockId,
+                    'shift_id' => (int)$shiftId,
+                    'value' => $bnCorrection,
+                    'cell' => $cell
+                ];
+                
+                // 11. Номинальное значение с учетом работы ОИУ и других факторов (Блоки) (param_id = 322)
+                $nominalValueWithOIU = calculateNominalValueWithOIU($date, $shiftId, $blockId, $values);
+                $cell = getCellForBlock($blockId, 17); // row_num 17
+                $values[] = [
+                    'param_id' => 11, // Номинальное значение с учетом работы ОИУ и других факторов (Блоки)
+                    'tg_id' => $blockId,
+                    'shift_id' => (int)$shiftId,
+                    'value' => $nominalValueWithOIU,
+                    'cell' => $cell
+                ];
+                
+                // 12. Номинальное значение, (для ПГУ) (param_id = 323)
+                $nominalValueForPGU = calculateNominalValueForPGU($date, $shiftId, $blockId, $values);
+                $cell = getCellForBlock($blockId, 18); // row_num 18
+                $values[] = [
+                    'param_id' => 12, // Номинальное значение, (для ПГУ)
+                    'tg_id' => $blockId,
+                    'shift_id' => (int)$shiftId,
+                    'value' => $nominalValueForPGU,
+                    'cell' => $cell
+                ];
+                
+                // 13. Фактическое значение (param_id = 324)
+                $actualValue = calculateActualValue($date, $shiftId, $blockId, $values);
+                $cell = getCellForBlock($blockId, 19); // row_num 19
+                $values[] = [
+                    'param_id' => 13, // Фактическое значение
+                    'tg_id' => $blockId,
+                    'shift_id' => (int)$shiftId,
+                    'value' => $actualValue,
+                    'cell' => $cell
+                ];
+                
             }
         }
     } else {
@@ -1481,6 +1625,150 @@ function calculateBlocksValues($date, $periodType, $shifts = null, $endDate = nu
                 'tg_id' => $blockId,
                 'shift_id' => null,
                 'value' => $totalSpecificFuelConsumption,
+                'cell' => $cell
+            ];
+            
+            // Category 4 calculations (Прочие параметры)
+            // 1. Коэффициент теплового потока, % (param_id = 312)
+            $heatFlowCoefficient = calculateHeatFlowCoefficient($date, null, $blockId, $values);
+            $cell = getCellForBlock($blockId, 7); // row_num 7
+            $values[] = [
+                'param_id' => 1, // Коэффициент теплового потока, %
+                'tg_id' => $blockId,
+                'shift_id' => null,
+                'value' => $heatFlowCoefficient,
+                'cell' => $cell
+            ];
+            
+            // 2. Коэффициент учитывающий влияние стабилизации тепловых процессов, % (param_id = 313)
+            $stabilizationCoefficient = calculateStabilizationCoefficient($date, null, $blockId, $values);
+            $cell = getCellForBlock($blockId, 8); // row_num 8
+            $values[] = [
+                'param_id' => 2, // Коэффициент учитывающий влияние стабилизации тепловых процессов, %
+                'tg_id' => $blockId,
+                'shift_id' => null,
+                'value' => $stabilizationCoefficient,
+                'cell' => $cell
+            ];
+            
+            // 3. Удельный расход условного топлива на отпуск электроэнергии (param_id = 314)
+            $specificFuelConsumptionForElectricity4 = calculateSpecificFuelConsumptionForElectricity4($date, null, $blockId, $values);
+            $cell = getCellForBlock($blockId, 9); // row_num 9
+            $values[] = [
+                'param_id' => 3, // Удельный расход условного топлива на отпуск электроэнергии
+                'tg_id' => $blockId,
+                'shift_id' => null,
+                'value' => $specificFuelConsumptionForElectricity4,
+                'cell' => $cell
+            ];
+            
+            // 4. Номинальное значение без учета работы ОИУ (param_id = 315)
+            $nominalValueWithoutOIU = calculateNominalValueWithoutOIU($date, null, $blockId, $values);
+            $cell = getCellForBlock($blockId, 10); // row_num 10
+            $values[] = [
+                'param_id' => 4, // Номинальное значение без учета работы ОИУ
+                'tg_id' => $blockId,
+                'shift_id' => null,
+                'value' => $nominalValueWithoutOIU,
+                'cell' => $cell
+            ];
+            
+            // 5. Поправка к удельному расходу топлива на пуски (param_id = 316)
+            $startupCorrection = calculateStartupCorrection($date, null, $blockId, $values);
+            $cell = getCellForBlock($blockId, 11); // row_num 11
+            $values[] = [
+                'param_id' => 5, // Поправка к удельному расходу топлива на пуски
+                'tg_id' => $blockId,
+                'shift_id' => null,
+                'value' => $startupCorrection,
+                'cell' => $cell
+            ];
+            
+            // 6. Поправка к удельному расходу топлива на cos φ (param_id = 317)
+            $cosPhiCorrection = calculateCosPhiCorrection($date, null, $blockId, $values);
+            $cell = getCellForBlock($blockId, 12); // row_num 12
+            $values[] = [
+                'param_id' => 6, // Поправка к удельному расходу топлива на cos φ
+                'tg_id' => $blockId,
+                'shift_id' => null,
+                'value' => $cosPhiCorrection,
+                'cell' => $cell
+            ];
+            
+            // 7. Поправка к удельному расходу топлива на работу ОИУ (param_id = 318)
+            $oiuCorrection = calculateOIUCorrection($date, null, $blockId, $values);
+            $cell = getCellForBlock($blockId, 13); // row_num 13
+            $values[] = [
+                'param_id' => 7, // Поправка к удельному расходу топлива на работу ОИУ
+                'tg_id' => $blockId,
+                'shift_id' => null,
+                'value' => $oiuCorrection,
+                'cell' => $cell
+            ];
+            
+            // 8. Поправка к удельному расходу топлива на карбонатный занос конденсатора (param_id = 319)
+            $carbonateCorrection = calculateCarbonateCorrection($date, null, $blockId, $values);
+            $cell = getCellForBlock($blockId, 14); // row_num 14
+            $values[] = [
+                'param_id' => 8, // Поправка к удельному расходу топлива на карбонатный занос конденсатора
+                'tg_id' => $blockId,
+                'shift_id' => null,
+                'value' => $carbonateCorrection,
+                'cell' => $cell
+            ];
+            
+            // 9. Поправка к удельному расходу топлива на режимы работы (param_id = 320)
+            $operationModeCorrection = calculateOperationModeCorrection($date, null, $blockId, $values);
+            $cell = getCellForBlock($blockId, 15); // row_num 15
+            $values[] = [
+                'param_id' => 9, // Поправка к удельному расходу топлива на режимы работы
+                'tg_id' => $blockId,
+                'shift_id' => null,
+                'value' => $operationModeCorrection,
+                'cell' => $cell
+            ];
+            
+            // 10. Поправка к удельному расходу топлива на работу БН (param_id = 321)
+            $bnCorrection = calculateBNCorrection($date, null, $blockId, $values);
+            $cell = getCellForBlock($blockId, 16); // row_num 16
+            $values[] = [
+                'param_id' => 10, // Поправка к удельному расходу топлива на работу БН
+                'tg_id' => $blockId,
+                'shift_id' => null,
+                'value' => $bnCorrection,
+                'cell' => $cell
+            ];
+            
+            // 11. Номинальное значение с учетом работы ОИУ и других факторов (Блоки) (param_id = 322)
+            $nominalValueWithOIU = calculateNominalValueWithOIU($date, null, $blockId, $values);
+            $cell = getCellForBlock($blockId, 17); // row_num 17
+            $values[] = [
+                'param_id' => 11, // Номинальное значение с учетом работы ОИУ и других факторов (Блоки)
+                'tg_id' => $blockId,
+                'shift_id' => null,
+                'value' => $nominalValueWithOIU,
+                'cell' => $cell
+            ];
+            
+            // 12. Номинальное значение, (для ПГУ) (param_id = 323)
+            $nominalValueForPGU = calculateNominalValueForPGU($date, null, $blockId, $values);
+            $cell = getCellForBlock($blockId, 18); // row_num 18
+            $values[] = [
+                'param_id' => 12, // Номинальное значение, (для ПГУ)
+                'tg_id' => $blockId,
+                'shift_id' => null,
+                'value' => $nominalValueForPGU,
+                'cell' => $cell
+            ];
+            
+            // 13. Фактическое значение (param_id = 324)
+            $actualValue = calculateActualValue($date, null, $blockId, $values);
+            $cell = getCellForBlock($blockId, 19); // row_num 19
+            $values[] = [
+                'param_id' => 13, // Фактическое значение
+                'tg_id' => $blockId,
+                'shift_id' => null,
+                'value' => $actualValue,
                 'cell' => $cell
             ];
         }
@@ -3880,7 +4168,7 @@ function calculateCommonMeterShares($date) {
         // Результат: [equipment_id => ['equipment_id' => id, 'equipment_name' => name, 'shifts' => [1 => value, 2 => value, 3 => value]]]
         $result = [];
         
-        // Инициализируем записи для ТГ7 и ТГ8
+        // Инициализируем записи для ТГ7, ТГ8, ПГУ1 и ПГУ2
         $result[1] = [
             'equipment_id' => 1,
             'equipment_name' => 'ТГ7',
@@ -3890,6 +4178,18 @@ function calculateCommonMeterShares($date) {
         $result[2] = [
             'equipment_id' => 2,
             'equipment_name' => 'ТГ8',
+            'shifts' => [1 => 0, 2 => 0, 3 => 0]
+        ];
+        
+        $result[3] = [
+            'equipment_id' => 3,
+            'equipment_name' => 'ПГУ1',
+            'shifts' => [1 => 0, 2 => 0, 3 => 0]
+        ];
+        
+        $result[5] = [
+            'equipment_id' => 5,
+            'equipment_name' => 'ПГУ2',
             'shifts' => [1 => 0, 2 => 0, 3 => 0]
         ];
         
@@ -6121,4 +6421,295 @@ function calculateTotalSpecificFuelConsumptionForBlock($date, $shiftId, $blockId
         error_log('Ошибка при расчете общего удельного расхода топлива для блока: ' . $e->getMessage());
         return 0;
     }
-} 
+}
+
+/**
+ * Расчет коэффициента теплового потока, %
+ * Формула: E7=IF('НоваяЭХ -3 стр.(а)'!E29=0,0,100-1.5*700/'НоваяЭХ -3 стр.(а)'!E29)
+ * Где 'НоваяЭХ -3 стр.(а)'!E29 это param_id = 35 (средняя электрическая нагрузка из категории 3a)
+ */
+function calculateHeatFlowCoefficient($date, $shiftId, $blockId, $values) {
+    try {
+        // Получаем среднюю электрическую нагрузку из категории 3a (E29) - param_id = 35
+        $avgElectricLoad3a = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 36 && $value['tg_id'] == $blockId) {
+                $avgElectricLoad3a = $value['value'];
+                break;
+            }
+        }
+        
+        if ($avgElectricLoad3a === null || $avgElectricLoad3a == 0) {
+            error_log("Средняя электрическая нагрузка (param_id=35) не найдена или равна 0 для блока $blockId");
+            return 0;
+        }
+        
+        // Формула: 100 - 1.5 * 700 / E29
+        $coefficient = 100 - (1.5 * 700 / $avgElectricLoad3a);
+        
+        error_log("Коэффициент теплового потока для блока $blockId: E29=$avgElectricLoad3a, результат=$coefficient");
+        
+        return $coefficient;
+        
+    } catch (Exception $e) {
+        error_log('Ошибка при расчете коэффициента теплового потока: ' . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * Расчет коэффициента учитывающего влияние стабилизации тепловых процессов, %
+ * Заглушка - требует уточнения формулы
+ */
+function calculateStabilizationCoefficient($date, $shiftId, $blockId, $values) {
+    try {
+        // Заглушка - требует уточнения формулы
+        if ($blockId == 8 || $blockId == 9) {
+            return 0.2;
+        } else {
+            return 0;
+        }
+    } catch (Exception $e) {
+        error_log('Ошибка при расчете коэффициента стабилизации: ' . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * Расчет удельного расхода условного топлива на отпуск электроэнергии
+ * Заглушка - требует уточнения формулы
+ */
+function calculateSpecificFuelConsumptionForElectricity4($date, $shiftId, $blockId, $values) {
+    try {
+        // Заглушка - требует уточнения формулы
+        return 0;
+    } catch (Exception $e) {
+        error_log('Ошибка при расчете удельного расхода топлива на электроэнергию: ' . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * Расчет номинального значения без учета работы ОИУ
+ * Формула: E10=IF('НоваяЭХ -3 стр. (б)'!E18=0,0,(1+E8*0.01)*'НоваяЭХ -3 стр.(а)'!E52*10^4/(7*'НоваяЭХ -3 стр. (б)'!E50*E7))
+ * Где:
+ * - E18 = param_id = 277 (число часов работы группы котлов) из категории 3b
+ * - E8 = param_id = 2 (коэффициент стабилизации) из категории 4
+ * - E52 = param_id = 53 (номинальное значение удельного расхода тепла нетто по подгруппе турбоагрегатов) из категории 3a
+ * - E50 = param_id = 50 (номинальное относительное значение расхода электроэнергии на СН подгруппы т/агрегатов) из категории 3a
+ * - E7 = param_id = 1 (коэффициент теплового потока) из категории 4
+ */
+function calculateNominalValueWithoutOIU($date, $shiftId, $blockId, $values) {
+    try {
+        // Получаем E18 (число часов работы группы котлов) из категории 3b - param_id = 277
+        $boilerWorkingHours = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 277 && $value['tg_id'] == $blockId) {
+                $boilerWorkingHours = $value['value'];
+                break;
+            }
+        }
+        
+        if ($boilerWorkingHours === null || $boilerWorkingHours == 0) {
+            error_log("Число часов работы группы котлов (param_id=277) не найдено или равно 0 для блока $blockId");
+            return 0;
+        }
+        
+        // Получаем E8 (коэффициент стабилизации) из категории 4 - param_id = 2
+        $stabilizationCoefficient = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 2 && $value['tg_id'] == $blockId) {
+                $stabilizationCoefficient = $value['value'];
+                break;
+            }
+        }
+        
+        if ($stabilizationCoefficient === null) {
+            error_log("Коэффициент стабилизации (param_id=2) не найден для блока $blockId");
+            return 0;
+        }
+        
+        // Получаем E52 (номинальное значение удельного расхода тепла нетто) из категории 3a - param_id = 53
+        $nominalHeatConsumption = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 53 && $value['tg_id'] == $blockId) {
+                $nominalHeatConsumption = $value['value'];
+                break;
+            }
+        }
+        
+        if ($nominalHeatConsumption === null) {
+            error_log("Номинальное значение удельного расхода тепла нетто (param_id=53) не найдено для блока $blockId");
+            return 0;
+        }
+        
+        // Получаем E50 (номинальное относительное значение расхода электроэнергии на СН) из категории 3a - param_id = 50
+        $nominalElectricityConsumption = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 302 && $value['tg_id'] == $blockId) {
+                $nominalElectricityConsumption = $value['value'];
+                break;
+            }
+        }
+        
+        if ($nominalElectricityConsumption === null) {
+            error_log("Номинальное относительное значение расхода электроэнергии на СН (param_id=50) не найдено для блока $blockId");
+            return 0;
+        }
+        
+        // Получаем E7 (коэффициент теплового потока) из категории 4 - param_id = 1
+        $heatFlowCoefficient = null;
+        foreach ($values as $value) {
+            if ($value['param_id'] == 1 && $value['tg_id'] == $blockId) {
+                $heatFlowCoefficient = $value['value'];
+                break;
+            }
+        }
+        
+        if ($heatFlowCoefficient === null) {
+            error_log("Коэффициент теплового потока (param_id=1) не найден для блока $blockId");
+            return 0;
+        }
+        
+        // Формула: (1 + E8 * 0.01) * E52 * 10^4 / (7 * E50 * E7)
+        $denominator = 7 * $nominalElectricityConsumption * $heatFlowCoefficient;
+        if ($denominator == 0) {
+            error_log("Знаменатель равен 0, возвращаем 0");
+            return 0;
+        }
+        
+        $result = (1 + $stabilizationCoefficient * 0.01) * $nominalHeatConsumption * 10000 / (7 * $nominalElectricityConsumption * $heatFlowCoefficient);
+        
+        return $result;
+        
+    } catch (Exception $e) {
+        error_log('Ошибка при расчете номинального значения без ОИУ: ' . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * Расчет поправки к удельному расходу топлива на пуски
+ * Заглушка - требует уточнения формулы
+ */
+function calculateStartupCorrection($date, $shiftId, $blockId, $values) {
+    try {
+        // Заглушка - требует уточнения формулы
+        return 0;
+    } catch (Exception $e) {
+        error_log('Ошибка при расчете поправки на пуски: ' . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * Расчет поправки к удельному расходу топлива на cos φ
+ * Заглушка - требует уточнения формулы
+ */
+function calculateCosPhiCorrection($date, $shiftId, $blockId, $values) {
+    try {
+        // Заглушка - требует уточнения формулы
+        return 0;
+    } catch (Exception $e) {
+        error_log('Ошибка при расчете поправки на cos φ: ' . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * Расчет поправки к удельному расходу топлива на работу ОИУ
+ * Заглушка - требует уточнения формулы
+ */
+function calculateOIUCorrection($date, $shiftId, $blockId, $values) {
+    try {
+        // Заглушка - требует уточнения формулы
+        return 0;
+    } catch (Exception $e) {
+        error_log('Ошибка при расчете поправки на ОИУ: ' . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * Расчет поправки к удельному расходу топлива на карбонатный занос конденсатора
+ * Заглушка - требует уточнения формулы
+ */
+function calculateCarbonateCorrection($date, $shiftId, $blockId, $values) {
+    try {
+        // Заглушка - требует уточнения формулы
+        return 0;
+    } catch (Exception $e) {
+        error_log('Ошибка при расчете поправки на карбонатный занос: ' . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * Расчет поправки к удельному расходу топлива на режимы работы
+ * Заглушка - требует уточнения формулы
+ */
+function calculateOperationModeCorrection($date, $shiftId, $blockId, $values) {
+    try {
+        // Заглушка - требует уточнения формулы
+        return 0;
+    } catch (Exception $e) {
+        error_log('Ошибка при расчете поправки на режимы работы: ' . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * Расчет поправки к удельному расходу топлива на работу БН
+ * Заглушка - требует уточнения формулы
+ */
+function calculateBNCorrection($date, $shiftId, $blockId, $values) {
+    try {
+        // Заглушка - требует уточнения формулы
+        return 0;
+    } catch (Exception $e) {
+        error_log('Ошибка при расчете поправки на БН: ' . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * Расчет номинального значения с учетом работы ОИУ и других факторов (Блоки)
+ * Заглушка - требует уточнения формулы
+ */
+function calculateNominalValueWithOIU($date, $shiftId, $blockId, $values) {
+    try {
+        // Заглушка - требует уточнения формулы
+        return 0;
+    } catch (Exception $e) {
+        error_log('Ошибка при расчете номинального значения с ОИУ: ' . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * Расчет номинального значения для ПГУ
+ * Заглушка - требует уточнения формулы
+ */
+function calculateNominalValueForPGU($date, $shiftId, $blockId, $values) {
+    try {
+        // Заглушка - требует уточнения формулы
+        return 0;
+    } catch (Exception $e) {
+        error_log('Ошибка при расчете номинального значения для ПГУ: ' . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * Расчет фактического значения
+ * Заглушка - требует уточнения формулы
+ */
+function calculateActualValue($date, $shiftId, $blockId, $values) {
+    try {
+        // Заглушка - требует уточнения формулы
+        return 0;
+    } catch (Exception $e) {
+        error_log('Ошибка при расчете фактического значения: ' . $e->getMessage());
+        return 0;
+    }
+}
