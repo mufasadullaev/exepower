@@ -530,6 +530,8 @@ const Counters = () => {
                   const isFesMeter = meter.name?.includes('ФЭС') || false
                   // Проверяем, является ли это счетчиком хозяйственных нужд (прямой ввод значений смен)
                   const isHouseholdMeter = selectedType == 4 || false
+                  // Проверяем, является ли это счетчиком TCH-1 или TCH-2 (ПГУ) - ID 54 и 55
+                  const isTchMeter = meter.id === 54 || meter.id === 55 || meter.name?.includes('ТСН-1') || meter.name?.includes('ТСН-2') || false
 
                   return (
                     <CTableRow key={meter.id}>
@@ -578,7 +580,7 @@ const Counters = () => {
                         </>
                       )}
                       <CTableDataCell>
-                        {(isFesMeter || isHouseholdMeter) ? (
+                        {(isFesMeter || isHouseholdMeter || isTchMeter) ? (
                           <CFormInput
                             type="number"
                             step="0.001"
@@ -603,7 +605,7 @@ const Counters = () => {
                         )}
                       </CTableDataCell>
                       <CTableDataCell>
-                        {(isFesMeter || isHouseholdMeter) ? (
+                        {(isFesMeter || isHouseholdMeter || isTchMeter) ? (
                           <CFormInput
                             type="number"
                             step="0.001"
@@ -628,7 +630,7 @@ const Counters = () => {
                         )}
                       </CTableDataCell>
                       <CTableDataCell>
-                        {(isFesMeter || isHouseholdMeter) ? (
+                        {(isFesMeter || isHouseholdMeter || isTchMeter) ? (
                           <CFormInput
                             type="number"
                             step="0.001"
@@ -653,7 +655,7 @@ const Counters = () => {
                         )}
                       </CTableDataCell>
                       <CTableDataCell>
-                        {(isFesMeter || isHouseholdMeter) ? (
+                        {(isFesMeter || isHouseholdMeter || isTchMeter) ? (
                           <div>{(shift1 + shift2 + shift3).toFixed(3)}</div>
                         ) : (
                           <>

@@ -15,8 +15,24 @@ function performBlocksFullCalculation() {
     requireAuth();
 
     try {
-        $data = json_decode(file_get_contents('php://input'), true);
+        $rawInput = file_get_contents('php://input');
+        error_log("Raw input received: " . $rawInput);
+        $data = json_decode($rawInput, true);
+        
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            error_log("JSON decode error: " . json_last_error_msg());
+            sendError('Ошибка декодирования JSON: ' . json_last_error_msg(), 400);
+        }
+        
+        if ($data === null) {
+            error_log("Decoded data is null");
+            sendError('Получены некорректные данные', 400);
+        }
+        
+        error_log("Decoded data: " . json_encode($data));
+        
         if (!isset($data['periodType']) || !isset($data['dates'])) {
+            error_log("Missing required fields. periodType: " . (isset($data['periodType']) ? $data['periodType'] : 'not set') . ", dates: " . (isset($data['dates']) ? json_encode($data['dates']) : 'not set'));
             sendError('Необходимо указать тип периода и даты', 400);
         }
 
@@ -24,6 +40,10 @@ function performBlocksFullCalculation() {
         $calculatedParams = 0;
         
         if ($periodType === 'shift') {
+            if (!isset($data['dates']['selectedDate'])) {
+                error_log("Missing selectedDate in dates for shift period type");
+                sendError('Необходимо указать selectedDate в dates для типа периода "shift"', 400);
+            }
             $date = $data['dates']['selectedDate'];
             $shifts = $data['shifts'] ?? [1, 2, 3];
             error_log("Shifts received: " . json_encode($shifts));
@@ -46,6 +66,10 @@ function performBlocksFullCalculation() {
                 ]);
             }
         } elseif ($periodType === 'day') {
+            if (!isset($data['dates']['selectedDate'])) {
+                error_log("Missing selectedDate in dates for day period type");
+                sendError('Необходимо указать selectedDate в dates для типа периода "day"', 400);
+            }
             $date = $data['dates']['selectedDate'];
             $values = calculateBlocksValues($date, 'day');
             $calculatedParams = count($values);
@@ -58,6 +82,10 @@ function performBlocksFullCalculation() {
                 ]);
             }
         } else { // period
+            if (!isset($data['dates']['startDate']) || !isset($data['dates']['endDate'])) {
+                error_log("Missing startDate or endDate in dates for period type");
+                sendError('Необходимо указать startDate и endDate в dates для типа периода "period"', 400);
+            }
             $start = $data['dates']['startDate'];
             $end = $data['dates']['endDate'];
             $values = calculateBlocksValues($start, 'period', null, $end);
@@ -82,6 +110,33 @@ function performBlocksFullCalculation() {
     } catch (Exception $e) {
         sendError('Ошибка при выполнении расчетов Блоков: ' . $e->getMessage());
     }
+}
+
+/**
+ * Ограничивает значение до допустимого диапазона для decimal(15,6)
+ * 
+ * @param float $value Значение для ограничения
+ * @param string $context Контекст (для логирования)
+ * @return float Ограниченное значение
+ */
+function limitDecimalValue($value, $context = '') {
+    $maxValue = 999999999.999999;
+    $minValue = -999999999.999999;
+    
+    if (!is_finite($value)) {
+        error_log("WARNING: Non-finite value in $context: $value, returning 0");
+        return 0;
+    }
+    
+    if ($value > $maxValue) {
+        error_log("WARNING: Value exceeds max in $context: $value > $maxValue, limiting to $maxValue");
+        return $maxValue;
+    } elseif ($value < $minValue) {
+        error_log("WARNING: Value below min in $context: $value < $minValue, limiting to $minValue");
+        return $minValue;
+    }
+    
+    return round($value, 6);
 }
 
 /**
@@ -3946,7 +4001,7 @@ function calculateParameter51($date, $shiftId, $blockId, &$values) {
             }
             
             $result = 100000 * (1.24 * $workingHours) / ($parameter39 * $generation);
-            return round($result, 4);
+            return limitDecimalValue($result, "calculateParameter51 for block $blockId, shift $shiftId");
             
         } elseif ($blockId == 9) {
             // ОЧ-130: G51=100000*(1.24*G15)/(G39*G11)
@@ -4005,7 +4060,7 @@ function calculateParameter51($date, $shiftId, $blockId, &$values) {
             }
             
             $result = 100000 * (1.24 * $g15) / ($g39 * $g11);
-            return round($result, 4);
+            return limitDecimalValue($result, "calculateParameter51 for block 9 (ОЧ-130)");
         }
         
         return 0;
@@ -4084,7 +4139,7 @@ function calculateParameter52($date, $shiftId, $blockId, &$values) {
         }
         
         $result = $parameter39 * (100 + $parameter51) / (100 - $parameter49);
-        return round($result, 4);
+        return limitDecimalValue($result, "calculateParameter52");
         
     } catch (Exception $e) {
         error_log('Ошибка при расчете параметра E52/F52/G52: ' . $e->getMessage());
@@ -6206,7 +6261,7 @@ function calculateNetEfficiencyWithOwnNeeds($date, $shiftId, $blockId, $values) 
             
             error_log("КПД нетто котла с учетом собственных нужд для ОЧ-130: E50=$tg7Efficiency, F50=$tg8Efficiency, E21=$tg7ThermalLoad, F21=$tg8ThermalLoad, G21=$g21, результат=$efficiency");
             
-            return $efficiency;
+            return limitDecimalValue($efficiency, "calculateNetEfficiencyWithOwnNeeds for ОЧ-130 (block 9)");
         }
         
         // Для ТГ7 и ТГ8 используем обычную формулу
@@ -6280,11 +6335,18 @@ function calculateNetEfficiencyWithOwnNeedsForBlock($date, $shiftId, $blockId, $
         }
         
         // Применяем формулу: E38*(100-E49)/100*((100-E51)/(100-E49))
-        $efficiency = $boilerEfficiencyWithCorrections * (100 - $avgElectricLoad3a) / 100 * ((100 - $totalSpecificFuelConsumption) / (100 - $avgElectricLoad3a));
+        // Проверяем деление на ноль
+        $denominator = 100 - $avgElectricLoad3a;
+        if (abs($denominator) < 0.0001) {
+            error_log("WARNING: Деление на ноль в расчете КПД нетто для блока $blockId: avgElectricLoad3a=$avgElectricLoad3a, denominator=$denominator");
+            return 0;
+        }
+        
+        $efficiency = $boilerEfficiencyWithCorrections * (100 - $avgElectricLoad3a) / 100 * ((100 - $totalSpecificFuelConsumption) / $denominator);
         
         error_log("КПД нетто котла с учетом собственных нужд для блока $blockId: E38=$boilerEfficiencyWithCorrections, E49(3a)=$avgElectricLoad3a, E51=$totalSpecificFuelConsumption, результат=$efficiency");
         
-        return $efficiency;
+        return limitDecimalValue($efficiency, "calculateNetEfficiencyWithOwnNeedsForBlock for block $blockId");
         
     } catch (Exception $e) {
         error_log('Ошибка при расчете КПД нетто котла с учетом собственных нужд для блока: ' . $e->getMessage());
@@ -6433,13 +6495,32 @@ function calculateHeatFlowCoefficient($date, $shiftId, $blockId, $values) {
         // Получаем среднюю электрическую нагрузку из категории 3a (E29) - param_id = 35
         $avgElectricLoad3a = null;
         foreach ($values as $value) {
-            if ($value['param_id'] == 36 && $value['tg_id'] == $blockId) {
+            if ($value['param_id'] == 35 && $value['tg_id'] == $blockId) {
                 $avgElectricLoad3a = $value['value'];
                 break;
             }
         }
         
+        // Если не нашли в текущих значениях, ищем в базе
         if ($avgElectricLoad3a === null || $avgElectricLoad3a == 0) {
+            $db = getDbConnection();
+            $stmt = $db->prepare('
+                SELECT value FROM tg_result_values 
+                WHERE param_id = 35 AND tg_id = ? AND date = ?
+                ' . ($shiftId ? 'AND shift_id = ?' : 'AND shift_id IS NULL')
+            );
+            
+            if ($shiftId) {
+                $stmt->execute([$blockId, $date, $shiftId]);
+            } else {
+                $stmt->execute([$blockId, $date]);
+            }
+            
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            $avgElectricLoad3a = $result ? (float)$result['value'] : 0;
+        }
+        
+        if ($avgElectricLoad3a == 0) {
             error_log("Средняя электрическая нагрузка (param_id=35) не найдена или равна 0 для блока $blockId");
             return 0;
         }
@@ -6464,7 +6545,7 @@ function calculateHeatFlowCoefficient($date, $shiftId, $blockId, $values) {
 function calculateStabilizationCoefficient($date, $shiftId, $blockId, $values) {
     try {
         // Заглушка - требует уточнения формулы
-        if ($blockId == 8 || $blockId == 9) {
+        if ($blockId == 8) {
             return 0.2;
         } else {
             return 0;
@@ -6491,96 +6572,278 @@ function calculateSpecificFuelConsumptionForElectricity4($date, $shiftId, $block
 
 /**
  * Расчет номинального значения без учета работы ОИУ
- * Формула: E10=IF('НоваяЭХ -3 стр. (б)'!E18=0,0,(1+E8*0.01)*'НоваяЭХ -3 стр.(а)'!E52*10^4/(7*'НоваяЭХ -3 стр. (б)'!E50*E7))
+ * Формула: 
+ * E10=IF(E18=0,0,(1+E8*0.01)*E54*10^4/(7*E50*E7))
+ * F10=IF(F18=0,0,(1+F8*0.01)*F54*10^4/(7*F50*F7))
+ * G10=(E10*E13+F13*F10)/G13
  * Где:
- * - E18 = param_id = 277 (число часов работы группы котлов) из категории 3b
- * - E8 = param_id = 2 (коэффициент стабилизации) из категории 4
- * - E52 = param_id = 53 (номинальное значение удельного расхода тепла нетто по подгруппе турбоагрегатов) из категории 3a
- * - E50 = param_id = 50 (номинальное относительное значение расхода электроэнергии на СН подгруппы т/агрегатов) из категории 3a
- * - E7 = param_id = 1 (коэффициент теплового потока) из категории 4
+ * - E18/F18 = param_id = 277 (число часов работы группы котлов) из категории 3b
+ * - E8/F8 = param_id = 2 (коэффициент стабилизации) из категории 4
+ * - E54/F54 = param_id = 53 (номинальное значение удельного расхода тепла нетто по подгруппе турбоагрегатов) из категории 3a, row_num = 52
+ * - E50/F50 = param_id = 50 (номинальное относительное значение расхода электроэнергии на СН подгруппы т/агрегатов) из категории 3a
+ * - E7/F7 = param_id = 1 (коэффициент теплового потока) из категории 4
+ * - E13/F13/G13 = param_id = 27 (отпуск электроэнергии с шин) из категории 3a
  */
 function calculateNominalValueWithoutOIU($date, $shiftId, $blockId, $values) {
     try {
-        // Получаем E18 (число часов работы группы котлов) из категории 3b - param_id = 277
-        $boilerWorkingHours = null;
-        foreach ($values as $value) {
-            if ($value['param_id'] == 277 && $value['tg_id'] == $blockId) {
-                $boilerWorkingHours = $value['value'];
-                break;
+        if ($blockId == 7 || $blockId == 8) {
+            // Для ТГ7 и ТГ8: E10/F10 = IF(E18/F18=0,0,(1+E8/F8*0.01)*E54/F54*10^4/(7*E50/F50*E7/F7))
+            
+            // Получаем E18/F18 (число часов работы группы котлов) из категории 3b - param_id = 277
+            $boilerWorkingHours = null;
+            foreach ($values as $value) {
+                if ($value['param_id'] == 277 && $value['tg_id'] == $blockId) {
+                    $boilerWorkingHours = $value['value'];
+                    break;
+                }
             }
-        }
-        
-        if ($boilerWorkingHours === null || $boilerWorkingHours == 0) {
-            error_log("Число часов работы группы котлов (param_id=277) не найдено или равно 0 для блока $blockId");
-            return 0;
-        }
-        
-        // Получаем E8 (коэффициент стабилизации) из категории 4 - param_id = 2
-        $stabilizationCoefficient = null;
-        foreach ($values as $value) {
-            if ($value['param_id'] == 2 && $value['tg_id'] == $blockId) {
-                $stabilizationCoefficient = $value['value'];
-                break;
+            
+            // Если не нашли в текущих значениях, ищем в базе
+            if ($boilerWorkingHours === null) {
+                $db = getDbConnection();
+                $stmt = $db->prepare('
+                    SELECT value FROM tg_result_values 
+                    WHERE param_id = 277 AND tg_id = ? AND date = ?
+                    ' . ($shiftId ? 'AND shift_id = ?' : 'AND shift_id IS NULL')
+                );
+                if ($shiftId) {
+                    $stmt->execute([$blockId, $date, $shiftId]);
+                } else {
+                    $stmt->execute([$blockId, $date]);
+                }
+                $result = $stmt->fetch(PDO::FETCH_ASSOC);
+                $boilerWorkingHours = $result ? (float)$result['value'] : 0;
             }
-        }
-        
-        if ($stabilizationCoefficient === null) {
-            error_log("Коэффициент стабилизации (param_id=2) не найден для блока $blockId");
-            return 0;
-        }
-        
-        // Получаем E52 (номинальное значение удельного расхода тепла нетто) из категории 3a - param_id = 53
-        $nominalHeatConsumption = null;
-        foreach ($values as $value) {
-            if ($value['param_id'] == 53 && $value['tg_id'] == $blockId) {
-                $nominalHeatConsumption = $value['value'];
-                break;
+            
+            if ($boilerWorkingHours == 0) {
+                error_log("Число часов работы группы котлов (param_id=277) равно 0 для блока $blockId, возвращаем 0");
+                return 0;
             }
-        }
-        
-        if ($nominalHeatConsumption === null) {
-            error_log("Номинальное значение удельного расхода тепла нетто (param_id=53) не найдено для блока $blockId");
-            return 0;
-        }
-        
-        // Получаем E50 (номинальное относительное значение расхода электроэнергии на СН) из категории 3a - param_id = 50
-        $nominalElectricityConsumption = null;
-        foreach ($values as $value) {
-            if ($value['param_id'] == 302 && $value['tg_id'] == $blockId) {
-                $nominalElectricityConsumption = $value['value'];
-                break;
+            
+            // Получаем E8/F8 (коэффициент стабилизации) из категории 4 - param_id = 2
+            $stabilizationCoefficient = null;
+            foreach ($values as $value) {
+                if ($value['param_id'] == 2 && $value['tg_id'] == $blockId) {
+                    $stabilizationCoefficient = $value['value'];
+                    break;
+                }
             }
-        }
-        
-        if ($nominalElectricityConsumption === null) {
-            error_log("Номинальное относительное значение расхода электроэнергии на СН (param_id=50) не найдено для блока $blockId");
-            return 0;
-        }
-        
-        // Получаем E7 (коэффициент теплового потока) из категории 4 - param_id = 1
-        $heatFlowCoefficient = null;
-        foreach ($values as $value) {
-            if ($value['param_id'] == 1 && $value['tg_id'] == $blockId) {
-                $heatFlowCoefficient = $value['value'];
-                break;
+            
+            if ($stabilizationCoefficient === null) {
+                $db = getDbConnection();
+                $stmt = $db->prepare('
+                    SELECT value FROM tg_result_values 
+                    WHERE param_id = 2 AND tg_id = ? AND date = ?
+                    ' . ($shiftId ? 'AND shift_id = ?' : 'AND shift_id IS NULL')
+                );
+                if ($shiftId) {
+                    $stmt->execute([$blockId, $date, $shiftId]);
+                } else {
+                    $stmt->execute([$blockId, $date]);
+                }
+                $result = $stmt->fetch(PDO::FETCH_ASSOC);
+                $stabilizationCoefficient = $result ? (float)$result['value'] : 0;
             }
+            
+            // Получаем E54/F54 (номинальное значение удельного расхода тепла нетто) из категории 3a - param_id = 53
+            $nominalHeatConsumption = null;
+            foreach ($values as $value) {
+                if ($value['param_id'] == 53 && $value['tg_id'] == $blockId) {
+                    $nominalHeatConsumption = $value['value'];
+                    break;
+                }
+            }
+            
+            if ($nominalHeatConsumption === null) {
+                $db = getDbConnection();
+                $stmt = $db->prepare('
+                    SELECT value FROM tg_result_values 
+                    WHERE param_id = 53 AND tg_id = ? AND date = ?
+                    ' . ($shiftId ? 'AND shift_id = ?' : 'AND shift_id IS NULL')
+                );
+                if ($shiftId) {
+                    $stmt->execute([$blockId, $date, $shiftId]);
+                } else {
+                    $stmt->execute([$blockId, $date]);
+                }
+                $result = $stmt->fetch(PDO::FETCH_ASSOC);
+                $nominalHeatConsumption = $result ? (float)$result['value'] : 0;
+            }
+            
+            if ($nominalHeatConsumption == 0) {
+                error_log("Номинальное значение удельного расхода тепла нетто (param_id=53) равно 0 для блока $blockId");
+                return 0;
+            }
+            
+            // Получаем E50/F50 (номинальное относительное значение расхода электроэнергии на СН) из категории 3a - param_id = 50
+            $nominalElectricityConsumption = null;
+            foreach ($values as $value) {
+                if ($value['param_id'] == 50 && $value['tg_id'] == $blockId) {
+                    $nominalElectricityConsumption = $value['value'];
+                    break;
+                }
+            }
+            
+            if ($nominalElectricityConsumption === null) {
+                $db = getDbConnection();
+                $stmt = $db->prepare('
+                    SELECT value FROM tg_result_values 
+                    WHERE param_id = 50 AND tg_id = ? AND date = ?
+                    ' . ($shiftId ? 'AND shift_id = ?' : 'AND shift_id IS NULL')
+                );
+                if ($shiftId) {
+                    $stmt->execute([$blockId, $date, $shiftId]);
+                } else {
+                    $stmt->execute([$blockId, $date]);
+                }
+                $result = $stmt->fetch(PDO::FETCH_ASSOC);
+                $nominalElectricityConsumption = $result ? (float)$result['value'] : 0;
+            }
+            
+            if ($nominalElectricityConsumption == 0) {
+                error_log("Номинальное относительное значение расхода электроэнергии на СН (param_id=50) равно 0 для блока $blockId");
+                return 0;
+            }
+            
+            // Получаем E7/F7 (коэффициент теплового потока) из категории 4 - param_id = 1
+            $heatFlowCoefficient = null;
+            foreach ($values as $value) {
+                if ($value['param_id'] == 1 && $value['tg_id'] == $blockId) {
+                    $heatFlowCoefficient = $value['value'];
+                    break;
+                }
+            }
+            
+            if ($heatFlowCoefficient === null) {
+                $db = getDbConnection();
+                $stmt = $db->prepare('
+                    SELECT value FROM tg_result_values 
+                    WHERE param_id = 1 AND tg_id = ? AND date = ?
+                    ' . ($shiftId ? 'AND shift_id = ?' : 'AND shift_id IS NULL')
+                );
+                if ($shiftId) {
+                    $stmt->execute([$blockId, $date, $shiftId]);
+                } else {
+                    $stmt->execute([$blockId, $date]);
+                }
+                $result = $stmt->fetch(PDO::FETCH_ASSOC);
+                $heatFlowCoefficient = $result ? (float)$result['value'] : 0;
+            }
+            
+            if ($heatFlowCoefficient == 0) {
+                error_log("Коэффициент теплового потока (param_id=1) равен 0 для блока $blockId");
+                return 0;
+            }
+            
+            // Формула: (1 + E8 * 0.01) * E54 * 10^4 / (7 * E50 * E7)
+            $denominator = 7 * $nominalElectricityConsumption * $heatFlowCoefficient;
+            if ($denominator == 0) {
+                error_log("Знаменатель равен 0, возвращаем 0");
+                return 0;
+            }
+            
+            $result = (1 + $stabilizationCoefficient * 0.01) * $nominalHeatConsumption * 10000 / $denominator;
+            
+            error_log("Номинальное значение без ОИУ для блока $blockId: E18=$boilerWorkingHours, E8=$stabilizationCoefficient, E54=$nominalHeatConsumption, E50=$nominalElectricityConsumption, E7=$heatFlowCoefficient, результат=$result");
+            
+            return limitDecimalValue($result, "calculateNominalValueWithoutOIU for block $blockId");
+            
+        } elseif ($blockId == 9) {
+            // Для ОЧ-130: G10 = (E10*E13+F13*F10)/G13
+            $db = getDbConnection();
+            
+            // Получаем E10 (номинальное значение без ОИУ для ТГ7)
+            $e10 = calculateNominalValueWithoutOIU($date, $shiftId, 7, $values);
+            
+            // Получаем F10 (номинальное значение без ОИУ для ТГ8)
+            $f10 = calculateNominalValueWithoutOIU($date, $shiftId, 8, $values);
+            
+            // Получаем E13 (отпуск электроэнергии с шин для ТГ7) - param_id = 27
+            $e13 = null;
+            foreach ($values as $value) {
+                if ($value['param_id'] == 27 && $value['tg_id'] == 7) {
+                    $e13 = $value['value'];
+                    break;
+                }
+            }
+            
+            if ($e13 === null) {
+                $stmt = $db->prepare('
+                    SELECT value FROM tg_result_values 
+                    WHERE param_id = 27 AND tg_id = 7 AND date = ?
+                    ' . ($shiftId ? 'AND shift_id = ?' : 'AND shift_id IS NULL')
+                );
+                if ($shiftId) {
+                    $stmt->execute([$date, $shiftId]);
+                } else {
+                    $stmt->execute([$date]);
+                }
+                $result = $stmt->fetch(PDO::FETCH_ASSOC);
+                $e13 = $result ? (float)$result['value'] : 0;
+            }
+            
+            // Получаем F13 (отпуск электроэнергии с шин для ТГ8) - param_id = 27
+            $f13 = null;
+            foreach ($values as $value) {
+                if ($value['param_id'] == 27 && $value['tg_id'] == 8) {
+                    $f13 = $value['value'];
+                    break;
+                }
+            }
+            
+            if ($f13 === null) {
+                $stmt = $db->prepare('
+                    SELECT value FROM tg_result_values 
+                    WHERE param_id = 27 AND tg_id = 8 AND date = ?
+                    ' . ($shiftId ? 'AND shift_id = ?' : 'AND shift_id IS NULL')
+                );
+                if ($shiftId) {
+                    $stmt->execute([$date, $shiftId]);
+                } else {
+                    $stmt->execute([$date]);
+                }
+                $result = $stmt->fetch(PDO::FETCH_ASSOC);
+                $f13 = $result ? (float)$result['value'] : 0;
+            }
+            
+            // Получаем G13 (отпуск электроэнергии с шин для ОЧ-130) - param_id = 27
+            $g13 = null;
+            foreach ($values as $value) {
+                if ($value['param_id'] == 27 && $value['tg_id'] == 9) {
+                    $g13 = $value['value'];
+                    break;
+                }
+            }
+            
+            if ($g13 === null) {
+                $stmt = $db->prepare('
+                    SELECT value FROM tg_result_values 
+                    WHERE param_id = 27 AND tg_id = 9 AND date = ?
+                    ' . ($shiftId ? 'AND shift_id = ?' : 'AND shift_id IS NULL')
+                );
+                if ($shiftId) {
+                    $stmt->execute([$date, $shiftId]);
+                } else {
+                    $stmt->execute([$date]);
+                }
+                $result = $stmt->fetch(PDO::FETCH_ASSOC);
+                $g13 = $result ? (float)$result['value'] : 0;
+            }
+            
+            if ($g13 == 0) {
+                error_log("Отпуск электроэнергии с шин для ОЧ-130 (param_id=27) равен 0, возвращаем 0");
+                return 0;
+            }
+            
+            // Формула: G10 = (E10*E13+F13*F10)/G13
+            $result = ($e10 * $e13 + $f13 * $f10) / $g13;
+            
+            error_log("Номинальное значение без ОИУ для ОЧ-130: E10=$e10, E13=$e13, F10=$f10, F13=$f13, G13=$g13, результат=$result");
+            
+            return limitDecimalValue($result, "calculateNominalValueWithoutOIU for block 9");
         }
         
-        if ($heatFlowCoefficient === null) {
-            error_log("Коэффициент теплового потока (param_id=1) не найден для блока $blockId");
-            return 0;
-        }
-        
-        // Формула: (1 + E8 * 0.01) * E52 * 10^4 / (7 * E50 * E7)
-        $denominator = 7 * $nominalElectricityConsumption * $heatFlowCoefficient;
-        if ($denominator == 0) {
-            error_log("Знаменатель равен 0, возвращаем 0");
-            return 0;
-        }
-        
-        $result = (1 + $stabilizationCoefficient * 0.01) * $nominalHeatConsumption * 10000 / (7 * $nominalElectricityConsumption * $heatFlowCoefficient);
-        
-        return $result;
+        return 0;
         
     } catch (Exception $e) {
         error_log('Ошибка при расчете номинального значения без ОИУ: ' . $e->getMessage());
@@ -6592,10 +6855,183 @@ function calculateNominalValueWithoutOIU($date, $shiftId, $blockId, $values) {
  * Расчет поправки к удельному расходу топлива на пуски
  * Заглушка - требует уточнения формулы
  */
+/**
+ * Расчет поправки к удельному расходу топлива на пуски
+ * Формула: 
+ * E11=IF(C13=0,0,74.9*C13*1000/E13)
+ * F11=IF(D13=0,0,74.9*D13*1000/F13)
+ * G11=(E11*E13+F13*F11)/G13
+ * Где:
+ * - C13/D13 = количество пусков из 'Исх. данные оч.130' (parameter_values с equipment_id = 7, cell = C13/D13)
+ *   Или из tg_result_values с param_id = 30 (Количество пусков т/агрегатов по диспетчерскому графику)
+ * - E13/F13/G13 = отпуск электроэнергии с шин (param_id = 27) из tg_result_values
+ */
 function calculateStartupCorrection($date, $shiftId, $blockId, $values) {
     try {
-        // Заглушка - требует уточнения формулы
+        if ($blockId == 7 || $blockId == 8) {
+            // Для ТГ7 и ТГ8: E11/F11 = IF(C13/D13=0,0,74.9*C13/D13*1000/E13/F13)
+            $db = getDbConnection();
+            
+            // Определяем cell в зависимости от блока
+            $cell13 = $blockId == 7 ? 'C13' : 'D13';
+            
+            // Получаем C13/D13 (количество пусков) из parameter_values для equipment_id = 7
+            $c13 = null;
+            $stmt = $db->prepare('
+                SELECT value FROM parameter_values 
+                WHERE equipment_id = 7 AND date = ? AND cell = ?
+                ' . ($shiftId ? 'AND shift_id = ?' : 'AND shift_id IS NULL')
+            );
+            if ($shiftId) {
+                $stmt->execute([$date, $cell13, $shiftId]);
+            } else {
+                $stmt->execute([$date, $cell13]);
+            }
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            $c13 = $result ? (float)$result['value'] : 0;
+            
+            // Если не нашли в parameter_values, пробуем из tg_result_values с param_id = 30
+            if ($c13 == 0) {
+                $stmt = $db->prepare('
+                    SELECT value FROM tg_result_values 
+                    WHERE param_id = 30 AND tg_id = ? AND date = ?
+                    ' . ($shiftId ? 'AND shift_id = ?' : 'AND shift_id IS NULL')
+                );
+                if ($shiftId) {
+                    $stmt->execute([$blockId, $date, $shiftId]);
+                } else {
+                    $stmt->execute([$blockId, $date]);
+                }
+                $result = $stmt->fetch(PDO::FETCH_ASSOC);
+                $c13 = $result ? (float)$result['value'] : 0;
+            }
+            
+            if ($c13 == 0) {
+                error_log("Количество пусков (C13/D13) равно 0 для блока $blockId, возвращаем 0");
+                return 0;
+            }
+            
+            // Получаем E13/F13 (отпуск электроэнергии с шин) - param_id = 27
+            $e13 = null;
+            foreach ($values as $value) {
+                if ($value['param_id'] == 27 && $value['tg_id'] == $blockId) {
+                    $e13 = $value['value'];
+                    break;
+                }
+            }
+            
+            if ($e13 === null) {
+                $stmt = $db->prepare('
+                    SELECT value FROM tg_result_values 
+                    WHERE param_id = 27 AND tg_id = ? AND date = ?
+                    ' . ($shiftId ? 'AND shift_id = ?' : 'AND shift_id IS NULL')
+                );
+                if ($shiftId) {
+                    $stmt->execute([$blockId, $date, $shiftId]);
+                } else {
+                    $stmt->execute([$blockId, $date]);
+                }
+                $result = $stmt->fetch(PDO::FETCH_ASSOC);
+                $e13 = $result ? (float)$result['value'] : 0;
+            }
+            
+            if ($e13 == 0) {
+                error_log("Отпуск электроэнергии с шин (E13/F13) равно 0 для блока $blockId, возвращаем 0");
+                return 0;
+            }
+            
+            // Формула: 74.9 * C13 * 1000 / E13
+            $result = 74.9 * $c13 * 1000 / $e13;
+            
+            error_log("Поправка на пуски для блока $blockId: C13=$c13, E13=$e13, результат=$result");
+            
+            return limitDecimalValue($result, "calculateStartupCorrection for block $blockId");
+            
+        } elseif ($blockId == 9) {
+            // Для ОЧ-130: G11 = (E11*E13+F13*F11)/G13
+            $e11 = calculateStartupCorrection($date, $shiftId, 7, $values);
+            $f11 = calculateStartupCorrection($date, $shiftId, 8, $values);
+            
+            // Получаем E13/F13/G13 (отпуск электроэнергии с шин) - param_id = 27
+            $e13 = null;
+            $f13 = null;
+            $g13 = null;
+            
+            foreach ($values as $value) {
+                if ($value['param_id'] == 27) {
+                    if ($value['tg_id'] == 7) {
+                        $e13 = $value['value'];
+                    } elseif ($value['tg_id'] == 8) {
+                        $f13 = $value['value'];
+                    } elseif ($value['tg_id'] == 9) {
+                        $g13 = $value['value'];
+                    }
+                }
+            }
+            
+            if ($e13 === null || $f13 === null || $g13 === null) {
+                $db = getDbConnection();
+                if ($e13 === null) {
+                    $stmt = $db->prepare('
+                        SELECT value FROM tg_result_values 
+                        WHERE param_id = 27 AND tg_id = 7 AND date = ?
+                        ' . ($shiftId ? 'AND shift_id = ?' : 'AND shift_id IS NULL')
+                    );
+                    if ($shiftId) {
+                        $stmt->execute([$date, $shiftId]);
+                    } else {
+                        $stmt->execute([$date]);
+                    }
+                    $result = $stmt->fetch(PDO::FETCH_ASSOC);
+                    $e13 = $result ? (float)$result['value'] : 0;
+                }
+                
+                if ($f13 === null) {
+                    $stmt = $db->prepare('
+                        SELECT value FROM tg_result_values 
+                        WHERE param_id = 27 AND tg_id = 8 AND date = ?
+                        ' . ($shiftId ? 'AND shift_id = ?' : 'AND shift_id IS NULL')
+                    );
+                    if ($shiftId) {
+                        $stmt->execute([$date, $shiftId]);
+                    } else {
+                        $stmt->execute([$date]);
+                    }
+                    $result = $stmt->fetch(PDO::FETCH_ASSOC);
+                    $f13 = $result ? (float)$result['value'] : 0;
+                }
+                
+                if ($g13 === null) {
+                    $stmt = $db->prepare('
+                        SELECT value FROM tg_result_values 
+                        WHERE param_id = 27 AND tg_id = 9 AND date = ?
+                        ' . ($shiftId ? 'AND shift_id = ?' : 'AND shift_id IS NULL')
+                    );
+                    if ($shiftId) {
+                        $stmt->execute([$date, $shiftId]);
+                    } else {
+                        $stmt->execute([$date]);
+                    }
+                    $result = $stmt->fetch(PDO::FETCH_ASSOC);
+                    $g13 = $result ? (float)$result['value'] : 0;
+                }
+            }
+            
+            if ($g13 == 0) {
+                error_log("Отпуск электроэнергии с шин для ОЧ-130 (G13) равно 0, возвращаем 0");
+                return 0;
+            }
+            
+            // Формула: G11 = (E11*E13+F13*F11)/G13
+            $result = ($e11 * $e13 + $f13 * $f11) / $g13;
+            
+            error_log("Поправка на пуски для ОЧ-130: E11=$e11, E13=$e13, F11=$f11, F13=$f13, G13=$g13, результат=$result");
+            
+            return limitDecimalValue($result, "calculateStartupCorrection for block 9");
+        }
+        
         return 0;
+        
     } catch (Exception $e) {
         error_log('Ошибка при расчете поправки на пуски: ' . $e->getMessage());
         return 0;
@@ -6634,10 +7070,23 @@ function calculateOIUCorrection($date, $shiftId, $blockId, $values) {
  * Расчет поправки к удельному расходу топлива на карбонатный занос конденсатора
  * Заглушка - требует уточнения формулы
  */
+/**
+ * Расчет поправки к удельному расходу топлива на карбонатный занос конденсатора
+ * Константные значения:
+ * - Для блока 7 (ТГ7): 1.48 g/kWh
+ * - Для блока 8 (ТГ8): 2.08 g/kWh
+ * - Для других блоков: 0
+ */
 function calculateCarbonateCorrection($date, $shiftId, $blockId, $values) {
     try {
-        // Заглушка - требует уточнения формулы
-        return 0;
+        if ($blockId == 7) {
+            return 1.48;
+        } elseif ($blockId == 8) {
+            return 2.08;
+        } else {
+            // Для ОЧ-130 и других блоков возвращаем 0
+            return 0;
+        }
     } catch (Exception $e) {
         error_log('Ошибка при расчете поправки на карбонатный занос: ' . $e->getMessage());
         return 0;
@@ -6676,10 +7125,172 @@ function calculateBNCorrection($date, $shiftId, $blockId, $values) {
  * Расчет номинального значения с учетом работы ОИУ и других факторов (Блоки)
  * Заглушка - требует уточнения формулы
  */
+/**
+ * Расчет номинального значения с учетом работы ОИУ и других факторов (Блоки)
+ * Формула: E17 = E10 + E11 + E12 + E13 + E14 + E15 + E16
+ * Где:
+ * - E10 = param_id = 4 (Номинальное значение без учета работы ОИУ)
+ * - E11 = param_id = 5 (Поправка к удельному расходу топлива на пуски)
+ * - E12 = param_id = 6 (Поправка к удельному расходу топлива на cos φ)
+ * - E13 = param_id = 7 (Поправка к удельному расходу топлива на работу ОИУ)
+ * - E14 = param_id = 8 (Поправка к удельному расходу топлива на карбонатный занос конденсатора)
+ * - E15 = param_id = 9 (Поправка к удельному расходу топлива на режимы работы)
+ * - E16 = param_id = 10 (Поправка к удельному расходу топлива на работу БН)
+ */
 function calculateNominalValueWithOIU($date, $shiftId, $blockId, $values) {
     try {
-        // Заглушка - требует уточнения формулы
-        return 0;
+        // Получаем все необходимые значения из массива $values
+        $e10 = null; // param_id = 4
+        $e11 = null; // param_id = 5
+        $e12 = null; // param_id = 6
+        $e13 = null; // param_id = 7
+        $e14 = null; // param_id = 8
+        $e15 = null; // param_id = 9
+        $e16 = null; // param_id = 10
+        
+        foreach ($values as $value) {
+            if ($value['tg_id'] == $blockId && $value['shift_id'] == ($shiftId ? (int)$shiftId : null)) {
+                switch ($value['param_id']) {
+                    case 4:
+                        $e10 = $value['value'];
+                        break;
+                    case 5:
+                        $e11 = $value['value'];
+                        break;
+                    case 6:
+                        $e12 = $value['value'];
+                        break;
+                    case 7:
+                        $e13 = $value['value'];
+                        break;
+                    case 8:
+                        $e14 = $value['value'];
+                        break;
+                    case 9:
+                        $e15 = $value['value'];
+                        break;
+                    case 10:
+                        $e16 = $value['value'];
+                        break;
+                }
+            }
+        }
+        
+        // Если не нашли в текущих значениях, ищем в базе
+        $db = getDbConnection();
+        
+        if ($e10 === null) {
+            $stmt = $db->prepare('
+                SELECT value FROM tg_result_values 
+                WHERE param_id = 4 AND tg_id = ? AND date = ?
+                ' . ($shiftId ? 'AND shift_id = ?' : 'AND shift_id IS NULL')
+            );
+            if ($shiftId) {
+                $stmt->execute([$blockId, $date, $shiftId]);
+            } else {
+                $stmt->execute([$blockId, $date]);
+            }
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            $e10 = $result ? (float)$result['value'] : 0;
+        }
+        
+        if ($e11 === null) {
+            $stmt = $db->prepare('
+                SELECT value FROM tg_result_values 
+                WHERE param_id = 5 AND tg_id = ? AND date = ?
+                ' . ($shiftId ? 'AND shift_id = ?' : 'AND shift_id IS NULL')
+            );
+            if ($shiftId) {
+                $stmt->execute([$blockId, $date, $shiftId]);
+            } else {
+                $stmt->execute([$blockId, $date]);
+            }
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            $e11 = $result ? (float)$result['value'] : 0;
+        }
+        
+        if ($e12 === null) {
+            $stmt = $db->prepare('
+                SELECT value FROM tg_result_values 
+                WHERE param_id = 6 AND tg_id = ? AND date = ?
+                ' . ($shiftId ? 'AND shift_id = ?' : 'AND shift_id IS NULL')
+            );
+            if ($shiftId) {
+                $stmt->execute([$blockId, $date, $shiftId]);
+            } else {
+                $stmt->execute([$blockId, $date]);
+            }
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            $e12 = $result ? (float)$result['value'] : 0;
+        }
+        
+        if ($e13 === null) {
+            $stmt = $db->prepare('
+                SELECT value FROM tg_result_values 
+                WHERE param_id = 7 AND tg_id = ? AND date = ?
+                ' . ($shiftId ? 'AND shift_id = ?' : 'AND shift_id IS NULL')
+            );
+            if ($shiftId) {
+                $stmt->execute([$blockId, $date, $shiftId]);
+            } else {
+                $stmt->execute([$blockId, $date]);
+            }
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            $e13 = $result ? (float)$result['value'] : 0;
+        }
+        
+        if ($e14 === null) {
+            $stmt = $db->prepare('
+                SELECT value FROM tg_result_values 
+                WHERE param_id = 8 AND tg_id = ? AND date = ?
+                ' . ($shiftId ? 'AND shift_id = ?' : 'AND shift_id IS NULL')
+            );
+            if ($shiftId) {
+                $stmt->execute([$blockId, $date, $shiftId]);
+            } else {
+                $stmt->execute([$blockId, $date]);
+            }
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            $e14 = $result ? (float)$result['value'] : 0;
+        }
+        
+        if ($e15 === null) {
+            $stmt = $db->prepare('
+                SELECT value FROM tg_result_values 
+                WHERE param_id = 9 AND tg_id = ? AND date = ?
+                ' . ($shiftId ? 'AND shift_id = ?' : 'AND shift_id IS NULL')
+            );
+            if ($shiftId) {
+                $stmt->execute([$blockId, $date, $shiftId]);
+            } else {
+                $stmt->execute([$blockId, $date]);
+            }
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            $e15 = $result ? (float)$result['value'] : 0;
+        }
+        
+        if ($e16 === null) {
+            $stmt = $db->prepare('
+                SELECT value FROM tg_result_values 
+                WHERE param_id = 10 AND tg_id = ? AND date = ?
+                ' . ($shiftId ? 'AND shift_id = ?' : 'AND shift_id IS NULL')
+            );
+            if ($shiftId) {
+                $stmt->execute([$blockId, $date, $shiftId]);
+            } else {
+                $stmt->execute([$blockId, $date]);
+            }
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            $e16 = $result ? (float)$result['value'] : 0;
+        }
+        
+        // Формула: E17 = E10 + E11 + E12 + E13 + E14 + E15 + E16
+        $result = $e10 + $e11 + $e12 + $e13 + $e14 + $e15 + $e16;
+        
+        error_log("Номинальное значение с ОИУ для блока $blockId: E10=$e10, E11=$e11, E12=$e12, E13=$e13, E14=$e14, E15=$e15, E16=$e16, результат=$result");
+        
+        return limitDecimalValue($result, "calculateNominalValueWithOIU for block $blockId");
+        
     } catch (Exception $e) {
         error_log('Ошибка при расчете номинального значения с ОИУ: ' . $e->getMessage());
         return 0;
@@ -6701,15 +7312,308 @@ function calculateNominalValueForPGU($date, $shiftId, $blockId, $values) {
 }
 
 /**
- * Расчет фактического значения
- * Заглушка - требует уточнения формулы
+ * Расчет фактического значения УРТ
+ * Формула: E39=IF(C4<=0,0,ROUND((C34*E32+C35*E33)/7000/C5*1000,2))
+ * Для ТГ7: C4, C34, C35, E32, E33, C5 из 'Исходные данные оч.130' (equipment_id = 7)
+ * Для ТГ8: D4, D34, D35, F32, F33, D5
+ * Где:
+ * - C4/D4 = отпуск электроэнергии с шин для ТГ7/ТГ8 (param_id = 27, tg_id = 7/8) или из parameter_values для equipment_id = 7
+ * - C34/D34 = parameter_id = 45 ("В топлива за месяц (газ)") для equipment_id = 7, cell = C34/D34 (для ТГ7/ТГ8) или E30 (для ОЧ-130)
+ * - C35/D35 = parameter_id = 46 ("В топлива за месяц (мазут)") для equipment_id = 7, cell = C35/D35 (для ТГ7/ТГ8) или E31 (для ОЧ-130)
+ * - E32/F32 = parameter_id = 43 ("Факт Qнр (газ)") для equipment_id = 7, cell = E28/F28 (для ТГ7/ТГ8) или E28 (для ОЧ-130)
+ * - E33/F33 = parameter_id = 44 ("Факт Qнр (мазут)") для equipment_id = 7, cell = E29/F29 (для ТГ7/ТГ8) или E29 (для ОЧ-130)
+ * - C5/D5 = отпуск электроэнергии с шин для ТГ7/ТГ8 (param_id = 27, tg_id = 7/8) или из parameter_values для equipment_id = 7
  */
 function calculateActualValue($date, $shiftId, $blockId, $values) {
     try {
-        // Заглушка - требует уточнения формулы
+        if ($blockId == 7 || $blockId == 8) {
+            // Для ТГ7 и ТГ8: E39/F39 = IF(C4/D4<=0,0,ROUND((C34/D34*E32/F32+C35/D35*E33/F33)/7000/C5/D5*1000,2))
+            $db = getDbConnection();
+            
+            // Определяем cell в зависимости от блока
+            $cellPrefix = $blockId == 7 ? 'C' : 'D';
+            $cellE = $blockId == 7 ? 'E' : 'F';
+            
+            // Получаем C4/D4 (отпуск электроэнергии с шин) - param_id = 27
+            $c4 = null;
+            foreach ($values as $value) {
+                if ($value['param_id'] == 27 && $value['tg_id'] == $blockId) {
+                    $c4 = $value['value'];
+                    break;
+                }
+            }
+            
+            if ($c4 === null) {
+                $stmt = $db->prepare('
+                    SELECT value FROM tg_result_values 
+                    WHERE param_id = 27 AND tg_id = ? AND date = ?
+                    ' . ($shiftId ? 'AND shift_id = ?' : 'AND shift_id IS NULL')
+                );
+                if ($shiftId) {
+                    $stmt->execute([$blockId, $date, $shiftId]);
+                } else {
+                    $stmt->execute([$blockId, $date]);
+                }
+                $result = $stmt->fetch(PDO::FETCH_ASSOC);
+                $c4 = $result ? (float)$result['value'] : 0;
+            }
+            
+            if ($c4 <= 0) {
+                error_log("Отпуск электроэнергии с шин (C4/D4) <= 0 для блока $blockId, возвращаем 0");
+                return 0;
+            }
+            
+            // Получаем C34/D34 (расход газа за месяц) - parameter_id = 45, equipment_id = 7
+            // Для ТГ7/ТГ8 используем cell C34/D34, но это может быть E30 для ОЧ-130
+            // Попробуем сначала C34/D34, если нет - то E30
+            $c34 = null;
+            $cell34 = $cellPrefix . '34';
+            $stmt = $db->prepare('
+                SELECT value FROM parameter_values 
+                WHERE parameter_id = 45 AND equipment_id = 7 AND date = ? AND cell = ?
+                ' . ($shiftId ? 'AND shift_id = ?' : 'AND shift_id IS NULL')
+            );
+            if ($shiftId) {
+                $stmt->execute([$date, $cell34, $shiftId]);
+            } else {
+                $stmt->execute([$date, $cell34]);
+            }
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($result && $result['value'] !== null) {
+                $c34 = (float)$result['value'];
+            } else {
+                // Если нет C34/D34, пробуем E30 (для ОЧ-130)
+                $stmt = $db->prepare('
+                    SELECT value FROM parameter_values 
+                    WHERE parameter_id = 45 AND equipment_id = 7 AND date = ? AND cell = ?
+                    ' . ($shiftId ? 'AND shift_id = ?' : 'AND shift_id IS NULL')
+                );
+                if ($shiftId) {
+                    $stmt->execute([$date, 'E30', $shiftId]);
+                } else {
+                    $stmt->execute([$date, 'E30']);
+                }
+                $result = $stmt->fetch(PDO::FETCH_ASSOC);
+                $c34 = $result ? (float)$result['value'] : 0;
+            }
+            
+            // Получаем C35/D35 (расход мазута за месяц) - parameter_id = 46, equipment_id = 7
+            $c35 = null;
+            $cell35 = $cellPrefix . '35';
+            $stmt = $db->prepare('
+                SELECT value FROM parameter_values 
+                WHERE parameter_id = 46 AND equipment_id = 7 AND date = ? AND cell = ?
+                ' . ($shiftId ? 'AND shift_id = ?' : 'AND shift_id IS NULL')
+            );
+            if ($shiftId) {
+                $stmt->execute([$date, $cell35, $shiftId]);
+            } else {
+                $stmt->execute([$date, $cell35]);
+            }
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($result && $result['value'] !== null) {
+                $c35 = (float)$result['value'];
+            } else {
+                // Если нет C35/D35, пробуем E31 (для ОЧ-130)
+                $stmt = $db->prepare('
+                    SELECT value FROM parameter_values 
+                    WHERE parameter_id = 46 AND equipment_id = 7 AND date = ? AND cell = ?
+                    ' . ($shiftId ? 'AND shift_id = ?' : 'AND shift_id IS NULL')
+                );
+                if ($shiftId) {
+                    $stmt->execute([$date, 'E31', $shiftId]);
+                } else {
+                    $stmt->execute([$date, 'E31']);
+                }
+                $result = $stmt->fetch(PDO::FETCH_ASSOC);
+                $c35 = $result ? (float)$result['value'] : 0;
+            }
+            
+            // Получаем E32/F32 (калорийность газа) - parameter_id = 43, equipment_id = 7
+            $cell32 = $cellE . '28'; // E28/F28 для ТГ7/ТГ8
+            $stmt = $db->prepare('
+                SELECT value FROM parameter_values 
+                WHERE parameter_id = 43 AND equipment_id = 7 AND date = ? AND cell = ?
+                ' . ($shiftId ? 'AND shift_id = ?' : 'AND shift_id IS NULL')
+            );
+            if ($shiftId) {
+                $stmt->execute([$date, $cell32, $shiftId]);
+            } else {
+                $stmt->execute([$date, $cell32]);
+            }
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            $e32 = $result ? (float)$result['value'] : 0;
+            
+            // Если нет E28/F28, пробуем E28 (для ОЧ-130)
+            if ($e32 == 0) {
+                $stmt = $db->prepare('
+                    SELECT value FROM parameter_values 
+                    WHERE parameter_id = 43 AND equipment_id = 7 AND date = ? AND cell = ?
+                    ' . ($shiftId ? 'AND shift_id = ?' : 'AND shift_id IS NULL')
+                );
+                if ($shiftId) {
+                    $stmt->execute([$date, 'E28', $shiftId]);
+                } else {
+                    $stmt->execute([$date, 'E28']);
+                }
+                $result = $stmt->fetch(PDO::FETCH_ASSOC);
+                $e32 = $result ? (float)$result['value'] : 0;
+            }
+            
+            // Получаем E33/F33 (калорийность мазута) - parameter_id = 44, equipment_id = 7
+            $cell33 = $cellE . '29'; // E29/F29 для ТГ7/ТГ8
+            $stmt = $db->prepare('
+                SELECT value FROM parameter_values 
+                WHERE parameter_id = 44 AND equipment_id = 7 AND date = ? AND cell = ?
+                ' . ($shiftId ? 'AND shift_id = ?' : 'AND shift_id IS NULL')
+            );
+            if ($shiftId) {
+                $stmt->execute([$date, $cell33, $shiftId]);
+            } else {
+                $stmt->execute([$date, $cell33]);
+            }
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            $e33 = $result ? (float)$result['value'] : 0;
+            
+            // Если нет E29/F29, пробуем E29 (для ОЧ-130)
+            if ($e33 == 0) {
+                $stmt = $db->prepare('
+                    SELECT value FROM parameter_values 
+                    WHERE parameter_id = 44 AND equipment_id = 7 AND date = ? AND cell = ?
+                    ' . ($shiftId ? 'AND shift_id = ?' : 'AND shift_id IS NULL')
+                );
+                if ($shiftId) {
+                    $stmt->execute([$date, 'E29', $shiftId]);
+                } else {
+                    $stmt->execute([$date, 'E29']);
+                }
+                $result = $stmt->fetch(PDO::FETCH_ASSOC);
+                $e33 = $result ? (float)$result['value'] : 0;
+            }
+            
+            // C5/D5 = C4/D4 (отпуск электроэнергии с шин)
+            $c5 = $c4;
+            
+            // Формула: ROUND((C34*E32+C35*E33)/7000/C5*1000,2)
+            if ($c5 == 0) {
+                error_log("C5/D5 равно 0 для блока $blockId, возвращаем 0");
+                return 0;
+            }
+            
+            $result = round(($c34 * $e32 + $c35 * $e33) / 7000 / $c5 * 1000, 2);
+            
+            error_log("Фактический УРТ для блока $blockId: C4=$c4, C34=$c34, C35=$c35, E32=$e32, E33=$e33, C5=$c5, результат=$result");
+            
+            return $result;
+            
+        } elseif ($blockId == 9) {
+            // Для ОЧ-130: E40 = ROUND((E34*E32+E35*E33)/7000/E5*1000,2)
+            $db = getDbConnection();
+            
+            // Получаем E34 (расход газа за месяц) - parameter_id = 45, equipment_id = 7, cell = E30
+            $e34 = null;
+            $stmt = $db->prepare('
+                SELECT value FROM parameter_values 
+                WHERE parameter_id = 45 AND equipment_id = 7 AND date = ? AND cell = ?
+                ' . ($shiftId ? 'AND shift_id = ?' : 'AND shift_id IS NULL')
+            );
+            if ($shiftId) {
+                $stmt->execute([$date, 'E30', $shiftId]);
+            } else {
+                $stmt->execute([$date, 'E30']);
+            }
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            $e34 = $result ? (float)$result['value'] : 0;
+            
+            // Получаем E35 (расход мазута за месяц) - parameter_id = 46, equipment_id = 7, cell = E31
+            $e35 = null;
+            $stmt = $db->prepare('
+                SELECT value FROM parameter_values 
+                WHERE parameter_id = 46 AND equipment_id = 7 AND date = ? AND cell = ?
+                ' . ($shiftId ? 'AND shift_id = ?' : 'AND shift_id IS NULL')
+            );
+            if ($shiftId) {
+                $stmt->execute([$date, 'E31', $shiftId]);
+            } else {
+                $stmt->execute([$date, 'E31']);
+            }
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            $e35 = $result ? (float)$result['value'] : 0;
+            
+            // Получаем E32 (калорийность газа) - parameter_id = 43, equipment_id = 7, cell = E28
+            $e32 = null;
+            $stmt = $db->prepare('
+                SELECT value FROM parameter_values 
+                WHERE parameter_id = 43 AND equipment_id = 7 AND date = ? AND cell = ?
+                ' . ($shiftId ? 'AND shift_id = ?' : 'AND shift_id IS NULL')
+            );
+            if ($shiftId) {
+                $stmt->execute([$date, 'E28', $shiftId]);
+            } else {
+                $stmt->execute([$date, 'E28']);
+            }
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            $e32 = $result ? (float)$result['value'] : 0;
+            
+            // Получаем E33 (калорийность мазута) - parameter_id = 44, equipment_id = 7, cell = E29
+            $e33 = null;
+            $stmt = $db->prepare('
+                SELECT value FROM parameter_values 
+                WHERE parameter_id = 44 AND equipment_id = 7 AND date = ? AND cell = ?
+                ' . ($shiftId ? 'AND shift_id = ?' : 'AND shift_id IS NULL')
+            );
+            if ($shiftId) {
+                $stmt->execute([$date, 'E29', $shiftId]);
+            } else {
+                $stmt->execute([$date, 'E29']);
+            }
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            $e33 = $result ? (float)$result['value'] : 0;
+            
+            // Получаем E5 (отпуск электроэнергии с шин для ОЧ-130) - param_id = 27, tg_id = 9
+            $e5 = null;
+            foreach ($values as $value) {
+                if ($value['param_id'] == 27 && $value['tg_id'] == 9) {
+                    $e5 = $value['value'];
+                    break;
+                }
+            }
+            
+            if ($e5 === null) {
+                $stmt = $db->prepare('
+                    SELECT value FROM tg_result_values 
+                    WHERE param_id = 27 AND tg_id = 9 AND date = ?
+                    ' . ($shiftId ? 'AND shift_id = ?' : 'AND shift_id IS NULL')
+                );
+                if ($shiftId) {
+                    $stmt->execute([$date, $shiftId]);
+                } else {
+                    $stmt->execute([$date]);
+                }
+                $result = $stmt->fetch(PDO::FETCH_ASSOC);
+                $e5 = $result ? (float)$result['value'] : 0;
+            }
+            
+            if ($e5 == 0) {
+                error_log("E5 равно 0 для ОЧ-130, возвращаем 0");
+                return 0;
+            }
+            
+            // Формула: ROUND((E34*E32+E35*E33)/7000/E5*1000,2)
+            $result = round(($e34 * $e32 + $e35 * $e33) / 7000 / $e5 * 1000, 2);
+            
+            error_log("Фактический УРТ для ОЧ-130: E34=$e34, E32=$e32, E35=$e35, E33=$e33, E5=$e5, результат=$result");
+            
+            return $result;
+        }
+        // Для ПГУ1, ПГУ2 и "по ПГУ" - не рассчитывается в этой функции (нужна отдельная логика)
+        // F40/G40/H40 = F84/G84/H84 из pgu_result_values (param_id = 74, row_num = 84, "Экономия (+)/пережог (-) топлива")
+        // Но это не фактический УРТ, а экономия/пережог. Фактический УРТ для ПГУ должен быть из param_id = 73
+        
         return 0;
+        
     } catch (Exception $e) {
-        error_log('Ошибка при расчете фактического значения: ' . $e->getMessage());
+        error_log('Ошибка при расчете фактического значения УРТ: ' . $e->getMessage());
         return 0;
     }
 }

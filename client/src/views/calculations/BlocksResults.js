@@ -24,6 +24,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import CIcon from '@coreui/icons-react'
 import { cilArrowLeft, cilFile } from '@coreui/icons'
 import { getBlocksResultParams, getBlocksResultValues } from '../../services/blocksResultsService'
+import * as XLSX from 'xlsx'
 import './PguResults.scss'
 
 const shiftNameById = { 1: 'Смена 1', 2: 'Смена 2', 3: 'Смена 3' }
@@ -149,48 +150,167 @@ const BlocksResults = () => {
 
   const handleExportExcel = () => {
     try {
-      const header = ['Название', 'Ед. Измерения', 'Обозначение']
-      const shiftsCols = periodType === 'shift' ? selectedShiftIds.flatMap(() => ['ТГ7','ТГ8','ОЧ-130']) : ['ТГ7','ТГ8','ОЧ-130']
-      const excelData = [ [...header, ...(
-        periodType === 'shift' ? selectedShiftIds.map(id => shiftNameById[id]).flatMap(name => [name,'','']) : []
-      )] ]
-      excelData.push([ '', '', '', ...shiftsCols ])
-
-      params.forEach(param => {
-        const row = [param.name, param.unit || '', param.symbol || '']
+      const groupedParams = groupParameters(params)
+      const workbook = XLSX.utils.book_new()
+      
+      // Вспомогательная функция для применения стилей к ячейке
+      const applyCellStyle = (worksheet, cell, style) => {
+        if (!worksheet[cell]) return
+        if (!worksheet[cell].s) worksheet[cell].s = {}
+        Object.assign(worksheet[cell].s, style)
+      }
+      
+      // Функция для создания листа с данными группы
+      const createGroupSheet = (groupName, groupParams) => {
+        const header = ['Название', 'Ед. Измерения', 'Обозначение']
+        const shiftsCols = periodType === 'shift' ? selectedShiftIds.flatMap(() => ['ТГ7','ТГ8','ОЧ-130']) : ['ТГ7','ТГ8','ОЧ-130']
+        const excelData = []
+        
+        // Заголовок группы
+        excelData.push([groupName])
+        excelData.push([]) // Пустая строка
+        
+        // Заголовки таблицы
+        const headerRow = [...header]
         if (periodType === 'shift') {
           selectedShiftIds.forEach(id => {
-            const byShift = param.valuesByShift?.[id] || {}
-            const tg7Value = byShift[7] || 0
-            const tg8Value = byShift[8] || 0
-            const och130Value = byShift[9] || 0
+            headerRow.push(shiftNameById[id], '', '')
+          })
+        }
+        excelData.push(headerRow)
+        
+        // Подзаголовки с названиями блоков
+        const subHeaderRow = ['', '', '', ...shiftsCols]
+        excelData.push(subHeaderRow)
+        
+        // Данные параметров
+        groupParams.forEach(param => {
+          const row = [param.name, param.unit || '', param.symbol || '']
+          if (periodType === 'shift') {
+            selectedShiftIds.forEach(id => {
+              const byShift = param.valuesByShift?.[id] || {}
+              const tg7Value = byShift[7] || 0
+              const tg8Value = byShift[8] || 0
+              const och130Value = byShift[9] || 0
+              row.push(formatValue(tg7Value))
+              row.push(formatValue(tg8Value))
+              row.push(formatValue(och130Value))
+            })
+          } else {
+            const tg7Value = param.values?.[7] || 0
+            const tg8Value = param.values?.[8] || 0
+            const och130Value = param.values?.[9] || 0
             row.push(formatValue(tg7Value))
             row.push(formatValue(tg8Value))
             row.push(formatValue(och130Value))
-          })
-        } else {
-          const tg7Value = param.values?.[7] || 0
-          const tg8Value = param.values?.[8] || 0
-          const och130Value = param.values?.[9] || 0
-          row.push(formatValue(tg7Value))
-          row.push(formatValue(tg8Value))
-          row.push(formatValue(och130Value))
+          }
+          excelData.push(row)
+        })
+        
+        // Создаем лист
+        const worksheet = XLSX.utils.aoa_to_sheet(excelData)
+        
+        // Настройка ширины колонок
+        const colWidths = [
+          { wch: 40 }, // Название
+          { wch: 15 }, // Ед. Измерения
+          { wch: 15 }, // Обозначение
+        ]
+        const numDataCols = periodType === 'shift' ? selectedShiftIds.length * 3 : 3
+        for (let i = 0; i < numDataCols; i++) {
+          colWidths.push({ wch: 12 })
         }
-        excelData.push(row)
-      })
-
-      const csvContent = excelData.map(r => r.map(c => `"${c}"`).join(',')).join('\n')
-      const BOM = '\uFEFF'
-      const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' })
-      const link = document.createElement('a')
-      const url = URL.createObjectURL(blob)
-      link.setAttribute('href', url)
-      link.setAttribute('download', `blocks_results_${date || new Date().toISOString().split('T')[0]}.csv`)
-      link.style.visibility = 'hidden'
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      URL.revokeObjectURL(url)
+        worksheet['!cols'] = colWidths
+        
+        // Стили для границ
+        const borderStyle = {
+          top: { style: 'thin', color: { rgb: '000000' } },
+          bottom: { style: 'thin', color: { rgb: '000000' } },
+          left: { style: 'thin', color: { rgb: '000000' } },
+          right: { style: 'thin', color: { rgb: '000000' } }
+        }
+        
+        // Форматирование заголовка группы (жирный, большой шрифт, объединение ячеек)
+        const totalCols = headerRow.length
+        if (excelData.length > 0) {
+          const headerCell = XLSX.utils.encode_cell({ r: 0, c: 0 })
+          if (!worksheet[headerCell]) worksheet[headerCell] = { t: 's', v: groupName }
+          worksheet[headerCell].s = {
+            font: { bold: true, sz: 16, color: { rgb: 'FFFFFF' } },
+            alignment: { horizontal: 'center', vertical: 'center' },
+            fill: { fgColor: { rgb: '4472C4' } },
+            border: borderStyle
+          }
+          // Объединяем ячейки для заголовка
+          if (!worksheet['!merges']) worksheet['!merges'] = []
+          worksheet['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 0, c: totalCols - 1 } })
+        }
+        
+        // Форматирование заголовков таблицы (жирный, границы, фон)
+        const headerRowIndex = 2
+        for (let col = 0; col < headerRow.length; col++) {
+          const cell = XLSX.utils.encode_cell({ r: headerRowIndex, c: col })
+          applyCellStyle(worksheet, cell, {
+            font: { bold: true, sz: 11, color: { rgb: '000000' } },
+            alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+            fill: { fgColor: { rgb: 'D9E1F2' } },
+            border: borderStyle
+          })
+        }
+        
+        // Форматирование подзаголовков (жирный, центрирование, границы)
+        const subHeaderRowIndex = 3
+        for (let col = 0; col < subHeaderRow.length; col++) {
+          const cell = XLSX.utils.encode_cell({ r: subHeaderRowIndex, c: col })
+          applyCellStyle(worksheet, cell, {
+            font: { bold: true, sz: 10 },
+            alignment: { horizontal: 'center', vertical: 'center' },
+            fill: { fgColor: { rgb: 'E7E6E6' } },
+            border: borderStyle
+          })
+        }
+        
+        // Форматирование данных (границы, выравнивание)
+        const dataStartRow = 4
+        for (let row = dataStartRow; row < excelData.length; row++) {
+          for (let col = 0; col < headerRow.length; col++) {
+            const cell = XLSX.utils.encode_cell({ r: row, c: col })
+            if (worksheet[cell]) {
+              applyCellStyle(worksheet, cell, {
+                border: borderStyle,
+                alignment: col === 0 ? { horizontal: 'left', vertical: 'center' } : { horizontal: 'center', vertical: 'center' }
+              })
+              // Чередование цветов строк
+              if (row % 2 === 0) {
+                applyCellStyle(worksheet, cell, {
+                  fill: { fgColor: { rgb: 'F9F9F9' } }
+                })
+              }
+            }
+          }
+        }
+        
+        return worksheet
+      }
+      
+      // Создаем листы для каждой группы
+      if (groupedParams.turbo.params.length > 0) {
+        const turboSheet = createGroupSheet('Турбоагрегаты', groupedParams.turbo.params)
+        XLSX.utils.book_append_sheet(workbook, turboSheet, 'Турбоагрегаты')
+      }
+      
+      if (groupedParams.boilers.params.length > 0) {
+        const boilersSheet = createGroupSheet('Котлы', groupedParams.boilers.params)
+        XLSX.utils.book_append_sheet(workbook, boilersSheet, 'Котлы')
+      }
+      
+      if (groupedParams.other.params.length > 0) {
+        const otherSheet = createGroupSheet('Прочие параметры', groupedParams.other.params)
+        XLSX.utils.book_append_sheet(workbook, otherSheet, 'Прочие')
+      }
+      
+      // Генерируем файл и скачиваем
+      XLSX.writeFile(workbook, `blocks_results_${date || new Date().toISOString().split('T')[0]}.xlsx`)
     } catch (error) {
       console.error('Ошибка при экспорте в Excel:', error)
       alert('Ошибка при экспорте файла')

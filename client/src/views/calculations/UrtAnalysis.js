@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
+import * as XLSX from 'xlsx'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   CCard,
@@ -184,22 +185,70 @@ const UrtAnalysis = () => {
         exportData.push(row)
       })
       
-      // Создаем CSV
-      const headers = Object.keys(exportData[0] || {})
-      const csvContent = [
-        headers.join(','),
-        ...exportData.map(row => 
-          headers.map(header => `"${row[header] || ''}"`).join(',')
-        )
-      ].join('\n')
+      // Создаем Excel файл
+      const worksheet = XLSX.utils.json_to_sheet(exportData)
+      const workbook = XLSX.utils.book_new()
       
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `urt_analysis_${date || 'report'}.csv`
-      link.click()
-      URL.revokeObjectURL(url)
+      // Вспомогательная функция для применения стилей
+      const applyCellStyle = (worksheet, cell, style) => {
+        if (!worksheet[cell]) return
+        if (!worksheet[cell].s) worksheet[cell].s = {}
+        Object.assign(worksheet[cell].s, style)
+      }
+      
+      // Стили для границ
+      const borderStyle = {
+        top: { style: 'thin', color: { rgb: '000000' } },
+        bottom: { style: 'thin', color: { rgb: '000000' } },
+        left: { style: 'thin', color: { rgb: '000000' } },
+        right: { style: 'thin', color: { rgb: '000000' } }
+      }
+      
+      // Настройка ширины колонок
+      const headers = Object.keys(exportData[0] || {})
+      const colWidths = headers.map((header, idx) => {
+        if (idx === 0) return { wch: 40 } // Показатель - широкая колонка
+        if (idx === 1) return { wch: 15 } // Единица
+        if (idx === 2) return { wch: 15 } // Символ
+        return { wch: 12 } // Остальные колонки
+      })
+      worksheet['!cols'] = colWidths
+      
+      // Форматирование заголовков (жирный, фон, центрирование, границы)
+      const headerRowIndex = 0
+      headers.forEach((header, col) => {
+        const cell = XLSX.utils.encode_cell({ r: headerRowIndex, c: col })
+        applyCellStyle(worksheet, cell, {
+          font: { bold: true, sz: 11, color: { rgb: 'FFFFFF' } },
+          alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+          fill: { fgColor: { rgb: '4472C4' } },
+          border: borderStyle
+        })
+      })
+      
+      // Форматирование данных (границы, выравнивание, чередование цветов)
+      for (let row = 1; row <= exportData.length; row++) {
+        headers.forEach((header, col) => {
+          const cell = XLSX.utils.encode_cell({ r: row, c: col })
+          if (worksheet[cell]) {
+            applyCellStyle(worksheet, cell, {
+              border: borderStyle,
+              alignment: col === 0 ? { horizontal: 'left', vertical: 'center' } : { horizontal: 'center', vertical: 'center' }
+            })
+            // Чередование цветов строк
+            if (row % 2 === 0) {
+              applyCellStyle(worksheet, cell, {
+                fill: { fgColor: { rgb: 'F9F9F9' } }
+              })
+            }
+          }
+        })
+      }
+      
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Анализ УРТ')
+      
+      // Генерируем файл и скачиваем
+      XLSX.writeFile(workbook, `urt_analysis_${date || 'report'}.xlsx`)
     } catch (error) {
       console.error('Ошибка при экспорте в Excel:', error)
       alert('Ошибка при экспорте файла')

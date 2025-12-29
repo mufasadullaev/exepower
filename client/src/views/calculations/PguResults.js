@@ -19,6 +19,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import CIcon from '@coreui/icons-react'
 import { cilArrowLeft, cilFile, cilCloudDownload } from '@coreui/icons'
 import { getPguResultParams, getPguResultValues } from '../../services/pguResultsService'
+import * as XLSX from 'xlsx'
 import './PguResults.scss'
 
 const shiftNameById = { 1: 'Смена 1', 2: 'Смена 2', 3: 'Смена 3' }
@@ -125,18 +126,86 @@ const PguResults = () => {
         excelData.push(row)
       })
 
-      const csvContent = excelData.map(r => r.map(c => `"${c}"`).join(',')).join('\n')
-      const BOM = '\uFEFF'
-      const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' })
-      const link = document.createElement('a')
-      const url = URL.createObjectURL(blob)
-      link.setAttribute('href', url)
-      link.setAttribute('download', `pgu_results_${date || new Date().toISOString().split('T')[0]}.csv`)
-      link.style.visibility = 'hidden'
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      URL.revokeObjectURL(url)
+      // Создаем Excel файл
+      const worksheet = XLSX.utils.aoa_to_sheet(excelData)
+      const workbook = XLSX.utils.book_new()
+      
+      // Вспомогательная функция для применения стилей
+      const applyCellStyle = (worksheet, cell, style) => {
+        if (!worksheet[cell]) return
+        if (!worksheet[cell].s) worksheet[cell].s = {}
+        Object.assign(worksheet[cell].s, style)
+      }
+      
+      // Стили для границ
+      const borderStyle = {
+        top: { style: 'thin', color: { rgb: '000000' } },
+        bottom: { style: 'thin', color: { rgb: '000000' } },
+        left: { style: 'thin', color: { rgb: '000000' } },
+        right: { style: 'thin', color: { rgb: '000000' } }
+      }
+      
+      // Настройка ширины колонок
+      const colWidths = [
+        { wch: 40 }, // Название
+        { wch: 15 }, // Ед. Измерения
+        { wch: 15 }, // Обозначение
+      ]
+      const numDataCols = periodType === 'shift' ? selectedShiftIds.length * 3 : 3
+      for (let i = 0; i < numDataCols; i++) {
+        colWidths.push({ wch: 12 })
+      }
+      worksheet['!cols'] = colWidths
+      
+      // Форматирование заголовков таблицы (жирный, фон, границы)
+      const headerRowIndex = 0
+      const totalCols = header.length + (periodType === 'shift' ? selectedShiftIds.length * 3 : 3)
+      for (let col = 0; col < totalCols; col++) {
+        const cell = XLSX.utils.encode_cell({ r: headerRowIndex, c: col })
+        applyCellStyle(worksheet, cell, {
+          font: { bold: true, sz: 11, color: { rgb: 'FFFFFF' } },
+          alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+          fill: { fgColor: { rgb: '4472C4' } },
+          border: borderStyle
+        })
+      }
+      
+      // Форматирование подзаголовков (жирный, центрирование, границы)
+      const subHeaderRowIndex = 1
+      for (let col = 0; col < shiftsCols.length + 3; col++) {
+        const cell = XLSX.utils.encode_cell({ r: subHeaderRowIndex, c: col })
+        applyCellStyle(worksheet, cell, {
+          font: { bold: true, sz: 10 },
+          alignment: { horizontal: 'center', vertical: 'center' },
+          fill: { fgColor: { rgb: 'D9E1F2' } },
+          border: borderStyle
+        })
+      }
+      
+      // Форматирование данных (границы, выравнивание, чередование цветов)
+      const dataStartRow = 2
+      for (let row = dataStartRow; row < excelData.length; row++) {
+        for (let col = 0; col < totalCols; col++) {
+          const cell = XLSX.utils.encode_cell({ r: row, c: col })
+          if (worksheet[cell]) {
+            applyCellStyle(worksheet, cell, {
+              border: borderStyle,
+              alignment: col === 0 ? { horizontal: 'left', vertical: 'center' } : { horizontal: 'center', vertical: 'center' }
+            })
+            // Чередование цветов строк
+            if ((row - dataStartRow) % 2 === 0) {
+              applyCellStyle(worksheet, cell, {
+                fill: { fgColor: { rgb: 'F9F9F9' } }
+              })
+            }
+          }
+        }
+      }
+      
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Результаты ПГУ')
+      
+      // Генерируем файл и скачиваем
+      XLSX.writeFile(workbook, `pgu_results_${date || new Date().toISOString().split('T')[0]}.xlsx`)
     } catch (error) {
       console.error('Ошибка при экспорте в Excel:', error)
       alert('Ошибка при экспорте файла')

@@ -23,6 +23,7 @@ export default defineConfig(() => {
     },
     optimizeDeps: {
       force: true,
+      include: ['xlsx'],
       esbuildOptions: {
         loader: {
           '.js': 'jsx',

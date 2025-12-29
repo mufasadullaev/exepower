@@ -169,29 +169,85 @@ function saveBlocksResultValues($data) {
             executeQuery($deleteSql, [$date, $periodType]);
         }
 
-        foreach ($values as $value) {
+        foreach ($values as $index => $value) {
             if (isset($value['param_id']) && isset($value['tg_id']) && isset($value['value'])) {
-                $insertSql = "INSERT INTO tg_result_values 
-                             (param_id, tg_id, date, shift_id, value, user_id, period_type, period_start, period_end, cell) 
-                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-                $shiftId = isset($value['shift_id']) ? $value['shift_id'] : null;
-                $rounded = round((float)$value['value'], 2);
-                $periodStart = $data['period_start'] ?? null;
-                $periodEnd = $data['period_end'] ?? null;
-                $cell = $value['cell'] ?? null;
+                try {
+                    $insertSql = "INSERT INTO tg_result_values 
+                                 (param_id, tg_id, date, shift_id, value, user_id, period_type, period_start, period_end, cell) 
+                                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                    $shiftId = isset($value['shift_id']) ? $value['shift_id'] : null;
+                    
+                    // Преобразуем значение в число
+                    // Сначала проверяем, является ли значение числом (включая экспоненциальную нотацию)
+                    $valueStr = (string)$value['value'];
+                    if (!is_numeric($valueStr)) {
+                        error_log("WARNING: Non-numeric value for param_id={$value['param_id']}, tg_id={$value['tg_id']}, shift_id={$shiftId}, index={$index}: {$valueStr}");
+                        $rawValue = 0;
+                    } else {
+                        $rawValue = (float)$valueStr;
+                    }
+                    
+                    // decimal(15,6) максимальное значение: 999999999.999999
+                    // Но нужно учесть, что 15 цифр всего, из них 6 после запятой = 9 до запятой
+                    // Используем немного меньшее значение для безопасности
+                    $maxValue = 999999999.999999;
+                    $minValue = -999999999.999999;
+                    
+                    // Проверяем и ограничиваем значение
+                    if ($rawValue > $maxValue) {
+                        error_log("WARNING: Value exceeds max for param_id={$value['param_id']}, tg_id={$value['tg_id']}, shift_id={$shiftId}, index={$index}: {$rawValue} > {$maxValue}");
+                        $rawValue = $maxValue;
+                    } elseif ($rawValue < $minValue) {
+                        error_log("WARNING: Value below min for param_id={$value['param_id']}, tg_id={$value['tg_id']}, shift_id={$shiftId}, index={$index}: {$rawValue} < {$minValue}");
+                        $rawValue = $minValue;
+                    }
+                    
+                    // Проверяем на NaN и Infinity
+                    if (!is_finite($rawValue)) {
+                        error_log("WARNING: Non-finite value for param_id={$value['param_id']}, tg_id={$value['tg_id']}, shift_id={$shiftId}, index={$index}: {$rawValue}");
+                        $rawValue = 0;
+                    }
+                    
+                    // Округляем до 6 знаков после запятой (максимум для decimal(15,6))
+                    $rounded = round($rawValue, 6);
+                    
+                    // Дополнительная проверка после округления
+                    if ($rounded > $maxValue) {
+                        $rounded = $maxValue;
+                    } elseif ($rounded < $minValue) {
+                        $rounded = $minValue;
+                    }
+                    
+                    // Финальное значение после всех проверок
+                    $finalValue = $rounded;
+                    
+                    // Логируем большие значения для отладки
+                    if (abs($finalValue) > 1000000) {
+                        error_log("Large value saved: param_id={$value['param_id']}, tg_id={$value['tg_id']}, shift_id={$shiftId}, value={$finalValue}");
+                    }
+                    
+                    $periodStart = $data['period_start'] ?? null;
+                    $periodEnd = $data['period_end'] ?? null;
+                    $cell = $value['cell'] ?? null;
 
-                executeQuery($insertSql, [
-                    $value['param_id'],
-                    $value['tg_id'],
-                    $date,
-                    $shiftId,
-                    $rounded,
-                    $userId,
-                    $periodType,
-                    $periodStart,
-                    $periodEnd,
-                    $cell
-                ]);
+                    error_log("Inserting value: param_id={$value['param_id']}, tg_id={$value['tg_id']}, shift_id={$shiftId}, value={$finalValue}");
+                    
+                    executeQuery($insertSql, [
+                        (int)$value['param_id'],
+                        (int)$value['tg_id'],
+                        $date,
+                        $shiftId !== null ? (int)$shiftId : null,
+                        $finalValue,
+                        (int)$userId,
+                        $periodType,
+                        $periodStart,
+                        $periodEnd,
+                        $cell
+                    ]);
+                } catch (Exception $e) {
+                    error_log("ERROR inserting value at index {$index}: param_id={$value['param_id']}, tg_id={$value['tg_id']}, shift_id={$shiftId}, value={$value['value']}, error: " . $e->getMessage());
+                    throw new Exception("Ошибка при сохранении значения для param_id={$value['param_id']}, tg_id={$value['tg_id']}, shift_id={$shiftId}: " . $e->getMessage());
+                }
             }
         }
 

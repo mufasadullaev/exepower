@@ -191,7 +191,8 @@ const Calculations = () => {
         })
       } catch (error) {
         console.error('Ошибка при выполнении расчета блоков:', error)
-        alert('Ошибка при выполнении расчета блоков: ' + error.message)
+        const errorMessage = error.message || 'Неизвестная ошибка'
+        alert('Ошибка при выполнении расчета блоков: ' + errorMessage)
       } finally {
         setLoading(false)
       }
